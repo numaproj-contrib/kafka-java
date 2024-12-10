@@ -1,26 +1,44 @@
 package io.numaproj.confluent.kafka_sink.sinker;
 
-import io.numaproj.confluent.kafka_sink.Payment;
+import io.numaproj.confluent.kafka_sink.User;
 import io.numaproj.confluent.kafka_sink.config.KafkaSinkerConfig;
 import io.numaproj.numaflow.sinker.*;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.*;
+import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.apache.avro.generic.GenericData;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.UUID;
 
 @Slf4j
 @Component
 public class KafkaSinker extends Sinker implements DisposableBean {
-    private static final String TOPIC = "transactions";
+
+    private static final String USER_SCHEMA_JSON = "{"
+            + "\"type\": \"record\","
+            + "\"name\": \"User\","
+            + "\"fields\": ["
+            + "  { \"name\": \"name\", \"type\": \"string\" },"
+            + "  { \"name\": \"age\", \"type\": \"int\" }"
+            + "]"
+            + "}";
     private final String topicName;
-    private final KafkaProducer<String, Payment> producer;
+    private final KafkaProducer<String, GenericRecord> producer;
 
     @Autowired
     public KafkaSinker(
             KafkaSinkerConfig config,
-            KafkaProducer<String, Payment> producer) {
+            KafkaProducer<String, GenericRecord> producer) {
         this.topicName = config.getTopicName();
         this.producer = producer;
     }
@@ -43,13 +61,24 @@ public class KafkaSinker extends Sinker implements DisposableBean {
             try {
                 String msg = new String(datum.getValue());
                 log.info("Received message: {}, headers - {}, topic name is - {}", msg, datum.getHeaders(), this.topicName);
-                Payment payment = new Payment(msg, 1000.00d);
-                final ProducerRecord<String, Payment> record = new ProducerRecord<>(TOPIC, payment.getId().toString(), payment);
+
+                // writing user data to kafka - dropping the original message
+                User user = new User("John Doe", 30);
+                byte[] serializedUser = serializeUser(user);
+
+                log.info("Serialized user: {}", serializedUser);
+
+                GenericRecord result = deserializeUser(serializedUser);
+                String key = UUID.randomUUID().toString();
+                log.info("Sending message to kafka: key - {}, value - {}", key, result);
+
+                ProducerRecord<String, GenericRecord> record = new ProducerRecord<>(this.topicName, key, result);
                 // TODO - this is an async call, should be sync.
                 this.producer.send(record);
                 responseListBuilder.addResponse(Response.responseOK(datum.getId()));
             } catch (Exception e) {
                 log.error("Failed to process message", e);
+                e.printStackTrace();
                 responseListBuilder.addResponse(Response.responseFailure(
                         datum.getId(),
                         e.getMessage()));
@@ -62,5 +91,25 @@ public class KafkaSinker extends Sinker implements DisposableBean {
     public void destroy() {
         log.info("send shutdown signal");
         log.info("kafka producer closed");
+    }
+
+    private static byte[] serializeUser(User user) throws IOException {
+        Schema schema = new Schema.Parser().parse(USER_SCHEMA_JSON);
+        GenericData.Record record = new GenericData.Record(schema);
+        record.put("name", user.getName());
+        record.put("age", user.getAge());
+        GenericDatumWriter<org.apache.avro.generic.GenericRecord> writer = new GenericDatumWriter<>(schema);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        BinaryEncoder encoder = EncoderFactory.get().binaryEncoder(outputStream, null);
+        writer.write(record, encoder);
+        encoder.flush();
+        return outputStream.toByteArray();
+    }
+
+    public static GenericRecord deserializeUser(byte[] avroData) throws IOException {
+        Schema schema = new Schema.Parser().parse(USER_SCHEMA_JSON);
+        DatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);
+        BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(avroData, null);
+        return reader.read(null, decoder);
     }
 }

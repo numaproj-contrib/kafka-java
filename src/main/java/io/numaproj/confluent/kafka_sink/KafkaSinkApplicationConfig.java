@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.apache.avro.generic.GenericRecord;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,10 +35,10 @@ public class KafkaSinkApplicationConfig {
 	}
 	@Bean
 	public KafkaSinkerConfig appConfig() {
-		return new KafkaSinkerConfig("kafka-sink-topic");
+		return new KafkaSinkerConfig("users");
 	}
 	@Bean
-	public KafkaProducer kafkaProducer() throws IOException {
+	public KafkaProducer<String, GenericRecord> kafkaProducer() throws IOException {
 		Properties props = new Properties();
 		ClassLoader classloader = Thread.currentThread().getContextClassLoader();
 		InputStream is = classloader.getResourceAsStream("kafka-producer.config");
@@ -46,6 +47,6 @@ public class KafkaSinkApplicationConfig {
 		props.put(ProducerConfig.RETRIES_CONFIG, 0);
 		props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
 		props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class);
-		return new KafkaProducer<String, Payment>(props);
+		return new KafkaProducer<>(props);
 	}
 }
