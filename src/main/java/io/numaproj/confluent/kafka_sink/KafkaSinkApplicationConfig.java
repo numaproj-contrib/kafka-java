@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
@@ -22,7 +23,7 @@ import java.util.Properties;
 @ComponentScan(basePackages = "io.numaproj.confluent.kafka_sink")
 public class KafkaSinkApplicationConfig {
 
-    @Value("${spring.config.location:NA}")
+    @Value("${producer.properties.path:NA}")
     private String producerConfigFilePath;
 
     @Bean
@@ -42,9 +43,10 @@ public class KafkaSinkApplicationConfig {
         log.info("producerConfigFilePath: {}", this.producerConfigFilePath);
         Properties props = new Properties();
         ClassLoader classloader = Thread.currentThread().getContextClassLoader();
-        InputStream is = classloader.getResourceAsStream("kafka-producer.config");
-        // InputStream is = new FileInputStream(this.producerConfigFilePath);
+        // InputStream is = classloader.getResourceAsStream("kafka-producer.config");
+        InputStream is = new FileInputStream(this.producerConfigFilePath);
         props.load(is);
+        log.info("keran is testing props: {}", props);
         props.put(ProducerConfig.ACKS_CONFIG, "all");
         props.put(ProducerConfig.RETRIES_CONFIG, 0);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
