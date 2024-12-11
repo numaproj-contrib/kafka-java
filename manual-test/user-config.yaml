@@ -6,6 +6,17 @@ metadata:
   labels:
     app: kafka-sink
 data:
-  configuration: |
+
+  producer.properties: |
+    a=b
+  user.configuration: |
     topicName: users
-    schema: '{"type": "record", "name": "User", "fields": [{"name": "name", "type": "string"}, {"name": "age", "type": "int"}]}'
+    schema: >
+      {
+        "type": "record",
+        "name": "WrongName",
+        "fields": [
+          {"name": "name", "type": "string"},
+          {"name": "age", "type": "int"}
+        ]
+      }

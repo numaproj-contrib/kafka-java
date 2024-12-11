@@ -23,15 +23,15 @@ spec:
           configMap:
             name: user-config
             items:
-              - key: configuration
-                path: user-config.yaml
+              - key: user.configuration
+                path: user-configuration.yaml
       scale:
         min: 1
       sink:
         udsink:
           container:
             image: quay.io/numaio/numaflow-java/kafka-sink-test:keran-v4
-            args: ["--spring.config.location=file:/conf/user-config.yaml"]
+            args: [ "--spring.config.location=file:/conf/user-configuration.yaml", "--producer.properties.location=file:/conf/producer.properties.yaml" ]
             imagePullPolicy: Always
             volumeMounts:
               - name: user-config-volume
