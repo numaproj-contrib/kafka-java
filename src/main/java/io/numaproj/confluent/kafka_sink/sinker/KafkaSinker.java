@@ -5,16 +5,16 @@ import io.numaproj.confluent.kafka_sink.config.KafkaSinkerConfig;
 import io.numaproj.numaflow.sinker.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.*;
-import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.apache.avro.generic.GenericData;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -33,14 +33,17 @@ public class KafkaSinker extends Sinker implements DisposableBean {
             + "]"
             + "}";
     private final String topicName;
+    private final String schema;
     private final KafkaProducer<String, GenericRecord> producer;
 
     @Autowired
     public KafkaSinker(
             KafkaSinkerConfig config,
             KafkaProducer<String, GenericRecord> producer) {
-        log.info("KafkaSinker initialized with topic name: {}", config.getTopicName());
+        log.info("KafkaSinker initialized with topic name: {}, schema: {}",
+                config.getTopicName(), config.getSchema());
         this.topicName = config.getTopicName();
+        this.schema = config.getSchema();
         this.producer = producer;
     }
 
@@ -94,8 +97,8 @@ public class KafkaSinker extends Sinker implements DisposableBean {
         log.info("kafka producer closed");
     }
 
-    private static byte[] serializeUser(User user) throws IOException {
-        Schema schema = new Schema.Parser().parse(USER_SCHEMA_JSON);
+    private byte[] serializeUser(User user) throws IOException {
+        Schema schema = new Schema.Parser().parse(this.schema);
         GenericData.Record record = new GenericData.Record(schema);
         record.put("name", user.getName());
         record.put("age", user.getAge());
@@ -107,8 +110,8 @@ public class KafkaSinker extends Sinker implements DisposableBean {
         return outputStream.toByteArray();
     }
 
-    public static GenericRecord deserializeUser(byte[] avroData) throws IOException {
-        Schema schema = new Schema.Parser().parse(USER_SCHEMA_JSON);
+    public GenericRecord deserializeUser(byte[] avroData) throws IOException {
+        Schema schema = new Schema.Parser().parse(this.schema);
         DatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);
         BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(avroData, null);
         return reader.read(null, decoder);
