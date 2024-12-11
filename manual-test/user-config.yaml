@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-config
+  labels:
+    app: kafka-sink
+data:
+  configuration: |
+    topicName: users

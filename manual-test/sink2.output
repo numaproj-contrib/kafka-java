@@ -1,0 +1,231 @@
+16:38:31.915 [main] INFO io.numaproj.confluent.kafka_sink.KafkaSinkApplication -- supplied arguments:[--spring.config.location=file:/conf/user-config.yaml]
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.4.0)
+
+2024-12-11T16:38:35.704Z  INFO 1 --- [           main] i.n.c.kafka_sink.KafkaSinkApplication    : Starting KafkaSinkApplication using Java 21.0.5 with PID 1 (/app/classes started by root in /)
+2024-12-11T16:38:35.713Z  INFO 1 --- [           main] i.n.c.kafka_sink.KafkaSinkApplication    : No active profile set, falling back to 1 default profile: "default"
+2024-12-11T16:38:40.869Z  INFO 1 --- [           main] o.a.k.clients.producer.ProducerConfig    : Idempotence will be disabled because retries is set to 0.
+2024-12-11T16:38:40.876Z  INFO 1 --- [           main] o.a.k.clients.producer.ProducerConfig    : ProducerConfig values: 
+	acks = -1
+	auto.include.jmx.reporter = true
+	batch.size = 16384
+	bootstrap.servers = [pkc-921jm.us-east-2.aws.confluent.cloud:9092]
+	buffer.memory = 33554432
+	client.dns.lookup = use_all_dns_ips
+	client.id = producer-1
+	compression.type = none
+	connections.max.idle.ms = 540000
+	delivery.timeout.ms = 120000
+	enable.idempotence = false
+	enable.metrics.push = true
+	interceptor.classes = []
+	key.serializer = class org.apache.kafka.common.serialization.StringSerializer
+	linger.ms = 0
+	max.block.ms = 60000
+	max.in.flight.requests.per.connection = 5
+	max.request.size = 1048576
+	metadata.max.age.ms = 300000
+	metadata.max.idle.ms = 300000
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partitioner.adaptive.partitioning.enable = true
+	partitioner.availability.timeout.ms = 0
+	partitioner.class = null
+	partitioner.ignore.keys = false
+	receive.buffer.bytes = 32768
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retries = 0
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = [hidden]
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = PLAIN
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = SASL_SSL
+	security.providers = null
+	send.buffer.bytes = 131072
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	transaction.timeout.ms = 60000
+	transactional.id = null
+	value.serializer = class io.confluent.kafka.serializers.KafkaAvroSerializer
+
+2024-12-11T16:38:41.133Z  INFO 1 --- [           main] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2024-12-11T16:38:42.135Z  INFO 1 --- [           main] i.c.k.s.KafkaAvroSerializerConfig        : KafkaAvroSerializerConfig values: 
+	auto.register.schemas = true
+	avro.reflection.allow.null = false
+	avro.remove.java.properties = false
+	avro.use.logical.type.converters = false
+	basic.auth.credentials.source = USER_INFO
+	basic.auth.user.info = [hidden]
+	bearer.auth.cache.expiry.buffer.seconds = 300
+	bearer.auth.client.id = null
+	bearer.auth.client.secret = null
+	bearer.auth.credentials.source = STATIC_TOKEN
+	bearer.auth.custom.provider.class = null
+	bearer.auth.identity.pool.id = null
+	bearer.auth.issuer.endpoint.url = null
+	bearer.auth.logical.cluster = null
+	bearer.auth.scope = null
+	bearer.auth.scope.claim.name = scope
+	bearer.auth.sub.claim.name = sub
+	bearer.auth.token = [hidden]
+	context.name.strategy = class io.confluent.kafka.serializers.context.NullContextNameStrategy
+	http.connect.timeout.ms = 60000
+	http.read.timeout.ms = 60000
+	id.compatibility.strict = true
+	key.subject.name.strategy = class io.confluent.kafka.serializers.subject.TopicNameStrategy
+	latest.cache.size = 1000
+	latest.cache.ttl.sec = -1
+	latest.compatibility.strict = true
+	max.schemas.per.subject = 1000
+	normalize.schemas = false
+	proxy.host = 
+	proxy.port = -1
+	rule.actions = []
+	rule.executors = []
+	rule.service.loader.enable = true
+	schema.format = null
+	schema.reflection = false
+	schema.registry.basic.auth.user.info = [hidden]
+	schema.registry.ssl.cipher.suites = null
+	schema.registry.ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	schema.registry.ssl.endpoint.identification.algorithm = https
+	schema.registry.ssl.engine.factory.class = null
+	schema.registry.ssl.key.password = null
+	schema.registry.ssl.keymanager.algorithm = SunX509
+	schema.registry.ssl.keystore.certificate.chain = null
+	schema.registry.ssl.keystore.key = null
+	schema.registry.ssl.keystore.location = null
+	schema.registry.ssl.keystore.password = null
+	schema.registry.ssl.keystore.type = JKS
+	schema.registry.ssl.protocol = TLSv1.3
+	schema.registry.ssl.provider = null
+	schema.registry.ssl.secure.random.implementation = null
+	schema.registry.ssl.trustmanager.algorithm = PKIX
+	schema.registry.ssl.truststore.certificates = null
+	schema.registry.ssl.truststore.location = null
+	schema.registry.ssl.truststore.password = null
+	schema.registry.ssl.truststore.type = JKS
+	schema.registry.url = [https://psrc-5j7x8.us-central1.gcp.confluent.cloud]
+	use.latest.version = false
+	use.latest.with.metadata = null
+	use.schema.id = -1
+	value.subject.name.strategy = class io.confluent.kafka.serializers.subject.TopicNameStrategy
+
+2024-12-11T16:38:46.056Z  INFO 1 --- [           main] o.a.k.c.s.authenticator.AbstractLogin    : Successfully logged in.
+2024-12-11T16:38:46.263Z  INFO 1 --- [           main] o.a.k.clients.producer.ProducerConfig    : These configurations '[basic.auth.credentials.source, schema.registry.url, basic.auth.user.info, session.timeout.ms]' were supplied but are not used yet.
+2024-12-11T16:38:46.287Z  INFO 1 --- [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.7.1
+2024-12-11T16:38:46.288Z  INFO 1 --- [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: e2494e6ffb89f828
+2024-12-11T16:38:46.292Z  INFO 1 --- [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1733935126264
+2024-12-11T16:38:46.385Z  INFO 1 --- [           main] i.n.c.kafka_sink.sinker.KafkaSinker      : KafkaSinker initialized with topic name: users-keran
+2024-12-11T16:38:49.407Z  INFO 1 --- [           main] i.n.c.kafka_sink.KafkaSinkApplication    : Started KafkaSinkApplication in 16.726 seconds (process running for 20.093)
+2024-12-11T16:38:49.468Z  INFO 1 --- [           main] i.n.c.kafka_sink.KafkaSinkApplication    : Starting Confluent Kafka sink application...
+2024-12-11T16:38:49.591Z  INFO 1 --- [           main] i.n.numaflow.shared.GrpcServerUtils      : Writing server info io.numaproj.numaflow.info.ServerInfo@53a7a60c to /var/run/numaflow/sinker-server-info
+2024-12-11T16:38:52.343Z  INFO 1 --- [           main] io.numaproj.numaflow.sinker.Server       : server started, listening on /var/run/numaflow/sink.sock
+2024-12-11T16:38:52.758Z  INFO 1 --- [ad | producer-1] org.apache.kafka.clients.Metadata        : [Producer clientId=producer-1] Cluster ID: lkc-2k36d1
+2024-12-11T16:38:52.764Z  INFO 1 --- [ad | producer-1] o.a.k.c.t.i.ClientTelemetryReporter      : Client telemetry registered with client instance id: F1E4_H-MQregACbeX0FcIA
+2024-12-11T16:38:53.312Z  WARN 1 --- [     netty-boss] io.netty.bootstrap.ServerBootstrap       : Unknown channel option 'SO_KEEPALIVE' for channel '[id: 0xede8600b, L:/var/run/numaflow/sink.sock - R:]'
+2024-12-11T16:38:54.357Z  INFO 1 --- [pool-1-thread-1] i.n.c.kafka_sink.sinker.KafkaSinker      : Received message: {"Data":{"value":1733935092742495735},"Createdts":1733935092742495735}, headers - {}, topic name is - users-keran
+2024-12-11T16:38:54.588Z  INFO 1 --- [pool-1-thread-1] i.n.c.kafka_sink.sinker.KafkaSinker      : Serialized user: [16, 74, 111, 104, 110, 32, 68, 111, 101, 60]
+2024-12-11T16:38:54.675Z  INFO 1 --- [pool-1-thread-1] i.n.c.kafka_sink.sinker.KafkaSinker      : Sending message to kafka: key - aa8b9f8d-7c66-4cd9-8142-737b8262a310, value - {"name": "John Doe", "age": 30}
+2024-12-11T16:38:56.314Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 4 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:38:56.457Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 5 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:38:56.723Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 6 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:38:57.171Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 7 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:38:58.107Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 8 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:38:59.157Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 9 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:00.204Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 10 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:01.246Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 11 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:02.287Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 12 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:03.328Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 13 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:04.371Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 14 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:05.243Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 15 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:06.344Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 16 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:07.303Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 17 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:08.347Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 18 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:09.300Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 19 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:10.342Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 20 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:11.387Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 21 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:12.434Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 22 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:13.439Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 23 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:14.486Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 24 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:15.531Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 25 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:16.582Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 26 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:17.627Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 27 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:18.672Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 28 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:19.567Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 29 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:20.609Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 30 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:21.662Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 31 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:22.709Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 32 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:23.731Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 33 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:24.775Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 34 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:25.820Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 35 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:26.868Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 36 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:27.805Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 37 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:28.844Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 38 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:29.890Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 39 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:30.933Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 40 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:31.974Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 41 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:33.019Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 42 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:34.016Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 43 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:35.056Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 44 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:36.106Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 45 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:37.062Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 46 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:38.106Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 47 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:39.079Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 48 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}
+2024-12-11T16:39:40.120Z  WARN 1 --- [ad | producer-1] org.apache.kafka.clients.NetworkClient   : [Producer clientId=producer-1] Error while fetching metadata with correlation id 49 : {users-keran=UNKNOWN_TOPIC_OR_PARTITION}

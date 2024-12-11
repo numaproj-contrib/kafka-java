@@ -39,6 +39,7 @@ public class KafkaSinker extends Sinker implements DisposableBean {
     public KafkaSinker(
             KafkaSinkerConfig config,
             KafkaProducer<String, GenericRecord> producer) {
+        log.info("KafkaSinker initialized with topic name: {}", config.getTopicName());
         this.topicName = config.getTopicName();
         this.producer = producer;
     }

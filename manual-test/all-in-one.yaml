@@ -1,0 +1,43 @@
+apiVersion: numaflow.numaproj.io/v1alpha1
+kind: Pipeline
+metadata:
+  name: all-healthy-pipeline
+spec:
+  vertices:
+    - name: in
+      scale:
+        min: 1
+      source:
+        generator:
+          rpu: 1
+          duration: 1s
+    - name: cat
+      scale:
+        min: 1
+      udf:
+        builtin:
+          name: cat
+    - name: sink
+      volumes:
+        - name: user-config-volume
+          configMap:
+            name: user-config
+            items:
+              - key: configuration
+                path: user-config.yaml
+      scale:
+        min: 1
+      sink:
+        udsink:
+          container:
+            image: quay.io/numaio/numaflow-java/kafka-sink-test:keran-v4
+            args: ["--spring.config.location=file:/conf/user-config.yaml"]
+            imagePullPolicy: Always
+            volumeMounts:
+              - name: user-config-volume
+                mountPath: /conf
+  edges:
+    - from: in
+      to: cat
+    - from: cat
+      to: sink

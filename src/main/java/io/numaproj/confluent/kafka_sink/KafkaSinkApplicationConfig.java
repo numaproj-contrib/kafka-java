@@ -33,10 +33,14 @@ public class KafkaSinkApplicationConfig {
 	public Server sinkServer(KafkaSinker kafkaSinker) {
 		return new Server(kafkaSinker);
 	}
+
+	/*
 	@Bean
 	public KafkaSinkerConfig appConfig() {
 		return new KafkaSinkerConfig("users");
 	}
+	 */
+
 	@Bean
 	public KafkaProducer<String, GenericRecord> kafkaProducer() throws IOException {
 		Properties props = new Properties();

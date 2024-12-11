@@ -2,6 +2,8 @@ package io.numaproj.confluent.kafka_sink.config;
 
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @Getter
 @Setter
@@ -11,6 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @AllArgsConstructor
 @NoArgsConstructor
+@Configuration
+@org.springframework.boot.context.properties.EnableConfigurationProperties
+@ConfigurationProperties(ignoreInvalidFields=true)
 public class KafkaSinkerConfig {
     private String topicName;
 }
