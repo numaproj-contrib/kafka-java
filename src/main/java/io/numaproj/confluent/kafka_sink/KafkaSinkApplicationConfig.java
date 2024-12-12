@@ -24,33 +24,22 @@ import java.util.Properties;
 public class KafkaSinkApplicationConfig {
 
     @Value("${producer.properties.path:NA}")
-    private String producerConfigFilePath;
+    private String producerPropertiesFilePath;
 
     @Bean
     public Server sinkServer(KafkaSinker kafkaSinker) {
         return new Server(kafkaSinker);
     }
 
-	/*
-	@Bean
-	public KafkaSinkerConfig appConfig() {
-		return new KafkaSinkerConfig("users");
-	}
-	 */
-
     @Bean
     public KafkaProducer<String, GenericRecord> kafkaProducer() throws IOException {
-        log.info("producerConfigFilePath: {}", this.producerConfigFilePath);
+        log.info("Instantiating the Kafka producer from producer properties file path: {}", this.producerPropertiesFilePath);
         Properties props = new Properties();
-        ClassLoader classloader = Thread.currentThread().getContextClassLoader();
-        // InputStream is = classloader.getResourceAsStream("kafka-producer.config");
-        InputStream is = new FileInputStream(this.producerConfigFilePath);
+        InputStream is = new FileInputStream(this.producerPropertiesFilePath);
         props.load(is);
-        log.info("keran is testing props: {}", props);
-        props.put(ProducerConfig.ACKS_CONFIG, "all");
-        props.put(ProducerConfig.RETRIES_CONFIG, 0);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class);
+        log.info("Kafka producer props read from user input ConfigMap: {}", props);
         return new KafkaProducer<>(props);
     }
 }

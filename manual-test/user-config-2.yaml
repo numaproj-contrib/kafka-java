@@ -25,13 +25,28 @@ data:
     # Other configurations
     retries=0
   user.configuration: |
-    topicName: users
+    topicName: numagen
     schema: >
       {
         "type": "record",
-        "name": "User",
+        "name": "numagen",
         "fields": [
-          {"name": "name", "type": "string"},
-          {"name": "age", "type": "int"}
+          {
+            "name": "Data",
+            "type": {
+              "type": "record",
+              "name": "Data",
+              "fields": [
+                {
+                  "name": "value",
+                  "type": "long"
+                }
+              ]
+            }
+          },
+          {
+            "name": "Createdts",
+            "type": "long"
+          }
         ]
       }

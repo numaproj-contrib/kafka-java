@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
@@ -65,17 +66,28 @@ public class KafkaSinker extends Sinker implements DisposableBean {
             try {
                 String msg = new String(datum.getValue());
                 log.info("Received message: {}, headers - {}, topic name is - {}", msg, datum.getHeaders(), this.topicName);
-
-                // writing user data to kafka - dropping the original message
-                User user = new User("John Doe", 30);
-                byte[] serializedUser = serializeUser(user);
-
-                log.info("Serialized user: {}", serializedUser);
-
-                GenericRecord result = deserializeUser(serializedUser);
                 String key = UUID.randomUUID().toString();
-                log.info("Sending message to kafka: key - {}, value - {}", key, result);
-
+                GenericRecord result = null;
+                if (Objects.equals(this.topicName, "users")) {
+                    // writing user data to kafka - dropping the original message
+                    User user = new User("John Doe", 30);
+                    byte[] serializedUser = serializeUser(user);
+                    log.info("Serialized user: {}", serializedUser);
+                    result = deserializeUser(serializedUser);
+                    log.info("Sending message to kafka: key - {}, value - {}", key, result);
+                } else {
+                    log.info("Sending message to kafka: key - {}, value - {}", key, msg);
+                    // writing original message to kafka
+                    Schema schema = new Schema.Parser().parse(this.schema);
+                    String jsonData = new String(datum.getValue());
+                    DatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);
+                    Decoder decoder = DecoderFactory.get().jsonDecoder(schema, jsonData);
+                    try {
+                        result = reader.read(null, decoder);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
                 ProducerRecord<String, GenericRecord> record = new ProducerRecord<>(this.topicName, key, result);
                 // TODO - this is an async call, should be sync.
                 this.producer.send(record);
