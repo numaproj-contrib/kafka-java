@@ -1,7 +1,7 @@
 apiVersion: numaflow.numaproj.io/v1alpha1
 kind: Pipeline
 metadata:
-  name: all-healthy-pipeline
+  name: test-pipeline
 spec:
   vertices:
     - name: in
@@ -19,9 +19,9 @@ spec:
           name: cat
     - name: sink
       volumes:
-        - name: user-config-volume
+        - name: kafka-config-volume
           configMap:
-            name: user-config
+            name: kafka-config
             items:
               - key: user.configuration
                 path: user-configuration.yaml
@@ -36,7 +36,7 @@ spec:
             args: [ "--spring.config.location=file:/conf/user-configuration.yaml", "--producer.properties.path=/conf/producer.properties" ]
             imagePullPolicy: Always
             volumeMounts:
-              - name: user-config-volume
+              - name: kafka-config-volume
                 mountPath: /conf
   edges:
     - from: in

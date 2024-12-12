@@ -1,13 +1,10 @@
 package io.numaproj.confluent.kafka_sink;
 
-import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.numaproj.confluent.kafka_sink.sinker.KafkaSinker;
 import io.numaproj.numaflow.sinker.Server;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -37,8 +34,6 @@ public class KafkaSinkApplicationConfig {
         Properties props = new Properties();
         InputStream is = new FileInputStream(this.producerPropertiesFilePath);
         props.load(is);
-        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class);
         log.info("Kafka producer props read from user input ConfigMap: {}", props);
         return new KafkaProducer<>(props);
     }

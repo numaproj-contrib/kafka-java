@@ -2,9 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: user-config
-  labels:
-    app: kafka-sink
+  name: kafka-config
 data:
   producer.properties: |
     # Required connection configs for Kafka producer, consumer, and admin
@@ -24,14 +22,32 @@ data:
     basic.auth.user.info=TNDMHPEKSSCQM45Q:5/X4u341fUlL3l7p22InVoqzH73asisPf5yrOXyif2w1Cn0QiPWAhZzvOa79qB+M
     # Other configurations
     retries=0
+    # SerDe
+    key.serializer=org.apache.kafka.common.serialization.StringSerializer
+    value.serializer=io.confluent.kafka.serializers.KafkaAvroSerializer
   user.configuration: |
-    topicName: users
+    topicName: numagen
     schema: >
       {
         "type": "record",
-        "name": "User",
+        "name": "numagen",
         "fields": [
-          {"name": "name", "type": "string"},
-          {"name": "age", "type": "int"}
+          {
+            "name": "Data",
+            "type": {
+              "type": "record",
+              "name": "Data",
+              "fields": [
+                {
+                  "name": "value",
+                  "type": "long"
+                }
+              ]
+            }
+          },
+          {
+            "name": "Createdts",
+            "type": "long"
+          }
         ]
       }
