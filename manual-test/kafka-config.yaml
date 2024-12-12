@@ -27,27 +27,3 @@ data:
     value.serializer=io.confluent.kafka.serializers.KafkaAvroSerializer
   user.configuration: |
     topicName: numagen
-    schema: >
-      {
-        "type": "record",
-        "name": "numagen",
-        "fields": [
-          {
-            "name": "Data",
-            "type": {
-              "type": "record",
-              "name": "Data",
-              "fields": [
-                {
-                  "name": "value",
-                  "type": "long"
-                }
-              ]
-            }
-          },
-          {
-            "name": "Createdts",
-            "type": "long"
-          }
-        ]
-      }

@@ -18,5 +18,4 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(ignoreInvalidFields = true)
 public class KafkaSinkerConfig {
     private String topicName;
-    private String schema;
 }

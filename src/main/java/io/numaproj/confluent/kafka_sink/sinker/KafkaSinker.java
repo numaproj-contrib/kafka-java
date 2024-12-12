@@ -1,5 +1,9 @@
 package io.numaproj.confluent.kafka_sink.sinker;
 
+import io.confluent.kafka.schemaregistry.avro.AvroSchema;
+import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.numaproj.confluent.kafka_sink.config.KafkaSinkerConfig;
 import io.numaproj.numaflow.sinker.*;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +19,8 @@ import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
@@ -22,18 +28,25 @@ import java.util.UUID;
 public class KafkaSinker extends Sinker implements DisposableBean {
 
     private final String topicName;
-    private final String schema;
+    private final Schema schema;
     private final KafkaProducer<String, GenericRecord> producer;
+    private final SchemaRegistryClient schemaRegistryClient;
 
     @Autowired
     public KafkaSinker(
             KafkaSinkerConfig config,
-            KafkaProducer<String, GenericRecord> producer) {
-        log.info("KafkaSinker initialized with topic name: {}, schema: {}",
-                config.getTopicName(), config.getSchema());
+            KafkaProducer<String, GenericRecord> producer,
+            SchemaRegistryClient schemaRegistryClient) {
+        // TODO - the instance variables are messy here, because they are dependent on each other. Clean it up to make more modular.
         this.topicName = config.getTopicName();
-        this.schema = config.getSchema();
         this.producer = producer;
+        this.schemaRegistryClient = schemaRegistryClient;
+        this.schema = this.getSchemaForTopic(this.topicName);
+        if (this.schema == null) {
+            throw new RuntimeException("Failed to retrieve schema for topic " + this.topicName);
+        }
+        log.info("KafkaSinker initialized with topic name: {}, schema: {}",
+                config.getTopicName(), this.schema);
     }
 
     @Override
@@ -52,12 +65,10 @@ public class KafkaSinker extends Sinker implements DisposableBean {
                 break;
             }
             try {
-                String msg = new String(datum.getValue());
-                log.info("Received message: {}, headers - {}, topic name is - {}", msg, datum.getHeaders(), this.topicName);
                 String key = UUID.randomUUID().toString();
+                String msg = new String(datum.getValue());
                 // writing original message to kafka
                 log.info("Sending message to kafka: key - {}, value - {}", key, msg);
-                Schema schema = new Schema.Parser().parse(this.schema);
                 String jsonData = new String(datum.getValue());
                 DatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);
                 Decoder decoder = DecoderFactory.get().jsonDecoder(schema, jsonData);
@@ -80,5 +91,24 @@ public class KafkaSinker extends Sinker implements DisposableBean {
     public void destroy() {
         log.info("send shutdown signal");
         log.info("kafka producer closed");
+    }
+
+    private Schema getSchemaForTopic(String topicName) {
+        try {
+            // Retrieve the latest schema metadata for the {topicName}-value
+            SchemaMetadata schemaMetadata = schemaRegistryClient.getLatestSchemaMetadata(topicName + "-value");
+            // TODO - support other schema types. JSON, Protobuf etc.
+            if (!Objects.equals(schemaMetadata.getSchemaType(), "AVRO")) {
+                throw new RuntimeException("Schema type is not AVRO for topic {}." + topicName);
+            }
+            AvroSchema avroSchema = (AvroSchema) schemaRegistryClient.getSchemaById(schemaMetadata.getId());
+            log.info("Retrieved schema for topic {}: {}", topicName, avroSchema.rawSchema());
+            return avroSchema.rawSchema();
+        } catch (IOException | RestClientException e) {
+            // If there's any problem in fetching the schema or if the schema does not exist,
+            // print the stack trace and return null.
+            System.err.println("Failed to retrieve schema for topic " + topicName + ". " + e.getMessage());
+            return null;
+        }
     }
 }
