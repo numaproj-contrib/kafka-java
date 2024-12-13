@@ -20,12 +20,15 @@ import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @Component
@@ -35,6 +38,9 @@ public class KafkaSinker extends Sinker implements DisposableBean {
     private final Schema schema;
     private final KafkaProducer<String, GenericRecord> producer;
     private final SchemaRegistryClient schemaRegistryClient;
+
+    private AtomicBoolean isShutdown;
+    private final CountDownLatch countDownLatch;
 
     @Autowired
     public KafkaSinker(
@@ -49,6 +55,8 @@ public class KafkaSinker extends Sinker implements DisposableBean {
         if (this.schema == null) {
             throw new RuntimeException("Failed to retrieve schema for topic " + this.topicName);
         }
+        this.isShutdown = new AtomicBoolean(false);
+        this.countDownLatch = new CountDownLatch(1);
         log.info("KafkaSinker initialized with topic name: {}, schema: {}",
                 config.getTopicName(), this.schema);
     }
@@ -69,12 +77,19 @@ public class KafkaSinker extends Sinker implements DisposableBean {
             if (datum == null) {
                 break;
             }
+
             log.trace("Processing message with id: {}, payload: {}", datum.getId(), new String(datum.getValue()));
             String key = UUID.randomUUID().toString();
             String msg = new String(datum.getValue());
             GenericRecord avroGenericRecord;
             try {
                 avroGenericRecord = prepareRecord(msg);
+            } catch (EOFException e) {
+                // FIXME - this is a workaround for a bug in numaflow where an extra empty message is sent at the end of the stream.
+                // remove this check once the bug is fixed.
+                log.info("If this one only happens once, then it was getting retried. EOFException while preparing avro generic record from JSON data: {}", msg);
+                log.info("this data is: {}, {}, {}, {}, {}", datum.getId(), datum.getValue(), datum.getHeaders(), datum.getEventTime(), datum.getWatermark());
+                continue;
             } catch (IOException e) {
                 log.error("Failed to prepare avro generic record from JSON data: {}", msg, e);
                 responseListBuilder.addResponse(Response.responseFailure(datum.getId(), e.getMessage()));
@@ -98,23 +113,29 @@ public class KafkaSinker extends Sinker implements DisposableBean {
                         e.getMessage()));
             }
         }
+        if (isShutdown.get()) {
+            log.info("shutdown signal received");
+            countDownLatch.countDown();
+        }
         return responseListBuilder.build();
     }
 
+    /**
+     * Triggerred during shutdown by the Spring framework. Allows the {@link KafkaSinker#processMessages(DatumIterator)}
+     * to complete in-flight requests and then shuts down.
+     */
     @Override
-    public void destroy() {
-        log.info("send shutdown signal");
-        log.info("kafka producer closed");
+    public void destroy() throws InterruptedException {
+        log.info("Sending shutdown signal...");
+        isShutdown = new AtomicBoolean(true);
+        countDownLatch.await();
+        log.info("Kafka producer closed");
     }
 
     private GenericRecord prepareRecord(String jsonData) throws IOException {
         DatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);
-        try {
-            Decoder decoder = DecoderFactory.get().jsonDecoder(schema, jsonData);
-            return reader.read(null, decoder);
-        } catch (IOException e) {
-            throw new IOException("Failed to prepare avro generic record from JSON data: " + jsonData, e);
-        }
+        Decoder decoder = DecoderFactory.get().jsonDecoder(schema, jsonData);
+        return reader.read(null, decoder);
     }
 
     private Schema getSchemaForTopic(String topicName) {
@@ -129,9 +150,7 @@ public class KafkaSinker extends Sinker implements DisposableBean {
             log.info("Retrieved schema for topic {}: {}", topicName, avroSchema.rawSchema());
             return avroSchema.rawSchema();
         } catch (IOException | RestClientException e) {
-            // If there's any problem in fetching the schema or if the schema does not exist,
-            // print the stack trace and return null.
-            System.err.println("Failed to retrieve schema for topic " + topicName + ". " + e.getMessage());
+            log.error("Failed to retrieve schema for topic {}. {}", topicName, e.getMessage());
             return null;
         }
     }

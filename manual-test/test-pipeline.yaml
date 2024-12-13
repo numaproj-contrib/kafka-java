@@ -29,6 +29,8 @@ spec:
                 path: producer.properties
       scale:
         min: 1
+      limits:
+        readBatchSize: 10
       sink:
         udsink:
           container:
