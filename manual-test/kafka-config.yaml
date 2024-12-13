@@ -25,5 +25,10 @@ data:
     # SerDe
     key.serializer=org.apache.kafka.common.serialization.StringSerializer
     value.serializer=io.confluent.kafka.serializers.KafkaAvroSerializer
+  schema.registry.properties: |
+    # Schema Registry connection configurations
+    schema.registry.url=https://psrc-5j7x8.us-central1.gcp.confluent.cloud
+    basic.auth.credentials.source=USER_INFO
+    basic.auth.user.info=TNDMHPEKSSCQM45Q:5/X4u341fUlL3l7p22InVoqzH73asisPf5yrOXyif2w1Cn0QiPWAhZzvOa79qB+M
   user.configuration: |
     topicName: numagen

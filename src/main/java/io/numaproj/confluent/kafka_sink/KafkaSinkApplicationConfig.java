@@ -27,6 +27,9 @@ public class KafkaSinkApplicationConfig {
     @Value("${producer.properties.path:NA}")
     private String producerPropertiesFilePath;
 
+    @Value("${schema.registry.properties.path:NA}")
+    private String schemaRegistryPropertiesFilePath;
+
     @Bean
     public Server sinkServer(KafkaSinker kafkaSinker) {
         return new Server(kafkaSinker);
@@ -46,15 +49,12 @@ public class KafkaSinkApplicationConfig {
     public SchemaRegistryClient schemaRegistryClient() throws IOException {
         log.info("Instantiating the Kafka schema registry client from producer properties file path: {}", this.producerPropertiesFilePath);
         Properties props = new Properties();
-        InputStream is = new FileInputStream(this.producerPropertiesFilePath);
+        InputStream is = new FileInputStream(this.schemaRegistryPropertiesFilePath);
         props.load(is);
-
         String schemaRegistryUrl = props.getProperty("schema.registry.url");
         int identityMapCapacity = Integer.parseInt(props.getProperty("schema.registry.identity.map.capacity", "100")); // Default to 100 if not specified
-
         String basicAuthSource = props.getProperty("basic.auth.credentials.source");
         String userInfo = props.getProperty("basic.auth.user.info");
-
         Map<String, String> schemaRegistryClientConfigs = new HashMap<>();
         if (basicAuthSource != null && userInfo != null) {
             schemaRegistryClientConfigs.put("basic.auth.credentials.source", basicAuthSource);
