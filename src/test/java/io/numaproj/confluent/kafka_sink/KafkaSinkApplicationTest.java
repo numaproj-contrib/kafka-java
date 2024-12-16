@@ -15,7 +15,7 @@ import static org.mockito.Mockito.*;
 
 @Slf4j
 @ExtendWith(MockitoExtension.class)
-class KafkaSinkApplicationTests {
+class KafkaSinkApplicationTest {
 
     @Mock
     private ConfigurableApplicationContext configurableApplicationContextMock;
@@ -29,7 +29,7 @@ class KafkaSinkApplicationTests {
                         invoke -> configurableApplicationContextMock)
         ) {
             KafkaSinkApplication.main(new String[]{"arg1", "arg2"});
-            Mockito.verify(kafkaSinkerServerMock, times(1)).start();
+            verify(kafkaSinkerServerMock, times(1)).start();
         }
     }
 }

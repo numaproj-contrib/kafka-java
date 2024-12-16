@@ -32,6 +32,12 @@ public class KafkaSinkApplicationConfig {
     @Value("${schema.registry.properties.path:NA}")
     private String schemaRegistryPropertiesFilePath;
 
+    // package-private constructor. test-only
+    KafkaSinkApplicationConfig(@Value("${producer.properties.path:NA}") String producerPropertiesFilePath, @Value("${schema.registry.properties.path:NA}") String schemaRegistryPropertiesFilePath) {
+        this.producerPropertiesFilePath = producerPropertiesFilePath;
+        this.schemaRegistryPropertiesFilePath = schemaRegistryPropertiesFilePath;
+    }
+
     @Bean
     public Server sinkServer(KafkaSinker kafkaSinker) {
         return new Server(kafkaSinker);
@@ -49,7 +55,7 @@ public class KafkaSinkApplicationConfig {
 
     @Bean
     public SchemaRegistryClient schemaRegistryClient() throws IOException {
-        log.info("Instantiating the Kafka schema registry client from producer properties file path: {}", this.producerPropertiesFilePath);
+        log.info("Instantiating the Kafka schema registry client from producer properties file path: {}", this.schemaRegistryPropertiesFilePath);
         Properties props = new Properties();
         InputStream is = new FileInputStream(this.schemaRegistryPropertiesFilePath);
         props.load(is);

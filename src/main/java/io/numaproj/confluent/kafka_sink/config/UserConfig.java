@@ -16,6 +16,6 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @org.springframework.boot.context.properties.EnableConfigurationProperties
 @ConfigurationProperties(ignoreInvalidFields = true)
-public class KafkaSinkerConfig {
+public class UserConfig {
     private String topicName;
 }

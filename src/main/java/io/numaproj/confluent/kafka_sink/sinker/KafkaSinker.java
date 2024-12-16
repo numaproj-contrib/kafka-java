@@ -1,6 +1,6 @@
 package io.numaproj.confluent.kafka_sink.sinker;
 
-import io.numaproj.confluent.kafka_sink.config.KafkaSinkerConfig;
+import io.numaproj.confluent.kafka_sink.config.UserConfig;
 import io.numaproj.confluent.kafka_sink.schema.Registry;
 import io.numaproj.numaflow.sinker.*;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +38,7 @@ public class KafkaSinker extends Sinker implements DisposableBean {
 
     @Autowired
     public KafkaSinker(
-            KafkaSinkerConfig config,
+            UserConfig config,
             KafkaProducer<String, GenericRecord> producer,
             Registry schemaRegistry) {
         this.topicName = config.getTopicName();
