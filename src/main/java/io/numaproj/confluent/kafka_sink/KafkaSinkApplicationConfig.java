@@ -2,6 +2,8 @@ package io.numaproj.confluent.kafka_sink;
 
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.numaproj.confluent.kafka_sink.schema.ConfluentRegistry;
+import io.numaproj.confluent.kafka_sink.schema.Registry;
 import io.numaproj.confluent.kafka_sink.sinker.KafkaSinker;
 import io.numaproj.numaflow.sinker.Server;
 import lombok.extern.slf4j.Slf4j;
@@ -61,5 +63,10 @@ public class KafkaSinkApplicationConfig {
             schemaRegistryClientConfigs.put("basic.auth.user.info", userInfo);
         }
         return new CachedSchemaRegistryClient(schemaRegistryUrl, identityMapCapacity, schemaRegistryClientConfigs);
+    }
+
+    @Bean
+    public Registry schemaRegistry(SchemaRegistryClient schemaRegistryClient) {
+        return new ConfluentRegistry(schemaRegistryClient);
     }
 }
