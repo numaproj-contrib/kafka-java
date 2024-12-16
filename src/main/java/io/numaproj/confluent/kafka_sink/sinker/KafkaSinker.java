@@ -17,7 +17,6 @@ import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -82,9 +81,10 @@ public class KafkaSinker extends Sinker implements DisposableBean {
                 DatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);
                 Decoder decoder = DecoderFactory.get().jsonDecoder(schema, msg);
                 avroGenericRecord = reader.read(null, decoder);
-            } catch (IOException e) {
-                log.error("Failed to prepare avro generic record from JSON data: {}", msg, e);
-                responseListBuilder.addResponse(Response.responseFailure(datum.getId(), e.getMessage()));
+            } catch (Exception e) {
+                String errMsg = "Failed to prepare avro generic record " + e;
+                log.error(errMsg);
+                responseListBuilder.addResponse(Response.responseFailure(datum.getId(), errMsg));
                 continue;
             }
             ProducerRecord<String, GenericRecord> record = new ProducerRecord<>(this.topicName, key, avroGenericRecord);
