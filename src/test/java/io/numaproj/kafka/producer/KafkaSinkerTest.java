@@ -1,7 +1,7 @@
-package io.numaproj.confluent.kafka_sink.sinker;
+package io.numaproj.kafka.producer;
 
-import io.numaproj.confluent.kafka_sink.config.UserConfig;
-import io.numaproj.confluent.kafka_sink.schema.Registry;
+import io.numaproj.kafka.config.UserConfig;
+import io.numaproj.kafka.schema.Registry;
 import io.numaproj.numaflow.sinker.Response;
 import io.numaproj.numaflow.sinker.ResponseList;
 import io.numaproj.numaflow.sinker.SinkerTestKit;
@@ -29,7 +29,7 @@ import static org.mockito.Mockito.*;
 public class KafkaSinkerTest {
 
     private final UserConfig userConfig = mock(UserConfig.class);
-    private final KafkaProducer producer = mock(KafkaProducer.class);
+    private final KafkaProducer<String, GenericRecord> producer = mock(KafkaProducer.class);
     private final Registry schemaRegistry = mock(Registry.class);
 
     private static final String TEST_TOPIC = "test-topic";
@@ -110,8 +110,8 @@ public class KafkaSinkerTest {
         doReturn(recordMetadataFuture).when(producer).send(any(ProducerRecord.class));
         ResponseList responseList = underTest.processMessages(datumIterator);
         List<Response> responses = responseList.getResponses();
-        Response response1 = Response.responseFailure("1", "Failed to retrieve schema for topic");
-        Response response2 = Response.responseFailure("2", "Failed to retrieve schema for topic");
+        Response response1 = Response.responseFailure("1", "Failed to retrieve the latest schema for topic");
+        Response response2 = Response.responseFailure("2", "Failed to retrieve the latest schema for topic");
         Map<String, Response> wantResponseMap = new HashMap<>();
         wantResponseMap.put(response1.getId(), response1);
         wantResponseMap.put(response2.getId(), response2);
@@ -232,7 +232,7 @@ public class KafkaSinkerTest {
         datumIterator.addDatum(testDatum2);
 
         Future<RecordMetadata> recordMetadataFuture = CompletableFuture.completedFuture(new RecordMetadata(
-                new TopicPartition(userConfig.getTopicName(), 1), 1, 1, 1, 1L, 1, 1));
+                new TopicPartition(userConfig.getTopicName(), 1), 1, 1, 1, 1, 1));
 
         doAnswer(e -> {
                     // intentionally slow down the process

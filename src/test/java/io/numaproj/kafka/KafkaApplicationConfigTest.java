@@ -1,7 +1,7 @@
-package io.numaproj.confluent.kafka_sink;
+package io.numaproj.kafka;
 
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import io.numaproj.confluent.kafka_sink.sinker.KafkaSinker;
+import io.numaproj.kafka.producer.KafkaSinker;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,13 +16,13 @@ import static org.mockito.Mockito.mock;
 
 @Slf4j
 @ExtendWith(MockitoExtension.class)
-public class KafkaSinkApplicationConfigTest {
+public class KafkaApplicationConfigTest {
 
-    KafkaSinkApplicationConfig underTest;
+    KafkaApplicationConfig underTest;
 
     @BeforeEach
     public void setUp() {
-        underTest = new KafkaSinkApplicationConfig(
+        underTest = new KafkaApplicationConfig(
                 Objects.requireNonNull(getClass().getClassLoader().getResource("producer.properties")).getPath(),
                 Objects.requireNonNull(getClass().getClassLoader().getResource("schema.registry.properties")).getPath()
         );

@@ -1,4 +1,4 @@
-package io.numaproj.confluent.kafka_sink.config;
+package io.numaproj.kafka.config;
 
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;

@@ -1,4 +1,4 @@
-package io.numaproj.confluent.kafka_sink.schema;
+package io.numaproj.kafka.schema;
 
 import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
@@ -29,12 +29,12 @@ public class ConfluentRegistry implements Registry {
             // Retrieve the latest schema metadata for the {topicName}-value
             SchemaMetadata schemaMetadata = schemaRegistryClient.getLatestSchemaMetadata(topicName + "-value");
             if (!Objects.equals(schemaMetadata.getSchemaType(), "AVRO")) {
-                throw new RuntimeException("Schema type is not AVRO for topic {}." + topicName);
+                throw new RuntimeException("Schema type is not AVRO for topic " + topicName);
             }
             AvroSchema avroSchema = (AvroSchema) schemaRegistryClient.getSchemaById(schemaMetadata.getId());
             return avroSchema.rawSchema();
         } catch (IOException | RestClientException e) {
-            log.error("Failed to retrieve schema for topic {}. {}", topicName, e.getMessage());
+            log.error("Failed to retrieve the latest schema for topic {}. {}", topicName, e.getMessage());
             return null;
         }
     }

@@ -1,4 +1,4 @@
-package io.numaproj.confluent.kafka_sink;
+package io.numaproj.kafka;
 
 import io.numaproj.numaflow.sinker.Server;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +15,7 @@ import static org.mockito.Mockito.*;
 
 @Slf4j
 @ExtendWith(MockitoExtension.class)
-class KafkaSinkApplicationTest {
+class KafkaApplicationTest {
 
     @Mock
     private ConfigurableApplicationContext configurableApplicationContextMock;
@@ -28,7 +28,7 @@ class KafkaSinkApplicationTest {
                 .mockConstructionWithAnswer(SpringApplicationBuilder.class,
                         invoke -> configurableApplicationContextMock)
         ) {
-            KafkaSinkApplication.main(new String[]{"arg1", "arg2"});
+            KafkaApplication.main(new String[]{"arg1", "arg2"});
             verify(kafkaSinkerServerMock, times(1)).start();
         }
     }

@@ -116,7 +116,7 @@
                             </from>
                             <container>
                                 <mainClass>
-                                    io.numaproj.confluent.kafka_sink.KafkaSinkApplication
+                                    io.numaproj.kafka.KafkaApplication
                                 </mainClass>
                             </container>
                             <to>

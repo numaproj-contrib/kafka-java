@@ -1,10 +1,10 @@
-package io.numaproj.confluent.kafka_sink;
+package io.numaproj.kafka;
 
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import io.numaproj.confluent.kafka_sink.schema.ConfluentRegistry;
-import io.numaproj.confluent.kafka_sink.schema.Registry;
-import io.numaproj.confluent.kafka_sink.sinker.KafkaSinker;
+import io.numaproj.kafka.producer.KafkaSinker;
+import io.numaproj.kafka.schema.ConfluentRegistry;
+import io.numaproj.kafka.schema.Registry;
 import io.numaproj.numaflow.sinker.Server;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
@@ -23,8 +23,8 @@ import java.util.Properties;
 
 @Configuration
 @Slf4j
-@ComponentScan(basePackages = "io.numaproj.confluent.kafka_sink")
-public class KafkaSinkApplicationConfig {
+@ComponentScan(basePackages = "io.numaproj.kafka")
+public class KafkaApplicationConfig {
 
     @Value("${producer.properties.path:NA}")
     private String producerPropertiesFilePath;
@@ -33,7 +33,7 @@ public class KafkaSinkApplicationConfig {
     private String schemaRegistryPropertiesFilePath;
 
     // package-private constructor. test-only
-    KafkaSinkApplicationConfig(@Value("${producer.properties.path:NA}") String producerPropertiesFilePath, @Value("${schema.registry.properties.path:NA}") String schemaRegistryPropertiesFilePath) {
+    KafkaApplicationConfig(@Value("${producer.properties.path:NA}") String producerPropertiesFilePath, @Value("${schema.registry.properties.path:NA}") String schemaRegistryPropertiesFilePath) {
         this.producerPropertiesFilePath = producerPropertiesFilePath;
         this.schemaRegistryPropertiesFilePath = schemaRegistryPropertiesFilePath;
     }
@@ -61,12 +61,9 @@ public class KafkaSinkApplicationConfig {
         props.load(is);
         String schemaRegistryUrl = props.getProperty("schema.registry.url");
         int identityMapCapacity = Integer.parseInt(props.getProperty("schema.registry.identity.map.capacity", "100")); // Default to 100 if not specified
-        String basicAuthSource = props.getProperty("basic.auth.credentials.source");
-        String userInfo = props.getProperty("basic.auth.user.info");
         Map<String, String> schemaRegistryClientConfigs = new HashMap<>();
-        if (basicAuthSource != null && userInfo != null) {
-            schemaRegistryClientConfigs.put("basic.auth.credentials.source", basicAuthSource);
-            schemaRegistryClientConfigs.put("basic.auth.user.info", userInfo);
+        for (String key : props.stringPropertyNames()) {
+            schemaRegistryClientConfigs.put(key, props.getProperty(key));
         }
         return new CachedSchemaRegistryClient(schemaRegistryUrl, identityMapCapacity, schemaRegistryClientConfigs);
     }

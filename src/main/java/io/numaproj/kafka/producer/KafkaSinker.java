@@ -1,7 +1,7 @@
-package io.numaproj.confluent.kafka_sink.sinker;
+package io.numaproj.kafka.producer;
 
-import io.numaproj.confluent.kafka_sink.config.UserConfig;
-import io.numaproj.confluent.kafka_sink.schema.Registry;
+import io.numaproj.kafka.config.UserConfig;
+import io.numaproj.kafka.schema.Registry;
 import io.numaproj.numaflow.sinker.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
@@ -71,7 +71,7 @@ public class KafkaSinker extends Sinker implements DisposableBean {
             GenericRecord avroGenericRecord;
             Schema schema = schemaRegistry.getAvroSchema(this.topicName);
             if (schema == null) {
-                String errMsg = "Failed to retrieve schema for topic " + this.topicName;
+                String errMsg = "Failed to retrieve the latest schema for topic " + this.topicName;
                 log.error(errMsg);
                 responseListBuilder.addResponse(Response.responseFailure(datum.getId(), errMsg));
                 continue;
