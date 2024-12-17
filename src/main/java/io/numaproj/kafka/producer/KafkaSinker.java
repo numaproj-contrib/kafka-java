@@ -24,6 +24,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * KafkaSinker uses the schema defined in schema registry to parse,
+ * serialize and publish messages to the target Kafka topic.
+ */
 @Slf4j
 @Component
 public class KafkaSinker extends Sinker implements DisposableBean {

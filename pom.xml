@@ -8,11 +8,11 @@
         <version>3.4.0</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>io.numaproj.confluent</groupId>
-    <artifactId>kafka-sink</artifactId>
+    <groupId>io.numaproj.kafka</groupId>
+    <artifactId>kafka-java</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>kafka-sink</name>
-    <description>numaflow user-defined Confluent Kafka sink</description>
+    <name>kafka-java</name>
+    <description>Numaflow user-defined Kafka source and sink</description>
     <url/>
     <licenses>
         <license/>
@@ -30,7 +30,6 @@
         <java.version>21</java.version>
     </properties>
     <dependencies>
-        <!-- Add the Kafka dependencies -->
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-avro-serializer</artifactId>
@@ -60,7 +59,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
-
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -121,7 +119,7 @@
                             </container>
                             <to>
                                 <image>
-                                    numaproj-contrib/${project.artifactId}:v4
+                                    numaproj-contrib/${project.artifactId}:v0.1.0
                                 </image>
                             </to>
                         </configuration>
@@ -130,5 +128,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>

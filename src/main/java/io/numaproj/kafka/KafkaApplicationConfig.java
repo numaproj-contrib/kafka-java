@@ -21,8 +21,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
-@Configuration
+/**
+ * Defines all the beans used as part of this project
+ */
 @Slf4j
+@Configuration
 @ComponentScan(basePackages = "io.numaproj.kafka")
 public class KafkaApplicationConfig {
 
@@ -32,7 +35,7 @@ public class KafkaApplicationConfig {
     @Value("${schema.registry.properties.path:NA}")
     private String schemaRegistryPropertiesFilePath;
 
-    // package-private constructor. test-only
+    // package-private constructor. this is for unit test only.
     KafkaApplicationConfig(@Value("${producer.properties.path:NA}") String producerPropertiesFilePath, @Value("${schema.registry.properties.path:NA}") String schemaRegistryPropertiesFilePath) {
         this.producerPropertiesFilePath = producerPropertiesFilePath;
         this.schemaRegistryPropertiesFilePath = schemaRegistryPropertiesFilePath;
@@ -45,7 +48,7 @@ public class KafkaApplicationConfig {
 
     @Bean
     public KafkaProducer<String, GenericRecord> kafkaProducer() throws IOException {
-        log.info("Instantiating the Kafka producer from producer properties file path: {}", this.producerPropertiesFilePath);
+        log.info("Instantiating the Kafka producer from the producer properties file path: {}", this.producerPropertiesFilePath);
         Properties props = new Properties();
         InputStream is = new FileInputStream(this.producerPropertiesFilePath);
         props.load(is);
@@ -55,7 +58,7 @@ public class KafkaApplicationConfig {
 
     @Bean
     public SchemaRegistryClient schemaRegistryClient() throws IOException {
-        log.info("Instantiating the Kafka schema registry client from producer properties file path: {}", this.schemaRegistryPropertiesFilePath);
+        log.info("Instantiating the Kafka schema registry client from the schema registry properties file path: {}", this.schemaRegistryPropertiesFilePath);
         Properties props = new Properties();
         InputStream is = new FileInputStream(this.schemaRegistryPropertiesFilePath);
         props.load(is);
