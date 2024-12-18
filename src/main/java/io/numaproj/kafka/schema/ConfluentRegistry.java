@@ -38,4 +38,9 @@ public class ConfluentRegistry implements Registry {
             return null;
         }
     }
+
+    @Override
+    public void close() throws IOException {
+        schemaRegistryClient.close();
+    }
 }

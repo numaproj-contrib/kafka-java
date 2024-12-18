@@ -21,8 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -218,7 +217,7 @@ public class KafkaSinkerTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void destroy_inflightMessagesProcessed() throws InterruptedException {
+    void destroy_inflightMessagesProcessed() {
         SinkerTestKit.TestDatum testDatum1 = SinkerTestKit.TestDatum.builder()
                 .id("1")
                 .value("{\"name\": \"Michael Jordan\"}".getBytes())
@@ -248,8 +247,12 @@ public class KafkaSinkerTest {
             countDownLatch.countDown();
         });
         thread.start();
-        underTest.destroy();
-        countDownLatch.await();
+        try {
+            underTest.destroy();
+            countDownLatch.await();
+        } catch (Exception e) {
+            fail("destroy should not throw exception");
+        }
 
         List<Response> responses = responseList[0].getResponses();
         Response response1 = Response.responseOK("1");

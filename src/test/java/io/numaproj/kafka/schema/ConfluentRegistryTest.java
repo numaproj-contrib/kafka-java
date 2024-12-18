@@ -60,4 +60,10 @@ public class ConfluentRegistryTest {
         System.out.println("keran" + exception.getMessage());
         assertTrue(exception.getMessage().contains("Schema type is not AVRO for topic " + topicName));
     }
+
+    @Test
+    public void testClose() throws Exception {
+        underTest.close();
+        verify(schemaRegistryClient, times(1)).close();
+    }
 }

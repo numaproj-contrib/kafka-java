@@ -17,6 +17,7 @@ import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -69,9 +70,10 @@ public class KafkaSinker extends Sinker implements DisposableBean {
                 break;
             }
 
-            log.trace("Processing message with id: {}, payload: {}", datum.getId(), new String(datum.getValue()));
             String key = UUID.randomUUID().toString();
             String msg = new String(datum.getValue());
+            log.trace("Processing message with id: {}, payload: {}", datum.getId(), msg);
+
             GenericRecord avroGenericRecord;
             Schema schema = schemaRegistry.getAvroSchema(this.topicName);
             if (schema == null) {
@@ -119,10 +121,12 @@ public class KafkaSinker extends Sinker implements DisposableBean {
      * to complete in-flight requests and then shuts down.
      */
     @Override
-    public void destroy() throws InterruptedException {
+    public void destroy() throws InterruptedException, IOException {
         log.info("Sending shutdown signal...");
         isShutdown = new AtomicBoolean(true);
         countDownLatch.await();
+        producer.close();
+        schemaRegistry.close();
         log.info("Kafka producer closed");
     }
 }
