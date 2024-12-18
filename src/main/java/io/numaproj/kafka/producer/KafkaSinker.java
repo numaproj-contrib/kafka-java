@@ -84,6 +84,7 @@ public class KafkaSinker extends Sinker implements DisposableBean {
             }
 
             try {
+                // FIXME - this assumes the input data is in json format
                 DatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);
                 Decoder decoder = DecoderFactory.get().jsonDecoder(schema, msg);
                 avroGenericRecord = reader.read(null, decoder);
