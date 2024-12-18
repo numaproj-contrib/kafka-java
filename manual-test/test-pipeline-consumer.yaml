@@ -1,0 +1,50 @@
+apiVersion: numaflow.numaproj.io/v1alpha1
+kind: Pipeline
+metadata:
+  name: test-pipeline-consumer
+spec:
+  vertices:
+    - name: in
+      volumes:
+        - name: kafka-config-volume
+          configMap:
+            name: kafka-config
+            items:
+              - key: user.configuration
+                path: user.configuration.yaml
+              - key: producer.properties
+                path: producer.properties
+              - key: schema.registry.properties
+                path: schema.registry.properties
+              - key: consumer.properties
+                path: consumer.properties
+      scale:
+        min: 1
+      limits:
+        readBatchSize: 10
+      source:
+        udsource:
+          container:
+            image: quay.io/numaio/numaflow-java/kafka-sink-test:keran-v4
+            args: [ "--spring.config.location=file:/conf/user.configuration.yaml", "--producer.properties.path=/conf/producer.properties", "--schema.registry.properties.path=/conf/schema.registry.properties", "--consumer.properties.path=/conf/consumer.properties" ]
+            imagePullPolicy: Always
+            volumeMounts:
+              - name: kafka-config-volume
+                mountPath: /conf
+    - name: cat
+      scale:
+        min: 1
+      udf:
+        builtin:
+          name: cat
+    - name: sink
+      scale:
+        min: 1
+      sink:
+        log:
+          { }
+  edges:
+    - from: in
+      to: cat
+    - from: cat
+      to: sink

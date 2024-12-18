@@ -2,12 +2,15 @@ package io.numaproj.kafka;
 
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.numaproj.kafka.consumer.KafkaSourcer;
 import io.numaproj.kafka.producer.KafkaSinker;
 import io.numaproj.kafka.schema.ConfluentRegistry;
 import io.numaproj.kafka.schema.Registry;
 import io.numaproj.numaflow.sinker.Server;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -35,15 +38,27 @@ public class KafkaApplicationConfig {
     @Value("${schema.registry.properties.path:NA}")
     private String schemaRegistryPropertiesFilePath;
 
+    @Value("${consumer.properties.path:NA}")
+    private String consumerPropertiesFilePath;
+
     // package-private constructor. this is for unit test only.
-    KafkaApplicationConfig(@Value("${producer.properties.path:NA}") String producerPropertiesFilePath, @Value("${schema.registry.properties.path:NA}") String schemaRegistryPropertiesFilePath) {
+    KafkaApplicationConfig(
+            @Value("${producer.properties.path:NA}") String producerPropertiesFilePath,
+            @Value("${schema.registry.properties.path:NA}") String schemaRegistryPropertiesFilePath,
+            @Value("${consumer.properties.path:NA}") String consumerPropertiesFilePath) {
         this.producerPropertiesFilePath = producerPropertiesFilePath;
         this.schemaRegistryPropertiesFilePath = schemaRegistryPropertiesFilePath;
+        this.consumerPropertiesFilePath = consumerPropertiesFilePath;
     }
 
     @Bean
     public Server sinkServer(KafkaSinker kafkaSinker) {
         return new Server(kafkaSinker);
+    }
+
+    @Bean
+    public io.numaproj.numaflow.sourcer.Server sourceServer(KafkaSourcer kafkaSourcer) {
+        return new io.numaproj.numaflow.sourcer.Server(kafkaSourcer);
     }
 
     @Bean
@@ -54,6 +69,21 @@ public class KafkaApplicationConfig {
         props.load(is);
         log.info("Kafka producer props read from user input ConfigMap: {}", props);
         return new KafkaProducer<>(props);
+    }
+
+    @Bean
+    public KafkaConsumer<String, GenericRecord> kafkaConsumer() throws IOException {
+        log.info("Instantiating the Kafka consumer from the consumer properties file path: {}", this.consumerPropertiesFilePath);
+        Properties props = new Properties();
+        InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
+        props.load(is);
+        // TODOo - remove hardcoding
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "group1");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "io.confluent.kafka.serializers.KafkaAvroDeserializer");
+
+        log.info("Kafka consumer props read from user input ConfigMap: {}", props);
+        return new KafkaConsumer<>(props);
     }
 
     @Bean

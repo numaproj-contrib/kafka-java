@@ -24,7 +24,8 @@ public class KafkaApplicationConfigTest {
     public void setUp() {
         underTest = new KafkaApplicationConfig(
                 Objects.requireNonNull(getClass().getClassLoader().getResource("producer.properties")).getPath(),
-                Objects.requireNonNull(getClass().getClassLoader().getResource("schema.registry.properties")).getPath()
+                Objects.requireNonNull(getClass().getClassLoader().getResource("schema.registry.properties")).getPath(),
+                Objects.requireNonNull(getClass().getClassLoader().getResource("consumer.properties")).getPath()
         );
     }
 
