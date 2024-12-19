@@ -9,7 +9,7 @@ spec:
         min: 1
       source:
         generator:
-          rpu: 100
+          rpu: 50
           duration: 1s
     - name: cat
       scale:
@@ -33,7 +33,7 @@ spec:
         min: 1
         max: 2
       limits:
-        readBatchSize: 10
+        readBatchSize: 50
       sink:
         udsink:
           container:

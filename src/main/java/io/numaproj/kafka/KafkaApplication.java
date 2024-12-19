@@ -13,6 +13,7 @@ public class KafkaApplication {
         log.info("Supplied arguments:{}", (Object) args);
         var ctx = new SpringApplicationBuilder(KafkaApplication.class)
                 .run(args);
+        // TODO - conditionally load beans based on the numaflow.handler property
         Server server = ctx.getBean(Server.class);
         log.info("Starting the Kafka source application...");
         server.start();
