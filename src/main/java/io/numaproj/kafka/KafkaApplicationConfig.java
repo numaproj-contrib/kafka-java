@@ -9,6 +9,8 @@ import io.numaproj.kafka.schema.Registry;
 import io.numaproj.numaflow.sinker.Server;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -84,6 +86,20 @@ public class KafkaApplicationConfig {
 
         log.info("Kafka consumer props read from user input ConfigMap: {}", props);
         return new KafkaConsumer<>(props);
+    }
+
+    // AdminClient is used to retrieve the number of pending messages.
+    // It is only used by the sourcer.
+    // FIXME - currently sharing the consumer properties file path with kafka consumer client.
+    // There has to be a better way to do this, since admin client should be able to serve both consumer and producer,
+    // and it does not need all the properties that consumer client needs.
+    @Bean
+    public AdminClient kafkaAdminClient() throws IOException {
+        Properties props = new Properties();
+        InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
+        props.load(is);
+        log.info("Kafka admin client props read from consumer properties: {}", props);
+        return KafkaAdminClient.create(props);
     }
 
     @Bean
