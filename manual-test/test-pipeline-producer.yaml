@@ -9,7 +9,7 @@ spec:
         min: 1
       source:
         generator:
-          rpu: 1
+          rpu: 100
           duration: 1s
     - name: cat
       scale:
@@ -31,6 +31,7 @@ spec:
                 path: schema.registry.properties
       scale:
         min: 1
+        max: 2
       limits:
         readBatchSize: 10
       sink:

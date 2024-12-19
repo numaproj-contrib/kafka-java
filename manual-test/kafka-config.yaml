@@ -35,8 +35,6 @@ data:
     client.dns.lookup=use_all_dns_ips
     # Best practice for higher availability in Apache Kafka clients prior to 3.0
     session.timeout.ms=45000
-    # Best practice for Kafka producer to prevent data loss
-    acks=all
     # Schema Registry connection configurations
     schema.registry.url=https://psrc-5j7x8.us-central1.gcp.confluent.cloud
     basic.auth.credentials.source=USER_INFO
