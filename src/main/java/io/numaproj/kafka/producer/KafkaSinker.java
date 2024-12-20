@@ -10,6 +10,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
@@ -49,6 +50,12 @@ public class KafkaSinker extends Sinker implements DisposableBean {
     this.isShutdown = new AtomicBoolean(false);
     this.countDownLatch = new CountDownLatch(1);
     log.info("KafkaSinker initialized with use configurations: {}", userConfig);
+  }
+
+  @PostConstruct
+  public void startProducer() throws Exception {
+    log.info("Initializing Kafka sinker server...");
+    new Server(this).start();
   }
 
   @Override

@@ -12,10 +12,6 @@ spec:
             items:
               - key: user.configuration
                 path: user.configuration.yaml
-              - key: producer.properties
-                path: producer.properties
-              - key: schema.registry.properties
-                path: schema.registry.properties
               - key: consumer.properties
                 path: consumer.properties
       scale:
@@ -26,8 +22,8 @@ spec:
       source:
         udsource:
           container:
-            image: quay.io/numaio/numaflow-java/kafka-sink-test:keran-v4
-            args: [ "--spring.config.location=file:/conf/user.configuration.yaml", "--producer.properties.path=/conf/producer.properties", "--schema.registry.properties.path=/conf/schema.registry.properties", "--consumer.properties.path=/conf/consumer.properties" ]
+            image: quay.io/numaio/numaflow-java/kafka-sink-test:keran-v5
+            args: [ "--spring.config.location=file:/conf/user.configuration.yaml", "--consumer.properties.path=/conf/consumer.properties" ]
             imagePullPolicy: Always
             volumeMounts:
               - name: kafka-config-volume

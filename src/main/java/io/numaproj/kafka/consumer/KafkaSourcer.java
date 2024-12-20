@@ -40,16 +40,18 @@ public class KafkaSourcer extends Sourcer {
 
   @Autowired
   public KafkaSourcer(Worker worker, Admin admin) {
+    log.info("KafkaSourcer initialized with worker and admin configurations");
     this.worker = worker;
     this.admin = admin;
   }
 
   @PostConstruct
-  public void init() {
+  public void startConsumer() throws Exception {
     log.info("Starting the Kafka consumer worker thread...");
     workerThread = new Thread(worker, "consumerWorkerThread");
     workerThread.start();
-    log.info("Kafka consumer worker thread started.");
+    log.info("Initializing Kafka sourcer server...");
+    new Server(this).start();
   }
 
   public void kill(Exception e) {

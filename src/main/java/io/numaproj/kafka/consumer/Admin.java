@@ -4,7 +4,6 @@ import io.numaproj.kafka.config.UserConfig;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
@@ -13,11 +12,11 @@ import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class Admin implements DisposableBean {
 
   // PendingNotAvailable is used to indicate that the pending count is not available
@@ -27,6 +26,12 @@ public class Admin implements DisposableBean {
 
   private final UserConfig userConfig;
   private final AdminClient adminClient;
+
+  @Autowired
+  public Admin(UserConfig userConfig, AdminClient adminClient) {
+    this.userConfig = userConfig;
+    this.adminClient = adminClient;
+  }
 
   public long getPendingMessages() {
     try {
