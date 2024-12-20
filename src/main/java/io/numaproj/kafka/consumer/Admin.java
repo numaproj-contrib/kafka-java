@@ -19,14 +19,19 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class Admin implements DisposableBean {
+
+  // PendingNotAvailable is used to indicate that the pending count is not available
+  // It matches PendingNotAvailable defined in
+  // https://github.com/numaproj/numaflow/blob/main/pkg/isb/interfaces.go#L31
+  private static final long PendingNotAvailable = Long.MIN_VALUE;
+
   private final UserConfig userConfig;
   private final AdminClient adminClient;
 
   public long getPendingMessages() {
     try {
-      // TODO - get group id from userConfig
       ListConsumerGroupOffsetsResult listConsumerGroupOffsetsResult =
-          adminClient.listConsumerGroupOffsets("group1");
+          adminClient.listConsumerGroupOffsets(userConfig.getGroupId());
       Map<TopicPartition, OffsetSpec> topicPartitionOffsetSpecMap = new HashMap<>();
       Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap =
           listConsumerGroupOffsetsResult.partitionsToOffsetAndMetadata().get();
@@ -36,22 +41,19 @@ public class Admin implements DisposableBean {
               topicPartitionOffsetSpecMap.put(k, OffsetSpec.latest());
             }
           });
-      // TODO - change to debug
-      log.info("Topic Partition Offset MetaData Map: {}", topicPartitionOffsetAndMetadataMap);
+      log.debug("Topic Partition Offset Metadata Map: {}", topicPartitionOffsetAndMetadataMap);
       // Get latest Offset
       ListOffsetsResult listOffsetsResult = adminClient.listOffsets(topicPartitionOffsetSpecMap);
       Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo>
           topicPartitionListOffsetsResultInfoMap = listOffsetsResult.all().get();
       long totalPending =
           topicPartitionListOffsetsResultInfoMap.keySet().stream()
-              .filter(k -> userConfig.getTopicName().equals(k.topic()))
               .map(
                   k -> {
                     OffsetAndMetadata currentOffset = topicPartitionOffsetAndMetadataMap.get(k);
                     ListOffsetsResult.ListOffsetsResultInfo latestOffset =
                         topicPartitionListOffsetsResultInfoMap.get(k);
-                    // TODO - change to debug
-                    log.info(
+                    log.debug(
                         "topic:{}, partition:{}, current offset:{}, latest offset:{}, pending count:{}",
                         k.topic(),
                         k.partition(),
@@ -62,12 +64,11 @@ public class Admin implements DisposableBean {
                   })
               .mapToLong(Long::longValue)
               .sum();
-      log.info("Total Pending Messages: {}", totalPending);
+      log.debug("Total Pending Messages: {}", totalPending);
       return totalPending;
     } catch (ExecutionException | InterruptedException e) {
       log.error("Failed to get pending messages", e);
-      // TODO - we have a const PendingNotAvailable = int64(math.MinInt64)
-      return -1;
+      return PendingNotAvailable;
     }
   }
 

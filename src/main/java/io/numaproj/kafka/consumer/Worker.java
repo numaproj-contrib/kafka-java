@@ -71,11 +71,11 @@ public class Worker implements Runnable, DisposableBean {
           }
           case COMMIT -> {
             consumer.commitAsync(
-                (map, e) -> {
-                  if (e != null) {
-                    log.error("error while committing offsets: Offsets:{}", map, e);
+                (offsets, exception) -> {
+                  if (exception != null) {
+                    log.error("error while committing offsets: Offsets:{}", offsets, exception);
                   } else {
-                    log.debug("offsets committed: {}", map);
+                    log.debug("offsets committed: {}", offsets);
                   }
                 });
             countdownLatchSignalMainThread.countDown();

@@ -36,13 +36,14 @@ data:
     # Best practice for higher availability in Apache Kafka clients prior to 3.0
     session.timeout.ms=45000
     # Schema Registry connection configurations
+    # Consumer client uses the schema registry to get the schema for the data in the topic and deserialize the data
     schema.registry.url=https://psrc-5j7x8.us-central1.gcp.confluent.cloud
     basic.auth.credentials.source=USER_INFO
     basic.auth.user.info=TNDMHPEKSSCQM45Q:5/X4u341fUlL3l7p22InVoqzH73asisPf5yrOXyif2w1Cn0QiPWAhZzvOa79qB+M
     # Other configurations
     retries=0
-    # automatically reset the offset to the earliest offset
-    auto.offset.reset=earliest
+    # group.id is required for consumer clients
+    group.id=group1
   schema.registry.properties: |
     # Schema Registry connection configurations
     schema.registry.url=https://psrc-5j7x8.us-central1.gcp.confluent.cloud
@@ -50,3 +51,4 @@ data:
     basic.auth.user.info=TNDMHPEKSSCQM45Q:5/X4u341fUlL3l7p22InVoqzH73asisPf5yrOXyif2w1Cn0QiPWAhZzvOa79qB+M
   user.configuration: |
     topicName: numagen
+    groupId: group1

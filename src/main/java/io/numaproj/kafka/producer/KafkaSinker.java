@@ -31,9 +31,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class KafkaSinker extends Sinker implements DisposableBean {
-
-  // TODO - user config will grow, let's replace topicName with UserConfig
-  private final String topicName;
+  private final UserConfig userConfig;
   private final KafkaProducer<String, GenericRecord> producer;
   private final Registry schemaRegistry;
 
@@ -42,13 +40,15 @@ public class KafkaSinker extends Sinker implements DisposableBean {
 
   @Autowired
   public KafkaSinker(
-      UserConfig config, KafkaProducer<String, GenericRecord> producer, Registry schemaRegistry) {
-    this.topicName = config.getTopicName();
+      UserConfig userConfig,
+      KafkaProducer<String, GenericRecord> producer,
+      Registry schemaRegistry) {
+    this.userConfig = userConfig;
     this.producer = producer;
     this.schemaRegistry = schemaRegistry;
     this.isShutdown = new AtomicBoolean(false);
     this.countDownLatch = new CountDownLatch(1);
-    log.info("KafkaSinker initialized with topic name: {}", config.getTopicName());
+    log.info("KafkaSinker initialized with use configurations: {}", userConfig);
   }
 
   @Override
@@ -76,9 +76,10 @@ public class KafkaSinker extends Sinker implements DisposableBean {
       // TODO - assuming single topic, we don't need to fetch the schema for each message
       // see if there is any performance improvement by fetching the schema once
       // currently sink can only do ~20 messages per second (2 pods 6 partitions)
-      Schema schema = schemaRegistry.getAvroSchema(this.topicName);
+      Schema schema = schemaRegistry.getAvroSchema(this.userConfig.getTopicName());
       if (schema == null) {
-        String errMsg = "Failed to retrieve the latest schema for topic " + this.topicName;
+        String errMsg =
+            "Failed to retrieve the latest schema for topic " + this.userConfig.getTopicName();
         log.error(errMsg);
         responseListBuilder.addResponse(Response.responseFailure(datum.getId(), errMsg));
         continue;
@@ -96,7 +97,7 @@ public class KafkaSinker extends Sinker implements DisposableBean {
         continue;
       }
       ProducerRecord<String, GenericRecord> record =
-          new ProducerRecord<>(this.topicName, key, avroGenericRecord);
+          new ProducerRecord<>(this.userConfig.getTopicName(), key, avroGenericRecord);
       inflightTasks.put(datum.getId(), this.producer.send(record));
     }
     log.debug("Number of messages inflight to the topic is {}", inflightTasks.size());

@@ -29,18 +29,13 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 public class KafkaSourcer extends Sourcer {
-
-  // private final KafkaConsumer<String, GenericRecord> consumer;
-  // TODO - don't need schemaRegistry to read from Kafka, the schema id is in the message
-  // I believe the schema registry configuration in consumer properties is used to fetch the schema
-  // TODO - verify removing the configuration will break consumer.
-  // private final Registry schemaRegistry;
-
   private final Worker worker;
   private final Admin admin;
   private Thread workerThread;
 
-  // TODO - remove - this is purely for manual testing
+  // readTopicPartitionOffsetMap is used to keep track of the highest offsets read from the current
+  // batch. The key is the topic:partition and the value is the highest offset read from the
+  // partition. This map is used to validate the ack request.
   private Map<String, Long> readTopicPartitionOffsetMap;
 
   @Autowired
@@ -58,12 +53,18 @@ public class KafkaSourcer extends Sourcer {
   }
 
   public void kill(Exception e) {
-    log.error("received kill signal, shutting down consumer worker", e);
+    log.error("Received kill signal, shutting down consumer worker", e);
     System.exit(100);
   }
 
   @Override
   public void read(ReadRequest request, OutputObserver observer) {
+    // check if consumer thread is still alive
+    if (!workerThread.isAlive()) {
+      log.error("Consumer worker thread is not alive, exiting...");
+      kill(new RuntimeException("Consumer worker thread is not alive"));
+    }
+
     long startTime;
     long remainingTime = request.getTimeout().toMillis();
     int j = 0;
@@ -95,7 +96,7 @@ public class KafkaSourcer extends Sourcer {
         for (Header header : consumerRecord.headers()) {
           kafkaHeaders.put(header.key(), new String(header.value()));
         }
-        // TODO - let's match our builtin kafka offset format
+        // TODO - Do we need to add cluster ID to the offset value?
         String offsetValue = consumerRecord.topic() + ":" + consumerRecord.offset();
         byte[] payload = toJSON(consumerRecord.value());
         if (payload == null) {
@@ -103,7 +104,6 @@ public class KafkaSourcer extends Sourcer {
           log.error(errMsg);
           throw new RuntimeException(errMsg);
         }
-
         Message message =
             new Message(
                 payload,
@@ -122,13 +122,14 @@ public class KafkaSourcer extends Sourcer {
         } else {
           readTopicPartitionOffsetMap.put(key, consumerRecord.offset());
         }
+        // FIXME - after we finish this for loop, j could be greater than request.getCount(),
+        // meaning we are sending more messages than requested
         j++;
       }
       remainingTime -= System.currentTimeMillis() - startTime;
     }
-    // TODO - change to debug - remove - this is purely for manual testing
-    log.info(
-        "Read request:{} number of messages sent:{} topicPartitionSize:{} readTopicPartitionOffsetMap:{}",
+    log.debug(
+        "BatchRead summary: requested number of messages: {} number of messages sent: {} number of partitions: {} readTopicPartitionOffsetMap:{}",
         request.getCount(),
         j,
         readTopicPartitionOffsetMap.size(),
@@ -154,8 +155,8 @@ public class KafkaSourcer extends Sourcer {
       }
     }
 
-    log.debug(
-        "ack request counter:{}  topicPartitionOffsetList:{}",
+    log.info(
+        "No. of offsets in AckRequest:{}  topicPartitionOffsetList:{}",
         request.getOffsets().size(),
         topicPartitionOffsetMap);
     try {
@@ -194,6 +195,8 @@ public class KafkaSourcer extends Sourcer {
     return worker.getPartitions();
   }
 
+  // TODO - this is opinionated that we are transforming the record to JSON format
+  // and send to the next Numaflow vertex. We need to make this more generic
   private byte[] toJSON(GenericRecord record) {
     Schema schema = record.getSchema();
     ByteArrayOutputStream out = new ByteArrayOutputStream();

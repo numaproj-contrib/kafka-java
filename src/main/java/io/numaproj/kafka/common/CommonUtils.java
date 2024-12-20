@@ -2,6 +2,7 @@ package io.numaproj.kafka.common;
 
 /** Class holding common utility functions */
 public class CommonUtils {
+
   /**
    * Common method to generate a key for maps holding topic partition offsets
    *
