@@ -1,13 +1,13 @@
 package io.numaproj.kafka.consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import io.numaproj.kafka.config.UserConfig;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -40,31 +40,36 @@ public class AdminTest {
   }
 
   @Test
-  public void getPendingMessages_success() throws ExecutionException, InterruptedException {
-    List<TopicPartition> topicPartitionList = generateTopicPartitions();
-    Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap =
-        generateTopicPartitionOffsetMetadata(topicPartitionList);
-    Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo>
-        topicPartitionListOffsetsResultInfoMap = generateListOffsetsResultInfo(topicPartitionList);
-    ListOffsetsResult listOffsetsResultMock = Mockito.mock(ListOffsetsResult.class);
-    when(adminClientMock.listOffsets(any())).thenReturn(listOffsetsResultMock);
-    KafkaFuture<Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo>> mapKafkaFutureMock =
-        Mockito.mock(KafkaFuture.class);
-    when(listOffsetsResultMock.all()).thenReturn(mapKafkaFutureMock);
-    ListConsumerGroupOffsetsResult listConsumerGroupOffsetsResultMock =
-        Mockito.mock(ListConsumerGroupOffsetsResult.class);
-    KafkaFuture<Map<TopicPartition, OffsetAndMetadata>> kafkaFutureMock =
-        Mockito.mock(KafkaFuture.class);
-    when(kafkaFutureMock.get()).thenReturn(topicPartitionOffsetAndMetadataMap);
-    when(mapKafkaFutureMock.get()).thenReturn(topicPartitionListOffsetsResultInfoMap);
-    when(adminClientMock.listConsumerGroupOffsets(eq(TEST_GROUP_ID)))
-        .thenReturn(listConsumerGroupOffsetsResultMock);
-    when(listConsumerGroupOffsetsResultMock.partitionsToOffsetAndMetadata())
-        .thenReturn(kafkaFutureMock);
+  public void getPendingMessages_success() {
+    try {
+      List<TopicPartition> topicPartitionList = generateTopicPartitions();
+      Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap =
+          generateTopicPartitionOffsetMetadata(topicPartitionList);
+      Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo>
+          topicPartitionListOffsetsResultInfoMap =
+              generateListOffsetsResultInfo(topicPartitionList);
+      ListOffsetsResult listOffsetsResultMock = Mockito.mock(ListOffsetsResult.class);
+      when(adminClientMock.listOffsets(any())).thenReturn(listOffsetsResultMock);
+      KafkaFuture<Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo>> mapKafkaFutureMock =
+          Mockito.mock(KafkaFuture.class);
+      when(listOffsetsResultMock.all()).thenReturn(mapKafkaFutureMock);
+      ListConsumerGroupOffsetsResult listConsumerGroupOffsetsResultMock =
+          Mockito.mock(ListConsumerGroupOffsetsResult.class);
+      KafkaFuture<Map<TopicPartition, OffsetAndMetadata>> kafkaFutureMock =
+          Mockito.mock(KafkaFuture.class);
+      when(kafkaFutureMock.get()).thenReturn(topicPartitionOffsetAndMetadataMap);
+      when(mapKafkaFutureMock.get()).thenReturn(topicPartitionListOffsetsResultInfoMap);
+      when(adminClientMock.listConsumerGroupOffsets(eq(TEST_GROUP_ID)))
+          .thenReturn(listConsumerGroupOffsetsResultMock);
+      when(listConsumerGroupOffsetsResultMock.partitionsToOffsetAndMetadata())
+          .thenReturn(kafkaFutureMock);
 
-    long pendingMessages = underTest.getPendingMessages();
-    // 100 + 100 + 100 - 10 - 10 - 10 = 270
-    assertEquals(270, pendingMessages);
+      long pendingMessages = underTest.getPendingMessages();
+      // 100 + 100 + 100 - 10 - 10 - 10 = 270
+      assertEquals(270, pendingMessages);
+    } catch (Exception e) {
+      fail();
+    }
   }
 
   private Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo>
