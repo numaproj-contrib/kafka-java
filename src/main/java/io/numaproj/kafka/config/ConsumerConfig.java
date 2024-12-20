@@ -31,13 +31,6 @@ public class ConsumerConfig {
     this.consumerPropertiesFilePath = consumerPropertiesFilePath;
   }
 
-  /*
-  @Bean
-  public Server sourceServer(KafkaSourcer kafkaSourcer) {
-    return new Server(kafkaSourcer);
-  }
-  */
-
   @Bean
   public KafkaConsumer<String, GenericRecord> kafkaConsumer() throws IOException {
     log.info(
@@ -46,6 +39,7 @@ public class ConsumerConfig {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
     props.load(is);
+    // TODO - this can be in the properties file
     props.put(
         org.apache.kafka.clients.consumer.ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.StringDeserializer");

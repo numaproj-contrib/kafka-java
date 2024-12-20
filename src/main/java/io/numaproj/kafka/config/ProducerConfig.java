@@ -40,13 +40,6 @@ public class ProducerConfig {
     this.schemaRegistryPropertiesFilePath = schemaRegistryPropertiesFilePath;
   }
 
-  /*
-  @Bean
-  public Server sinkServer(KafkaSinker kafkaSinker) {
-    return new Server(kafkaSinker);
-  }
-   */
-
   @Bean
   public KafkaProducer<String, GenericRecord> kafkaProducer() throws IOException {
     log.info(

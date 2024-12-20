@@ -12,6 +12,3 @@ basic.auth.credentials.source=USER_INFO
 basic.auth.user.info=a:b
 # Other configurations
 retries=0
-# SerDe
-key.serializer=org.apache.kafka.common.serialization.StringSerializer
-value.serializer=io.confluent.kafka.serializers.KafkaAvroSerializer

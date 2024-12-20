@@ -37,6 +37,7 @@ public class Admin implements DisposableBean {
     try {
       ListConsumerGroupOffsetsResult listConsumerGroupOffsetsResult =
           adminClient.listConsumerGroupOffsets(userConfig.getGroupId());
+      log.info("result: {}", listConsumerGroupOffsetsResult);
       Map<TopicPartition, OffsetSpec> topicPartitionOffsetSpecMap = new HashMap<>();
       Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap =
           listConsumerGroupOffsetsResult.partitionsToOffsetAndMetadata().get();
