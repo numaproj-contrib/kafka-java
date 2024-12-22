@@ -1,5 +1,6 @@
 package io.numaproj.kafka.consumer;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.numaproj.kafka.common.CommonUtils;
 import io.numaproj.numaflow.sourcer.*;
 import java.io.IOException;
@@ -54,6 +55,21 @@ public class KafkaSourcer extends Sourcer {
     new Server(this).start();
   }
 
+  /**
+   * This method is added mainly to assist with unit tests
+   *
+   * @return boolean if the consumer worker thread is alive
+   */
+  boolean isWorkerThreadAlive() {
+    return workerThread.isAlive();
+  }
+
+  /** Used in tests */
+  @VisibleForTesting
+  public void setReadTopicPartitionOffsetMap(Map<String, Long> readTopicPartitionOffsetMap) {
+    this.readTopicPartitionOffsetMap = readTopicPartitionOffsetMap;
+  }
+
   public void kill(Exception e) {
     log.error("Received kill signal, shutting down consumer worker", e);
     System.exit(100);
@@ -61,8 +77,8 @@ public class KafkaSourcer extends Sourcer {
 
   @Override
   public void read(ReadRequest request, OutputObserver observer) {
-    // check if consumer thread is still alive
-    if (!workerThread.isAlive()) {
+    // check if the consumer worker thread is still alive
+    if (!isWorkerThreadAlive()) {
       log.error("Consumer worker thread is not alive, exiting...");
       kill(new RuntimeException("Consumer worker thread is not alive"));
     }
@@ -99,6 +115,7 @@ public class KafkaSourcer extends Sourcer {
           kafkaHeaders.put(header.key(), new String(header.value()));
         }
         // TODO - Do we need to add cluster ID to the offset value?
+        // For now, it's probably good enough.
         String offsetValue = consumerRecord.topic() + ":" + consumerRecord.offset();
         byte[] payload = toJSON(consumerRecord.value());
         if (payload == null) {
@@ -144,11 +161,13 @@ public class KafkaSourcer extends Sourcer {
     for (Map.Entry<String, Long> entry : topicPartitionOffsetMap.entrySet()) {
       if (readTopicPartitionOffsetMap == null
           || !readTopicPartitionOffsetMap.containsKey(entry.getKey())) {
+        // TODO - emit error metrics
         log.error(
             "PANIC! THIS SHOULD NEVER HAPPEN. READ OFFSET MAP DOES NOT CONTAIN THE PARTITION ENTRY topic:partition:{}",
             entry.getKey());
       } else if (readTopicPartitionOffsetMap.get(entry.getKey()).longValue()
           != entry.getValue().longValue()) {
+        // TODO - emit error metrics
         log.error(
             "PANIC! THIS SHOULD NEVER HAPPEN. READ AND ACK ARE NOT IN SYNC numa_ack:{} numa_read:{} topic:partition:{}",
             entry.getValue(),

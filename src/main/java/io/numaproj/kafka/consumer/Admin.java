@@ -3,7 +3,6 @@ package io.numaproj.kafka.consumer;
 import io.numaproj.kafka.config.UserConfig;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
@@ -22,7 +21,7 @@ public class Admin implements DisposableBean {
   // PendingNotAvailable is used to indicate that the pending count is not available
   // It matches PendingNotAvailable defined in
   // https://github.com/numaproj/numaflow/blob/main/pkg/isb/interfaces.go#L31
-  private static final long PendingNotAvailable = Long.MIN_VALUE;
+  static final long PendingNotAvailable = Long.MIN_VALUE;
 
   private final UserConfig userConfig;
   private final AdminClient adminClient;
@@ -72,7 +71,7 @@ public class Admin implements DisposableBean {
               .sum();
       log.debug("Total Pending Messages: {}", totalPending);
       return totalPending;
-    } catch (ExecutionException | InterruptedException e) {
+    } catch (Exception e) {
       log.error("Failed to get pending messages", e);
       return PendingNotAvailable;
     }

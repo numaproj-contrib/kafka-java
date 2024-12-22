@@ -72,6 +72,18 @@ public class AdminTest {
     }
   }
 
+  @Test
+  public void getPendingMessages_exception() {
+    try {
+      when(adminClientMock.listConsumerGroupOffsets(eq(TEST_GROUP_ID)))
+          .thenThrow(new RuntimeException());
+      long pendingMessages = underTest.getPendingMessages();
+      assertEquals(Admin.PendingNotAvailable, pendingMessages);
+    } catch (Exception e) {
+      fail();
+    }
+  }
+
   private Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo>
       generateListOffsetsResultInfo(List<TopicPartition> topicPartitionList) {
     Function<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> valueMapper =
