@@ -40,13 +40,6 @@ public class ConsumerConfig {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
     props.load(is);
-    // TODO - this can be in the properties file
-    props.put(
-        org.apache.kafka.clients.consumer.ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.StringDeserializer");
-    props.put(
-        org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-        "io.confluent.kafka.serializers.KafkaAvroDeserializer");
     // disable auto commit, numaflow data forwarder takes care of committing offsets
     if (props.getProperty(
                 org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG)

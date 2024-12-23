@@ -14,3 +14,6 @@ basic.auth.user.info=a:b
 retries=0
 enable.auto.commit=true
 group.id=groupId
+# SerDe
+key.deserializer=org.apache.kafka.common.serialization.StringDeserializer
+value.deserializer=io.confluent.kafka.serializers.KafkaAvroDeserializer
