@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
-/** Beans used for Kafka consumer */
+/** Beans used by Kafka consumer */
 @Slf4j
 @Configuration
 @ComponentScan(basePackages = "io.numaproj.kafka.consumer")
@@ -31,10 +31,11 @@ public class ConsumerConfig {
     this.consumerPropertiesFilePath = consumerPropertiesFilePath;
   }
 
+  // Kafka consumer client
   @Bean
   public KafkaConsumer<String, GenericRecord> kafkaConsumer() throws IOException {
     log.info(
-        "Instantiating the Kafka consumer from the consumer properties file path: {}",
+        "Instantiating the Kafka consumer from the consumer properties file: {}",
         this.consumerPropertiesFilePath);
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
@@ -67,10 +68,10 @@ public class ConsumerConfig {
   }
 
   // AdminClient is used to retrieve the number of pending messages.
-  // It is only used by the sourcer.
-  // TODO - currently sharing the consumer properties file path with kafka consumer client.
-  // There has to be a better way to do this, since admin client should be able to serve both
-  // consumer and producer, and it does not need all the properties that consumer client needs.
+  // Currently, it shares the same properties file with Kafka consumer client.
+  // TODO - consider having a separate properties file for admin client.
+  // Admin client should be able to serve both consumer and producer,
+  // and it does not need all the properties that consumer client needs.
   @Bean
   public AdminClient kafkaAdminClient() throws IOException {
     Properties props = new Properties();

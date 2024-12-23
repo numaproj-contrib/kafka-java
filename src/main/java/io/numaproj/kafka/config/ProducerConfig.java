@@ -19,7 +19,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
-/** Beans used for Kafka producer */
+/** Beans used by Kafka producer */
 @Slf4j
 @Configuration
 @ComponentScan(basePackages = {"io.numaproj.kafka.producer", "io.numaproj.kafka.schema"})
@@ -40,6 +40,7 @@ public class ProducerConfig {
     this.schemaRegistryPropertiesFilePath = schemaRegistryPropertiesFilePath;
   }
 
+  // Kafka producer client
   @Bean
   public KafkaProducer<String, GenericRecord> kafkaProducer() throws IOException {
     log.info(
@@ -52,6 +53,7 @@ public class ProducerConfig {
     return new KafkaProducer<>(props);
   }
 
+  // Schema registry client
   @Bean
   public SchemaRegistryClient schemaRegistryClient() throws IOException {
     log.info(

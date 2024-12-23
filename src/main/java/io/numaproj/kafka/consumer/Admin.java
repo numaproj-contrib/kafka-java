@@ -36,7 +36,7 @@ public class Admin implements DisposableBean {
     try {
       ListConsumerGroupOffsetsResult listConsumerGroupOffsetsResult =
           adminClient.listConsumerGroupOffsets(userConfig.getGroupId());
-      log.info("result: {}", listConsumerGroupOffsetsResult);
+      log.debug("listConsumerGroupOffsetsResult result: {}", listConsumerGroupOffsetsResult);
       Map<TopicPartition, OffsetSpec> topicPartitionOffsetSpecMap = new HashMap<>();
       Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap =
           listConsumerGroupOffsetsResult.partitionsToOffsetAndMetadata().get();
@@ -47,7 +47,7 @@ public class Admin implements DisposableBean {
             }
           });
       log.debug("Topic Partition Offset Metadata Map: {}", topicPartitionOffsetAndMetadataMap);
-      // Get latest Offset
+      // Get the latest Offsets for the topic partitions
       ListOffsetsResult listOffsetsResult = adminClient.listOffsets(topicPartitionOffsetSpecMap);
       Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo>
           topicPartitionListOffsetsResultInfoMap = listOffsetsResult.all().get();
@@ -79,9 +79,10 @@ public class Admin implements DisposableBean {
 
   @Override
   public void destroy() {
-    log.info("Shutting down the admin client");
+    log.info("Shutting down the Kafka admin client");
     if (adminClient != null) {
       adminClient.close();
     }
+    log.info("Kafka admin client shutdown complete");
   }
 }

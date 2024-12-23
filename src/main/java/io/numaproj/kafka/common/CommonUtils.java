@@ -4,7 +4,7 @@ package io.numaproj.kafka.common;
 public class CommonUtils {
 
   /**
-   * Common method to generate a key for maps holding topic partition offsets
+   * Generate a key for maps holding topic partition offsets
    *
    * @param topic - topic name
    * @param partition - partition number

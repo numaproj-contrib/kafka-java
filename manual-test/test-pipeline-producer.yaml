@@ -37,8 +37,8 @@ spec:
       sink:
         udsink:
           container:
-            image: quay.io/numaio/numaflow-java/kafka-sink-test:keran-v5 # quay.io/numaio/numaflow-java/kafka-java:v0.1.0
-            args: [ "--spring.profiles.active=debug", "--spring.config.location=file:/conf/user.configuration.yaml", "--producer.properties.path=/conf/producer.properties", "--schema.registry.properties.path=/conf/schema.registry.properties" ]
+            image: quay.io/numaio/numaflow-java/kafka-java:v0.2.0
+            args: [ "--spring.config.location=file:/conf/user.configuration.yaml", "--producer.properties.path=/conf/producer.properties", "--schema.registry.properties.path=/conf/schema.registry.properties" ]
             imagePullPolicy: Always
             volumeMounts:
               - name: kafka-config-volume

@@ -32,6 +32,7 @@ import org.springframework.context.annotation.FilterType;
 public class KafkaApplication {
 
   public static void main(String[] args) {
+    // TODO - validate the arguments, cannot enable both consumer and producer
     log.info("Supplied arguments: {}", (Object) args);
     new SpringApplicationBuilder(KafkaApplication.class).run(args);
   }

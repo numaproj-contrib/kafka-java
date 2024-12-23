@@ -23,10 +23,7 @@ import org.apache.kafka.common.header.Header;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-/**
- * KafkaSinker uses the schema defined in schema registry to parse, serialize and publish messages
- * to the target Kafka topic.
- */
+/** KafkaSourcer is the implementation of the Numaflow Sourcer to read messages from Kafka */
 @Slf4j
 @Component
 public class KafkaSourcer extends Sourcer {
@@ -36,12 +33,12 @@ public class KafkaSourcer extends Sourcer {
 
   // readTopicPartitionOffsetMap is used to keep track of the highest offsets read from the current
   // batch. The key is the topic:partition and the value is the highest offset read from the
-  // partition. This map is used to validate the ack request.
+  // partition. This map is used to validate the ack request, ensuring the ack request matches the
+  // previous read request.
   private Map<String, Long> readTopicPartitionOffsetMap;
 
   @Autowired
   public KafkaSourcer(Worker worker, Admin admin) {
-    log.info("KafkaSourcer initialized with worker and admin configurations");
     this.worker = worker;
     this.admin = admin;
   }
@@ -66,12 +63,12 @@ public class KafkaSourcer extends Sourcer {
 
   /** Used in tests */
   @VisibleForTesting
-  public void setReadTopicPartitionOffsetMap(Map<String, Long> readTopicPartitionOffsetMap) {
+  void setReadTopicPartitionOffsetMap(Map<String, Long> readTopicPartitionOffsetMap) {
     this.readTopicPartitionOffsetMap = readTopicPartitionOffsetMap;
   }
 
   public void kill(Exception e) {
-    log.error("Received kill signal, shutting down consumer worker", e);
+    log.error("Received kill signal, shutting down the sourcer", e);
     System.exit(100);
   }
 
@@ -176,7 +173,7 @@ public class KafkaSourcer extends Sourcer {
       }
     }
 
-    log.info(
+    log.debug(
         "No. of offsets in AckRequest:{}  topicPartitionOffsetList:{}",
         request.getOffsets().size(),
         topicPartitionOffsetMap);
@@ -188,6 +185,7 @@ public class KafkaSourcer extends Sourcer {
     }
   }
 
+  // This method is used to get the highest offset for each topic:partition from the AckRequest
   private static Map<String, Long> getPartitionToHighestOffsetMap(AckRequest request) {
     Map<String, Long> topicPartitionOffsetMap = new HashMap<>();
     for (Offset offset : request.getOffsets()) {
@@ -218,6 +216,8 @@ public class KafkaSourcer extends Sourcer {
 
   // TODO - this is opinionated that we are transforming the record to JSON format
   // and send to the next Numaflow vertex. We need to make this more generic
+  // It is implemented this way mainly because I am testing using Numaflow generator which generates
+  // messages in JSON format
   private byte[] toJSON(GenericRecord record) {
     Schema schema = record.getSchema();
     ByteArrayOutputStream out = new ByteArrayOutputStream();

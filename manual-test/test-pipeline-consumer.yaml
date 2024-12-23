@@ -22,7 +22,7 @@ spec:
       source:
         udsource:
           container:
-            image: quay.io/numaio/numaflow-java/kafka-sink-test:keran-v5
+            image: quay.io/numaio/numaflow-java/kafka-java:v0.2.0
             args: [ "--spring.config.location=file:/conf/user.configuration.yaml", "--consumer.properties.path=/conf/consumer.properties" ]
             imagePullPolicy: Always
             volumeMounts:

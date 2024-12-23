@@ -19,6 +19,7 @@ import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+/** Worker class that consumes messages from Kafka topic and commits offsets */
 @Slf4j
 @Component
 public class Worker implements Runnable, DisposableBean {

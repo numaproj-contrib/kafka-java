@@ -26,8 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * KafkaSinker uses the schema defined in schema registry to parse, serialize and publish messages
- * to the target Kafka topic.
+ * KafkaSinker validates the input message against the schema of target topic and sends the message
  */
 @Slf4j
 @Component
@@ -81,10 +80,11 @@ public class KafkaSinker extends Sinker implements DisposableBean {
 
       GenericRecord avroGenericRecord;
       // TODO - assuming single topic, we don't need to fetch the schema for each message
-      // see if there is any performance improvement by fetching the schema once
+      // see if there is any performance improvement by fetching the schema once.
       // currently sink can only do ~20 messages per second (2 pods 6 partitions)
       Schema schema = schemaRegistry.getAvroSchema(this.userConfig.getTopicName());
       if (schema == null) {
+        // TODO - support retrieving versioned schema
         String errMsg =
             "Failed to retrieve the latest schema for topic " + this.userConfig.getTopicName();
         log.error(errMsg);
@@ -136,6 +136,6 @@ public class KafkaSinker extends Sinker implements DisposableBean {
     countDownLatch.await();
     producer.close();
     schemaRegistry.close();
-    log.info("Kafka producer closed");
+    log.info("Kafka producer and schema registry client are closed.");
   }
 }
