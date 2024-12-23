@@ -40,6 +40,7 @@ public class ConsumerConfig {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
     props.load(is);
+    is.close();
     // disable auto commit, numaflow data forwarder takes care of committing offsets
     if (props.getProperty(
                 org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG)

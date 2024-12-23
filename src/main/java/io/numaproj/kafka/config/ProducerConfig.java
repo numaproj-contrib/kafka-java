@@ -50,6 +50,7 @@ public class ProducerConfig {
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
     props.load(is);
     log.info("Kafka producer props read from user input ConfigMap: {}", props);
+    is.close();
     return new KafkaProducer<>(props);
   }
 
