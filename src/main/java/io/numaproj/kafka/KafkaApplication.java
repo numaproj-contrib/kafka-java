@@ -16,6 +16,8 @@ import org.springframework.context.annotation.FilterType;
 @Slf4j
 @SpringBootApplication
 @EnableConfigurationProperties
+// TODO - there is a better way to group configurations for consumers and producers
+// such that we don't need to explicitly exclude them here.
 @ComponentScan(
     excludeFilters = {
       @ComponentScan.Filter(
