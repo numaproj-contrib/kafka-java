@@ -34,6 +34,7 @@ public class KafkaSinker extends Sinker implements DisposableBean {
   private final UserConfig userConfig;
   private final KafkaProducer<String, GenericRecord> producer;
   private final Registry schemaRegistry;
+  private final Schema schema;
 
   private AtomicBoolean isShutdown;
   private final CountDownLatch countDownLatch;
@@ -46,6 +47,13 @@ public class KafkaSinker extends Sinker implements DisposableBean {
     this.userConfig = userConfig;
     this.producer = producer;
     this.schemaRegistry = schemaRegistry;
+    this.schema = schemaRegistry.getAvroSchema(this.userConfig.getTopicName());
+    if (schema == null) {
+      log.error(
+          "Failed to retrieve the latest schema for topic {}", this.userConfig.getTopicName());
+      throw new RuntimeException("Failed to retrieve the latest schema for topic");
+    }
+
     this.isShutdown = new AtomicBoolean(false);
     this.countDownLatch = new CountDownLatch(1);
     log.info("KafkaSinker initialized with use configurations: {}", userConfig);
@@ -79,19 +87,6 @@ public class KafkaSinker extends Sinker implements DisposableBean {
       log.trace("Processing message with id: {}, payload: {}", datum.getId(), msg);
 
       GenericRecord avroGenericRecord;
-      // TODO - assuming single topic, we don't need to fetch the schema for each message
-      // see if there is any performance improvement by fetching the schema once.
-      // currently sink can only do ~20 messages per second (2 pods 6 partitions)
-      Schema schema = schemaRegistry.getAvroSchema(this.userConfig.getTopicName());
-      if (schema == null) {
-        // TODO - support retrieving versioned schema
-        String errMsg =
-            "Failed to retrieve the latest schema for topic " + this.userConfig.getTopicName();
-        log.error(errMsg);
-        responseListBuilder.addResponse(Response.responseFailure(datum.getId(), errMsg));
-        continue;
-      }
-
       try {
         // FIXME - this assumes the input data is in json format
         DatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);

@@ -49,6 +49,8 @@ public class ProducerConfig {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
     props.load(is);
+    // TODO - set avro serializer configuration here
+    // if user sets a different serializer, it will be overwritten with a warning message
     log.info("Kafka producer props read from user input ConfigMap: {}", props);
     is.close();
     return new KafkaProducer<>(props);
