@@ -3,7 +3,7 @@ package io.numaproj.kafka;
 import io.numaproj.kafka.consumer.Admin;
 import io.numaproj.kafka.consumer.KafkaSourcer;
 import io.numaproj.kafka.consumer.Worker;
-import io.numaproj.kafka.producer.KafkaSinker;
+import io.numaproj.kafka.producer.KafkaAvroSinker;
 import io.numaproj.kafka.schema.ConfluentRegistry;
 import io.numaproj.kafka.schema.Registry;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +23,7 @@ import org.springframework.context.annotation.FilterType;
       @ComponentScan.Filter(
           type = FilterType.ASSIGNABLE_TYPE,
           classes = {
-            KafkaSinker.class,
+            KafkaAvroSinker.class,
             KafkaSourcer.class,
             Admin.class,
             Worker.class,

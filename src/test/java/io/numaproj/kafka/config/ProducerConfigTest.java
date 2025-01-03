@@ -1,17 +1,16 @@
 package io.numaproj.kafka.config;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
+
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.Objects;
-
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.Mockito.mock;
 
 @Slf4j
 @ExtendWith(MockitoExtension.class)
@@ -31,9 +30,9 @@ public class ProducerConfigTest {
   }
 
   @Test
-  public void kafkaProducer_initializeSuccess() {
+  public void kafkaAvroProducer_initializeSuccess() {
     try {
-      var kafkaProducer = underTest.kafkaProducer();
+      var kafkaProducer = underTest.kafkaAvroProducer();
       assertNotNull(kafkaProducer);
     } catch (Exception e) {
       fail();

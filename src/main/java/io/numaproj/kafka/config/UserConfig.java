@@ -23,4 +23,6 @@ public class UserConfig {
   // Figure out a way to maintain single source of truth.
   // User shouldn't need to declare group id twice.
   private String groupId;
+  // TODO - enum for different schema types
+  private String schemaType;
 }

@@ -32,7 +32,7 @@ public class KafkaSinkerTest {
 
   private static final String TEST_TOPIC = "test-topic";
 
-  private KafkaSinker underTest;
+  private KafkaAvroSinker underTest;
 
   @BeforeEach
   public void setUp() {
@@ -47,7 +47,7 @@ public class KafkaSinkerTest {
     var schema = new Schema.Parser().parse(USER_SCHEMA_JSON);
     when(userConfig.getTopicName()).thenReturn(TEST_TOPIC);
     when(schemaRegistry.getAvroSchema(TEST_TOPIC)).thenReturn(schema);
-    underTest = new KafkaSinker(userConfig, producer, schemaRegistry);
+    underTest = new KafkaAvroSinker(userConfig, producer, schemaRegistry);
   }
 
   @Test
@@ -55,7 +55,7 @@ public class KafkaSinkerTest {
     when(schemaRegistry.getAvroSchema(TEST_TOPIC)).thenReturn(null);
     assertThrows(
         RuntimeException.class,
-        () -> underTest = new KafkaSinker(userConfig, producer, schemaRegistry));
+        () -> underTest = new KafkaAvroSinker(userConfig, producer, schemaRegistry));
   }
 
   @Test

@@ -21,18 +21,15 @@ import org.apache.avro.io.DecoderFactory;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-/**
- * KafkaSinker validates the input message against the schema of target topic and sends the message
- */
+/** KafkaAvroSinker uses avro schema to serialize and send the message */
 @Slf4j
 @Component
-public class KafkaSinker extends Sinker implements DisposableBean {
-  private final UserConfig userConfig;
-  private final KafkaProducer<String, GenericRecord> producer;
+@ConditionalOnProperty(name = "schemaType", havingValue = "avro")
+public class KafkaAvroSinker extends BaseKafkaSinker<GenericRecord> {
   private final Registry schemaRegistry;
   private final Schema schema;
 
@@ -40,12 +37,11 @@ public class KafkaSinker extends Sinker implements DisposableBean {
   private final CountDownLatch countDownLatch;
 
   @Autowired
-  public KafkaSinker(
+  public KafkaAvroSinker(
       UserConfig userConfig,
       KafkaProducer<String, GenericRecord> producer,
       Registry schemaRegistry) {
-    this.userConfig = userConfig;
-    this.producer = producer;
+    super(userConfig, producer);
     this.schemaRegistry = schemaRegistry;
     this.schema = schemaRegistry.getAvroSchema(this.userConfig.getTopicName());
     if (schema == null) {
@@ -60,7 +56,7 @@ public class KafkaSinker extends Sinker implements DisposableBean {
   }
 
   @PostConstruct
-  public void startProducer() throws Exception {
+  public void startSinker() throws Exception {
     log.info("Initializing Kafka sinker server...");
     new Server(this).start();
   }
@@ -122,7 +118,8 @@ public class KafkaSinker extends Sinker implements DisposableBean {
 
   /**
    * Triggerred during shutdown by the Spring framework. Allows the {@link
-   * KafkaSinker#processMessages(DatumIterator)} to complete in-flight requests and then shuts down.
+   * KafkaAvroSinker#processMessages(DatumIterator)} to complete in-flight requests and then shuts
+   * down.
    */
   @Override
   public void destroy() throws InterruptedException, IOException {

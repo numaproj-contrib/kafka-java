@@ -42,7 +42,7 @@ public class ProducerConfig {
 
   // Kafka producer client
   @Bean
-  public KafkaProducer<String, GenericRecord> kafkaProducer() throws IOException {
+  public KafkaProducer<String, GenericRecord> kafkaAvroProducer() throws IOException {
     log.info(
         "Instantiating the Kafka producer from the producer properties file path: {}",
         this.producerPropertiesFilePath);
