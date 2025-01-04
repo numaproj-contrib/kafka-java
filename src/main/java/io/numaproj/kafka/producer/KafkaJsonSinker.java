@@ -1,9 +1,7 @@
 package io.numaproj.kafka.producer;
 
 import io.numaproj.kafka.config.UserConfig;
-import io.numaproj.kafka.schema.Registry;
 import io.numaproj.numaflow.sinker.*;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -12,12 +10,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericDatumReader;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.DatumReader;
-import org.apache.avro.io.Decoder;
-import org.apache.avro.io.DecoderFactory;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -25,39 +17,25 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-/** KafkaAvroSinker uses avro schema to serialize and send the message */
+/** KafkaJsonSinker uses json schema to serialize and send the message */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "schemaType", havingValue = "avro")
-public class KafkaAvroSinker extends BaseKafkaSinker<GenericRecord> {
-  private final Registry schemaRegistry;
-  private final Schema schema;
-
+@ConditionalOnProperty(name = "schemaType", havingValue = "json")
+public class KafkaJsonSinker extends BaseKafkaSinker<String> {
   private AtomicBoolean isShutdown;
   private final CountDownLatch countDownLatch;
 
   @Autowired
-  public KafkaAvroSinker(
-      UserConfig userConfig,
-      KafkaProducer<String, GenericRecord> producer,
-      Registry schemaRegistry) {
+  public KafkaJsonSinker(UserConfig userConfig, KafkaProducer<String, String> producer) {
     super(userConfig, producer);
-    this.schemaRegistry = schemaRegistry;
-    this.schema = schemaRegistry.getAvroSchema(this.userConfig.getTopicName());
-    if (schema == null) {
-      log.error(
-          "Failed to retrieve the latest schema for topic {}", this.userConfig.getTopicName());
-      throw new RuntimeException("Failed to retrieve the latest schema for topic");
-    }
-
     this.isShutdown = new AtomicBoolean(false);
     this.countDownLatch = new CountDownLatch(1);
-    log.info("KafkaAvroSinker initialized with use configurations: {}", userConfig);
+    log.info("KafkaJsonSinker initialized with use configurations: {}", userConfig);
   }
 
   @PostConstruct
   public void startSinker() throws Exception {
-    log.info("Initializing Kafka avro sinker server...");
+    log.info("Initializing Kafka json sinker server...");
     new Server(this).start();
   }
 
@@ -77,25 +55,21 @@ public class KafkaAvroSinker extends BaseKafkaSinker<GenericRecord> {
       if (datum == null) {
         break;
       }
-
       String key = UUID.randomUUID().toString();
       String msg = new String(datum.getValue());
       log.trace("Processing message with id: {}, payload: {}", datum.getId(), msg);
 
-      GenericRecord avroGenericRecord;
-      try {
-        // FIXME - this assumes the input data is in json format
-        DatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);
-        Decoder decoder = DecoderFactory.get().jsonDecoder(schema, msg);
-        avroGenericRecord = reader.read(null, decoder);
-      } catch (Exception e) {
-        String errMsg = "Failed to prepare avro generic record " + e;
-        log.error(errMsg);
-        responseListBuilder.addResponse(Response.responseFailure(datum.getId(), errMsg));
-        continue;
-      }
-      ProducerRecord<String, GenericRecord> record =
-          new ProducerRecord<>(this.userConfig.getTopicName(), key, avroGenericRecord);
+      // TODO - validate the input data against Json schema
+      // the classic KafkaJsonSchemaSerializer requires a POJO being defined. It relies on
+      // Java class annotations to generate and validate JSON schemas against stored schemas in the
+      // Schema Registry.
+      // Hence, we can’t build a generic solution around that.
+      // To build a generic one, we need to validate messages by ourselves by retrieving the schema
+      // from the registry and use third party json validator to validate the raw input and then
+      // directly use string serializer to send raw validated string to the topic.
+
+      ProducerRecord<String, String> record =
+          new ProducerRecord<>(this.userConfig.getTopicName(), key, msg);
       inflightTasks.put(datum.getId(), this.producer.send(record));
     }
     log.debug("Number of messages inflight to the topic is {}", inflightTasks.size());
@@ -118,16 +92,15 @@ public class KafkaAvroSinker extends BaseKafkaSinker<GenericRecord> {
 
   /**
    * Triggerred during shutdown by the Spring framework. Allows the {@link
-   * KafkaAvroSinker#processMessages(DatumIterator)} to complete in-flight requests and then shuts
+   * KafkaJsonSinker#processMessages(DatumIterator)} to complete in-flight requests and then shuts
    * down.
    */
   @Override
-  public void destroy() throws InterruptedException, IOException {
+  public void destroy() throws InterruptedException {
     log.info("Sending shutdown signal...");
     isShutdown = new AtomicBoolean(true);
     countDownLatch.await();
     producer.close();
-    schemaRegistry.close();
     log.info("Kafka producer and schema registry client are closed.");
   }
 }

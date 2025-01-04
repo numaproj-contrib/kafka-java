@@ -40,7 +40,8 @@ public class ProducerConfig {
     this.schemaRegistryPropertiesFilePath = schemaRegistryPropertiesFilePath;
   }
 
-  // Kafka producer client
+  // Kafka producer client for avro
+  // FIXME - I believe this gets created even when the schemaType is json.
   @Bean
   public KafkaProducer<String, GenericRecord> kafkaAvroProducer() throws IOException {
     log.info(
@@ -50,6 +51,41 @@ public class ProducerConfig {
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
     props.load(is);
     // TODO - set avro serializer configuration here
+    props.put(
+        org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.StringSerializer");
+    props.put(
+        org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+        "io.confluent.kafka.serializers.KafkaAvroSerializer");
+    // never register schemas on behalf of the user
+    props.put("auto.register.schemas", "false");
+    // if user sets a different serializer, it will be overwritten with a warning message
+    log.info("Kafka producer props read from user input ConfigMap: {}", props);
+    is.close();
+    return new KafkaProducer<>(props);
+  }
+
+  // Kafka producer client for json
+  // FIXME - I believe this gets created even when the schemaType is avro.
+  @Bean
+  public KafkaProducer<String, String> kafkaJsonProducer() throws IOException {
+    log.info(
+        "Instantiating the Kafka producer from the producer properties file path: {}",
+        this.producerPropertiesFilePath);
+    Properties props = new Properties();
+    InputStream is = new FileInputStream(this.producerPropertiesFilePath);
+    props.load(is);
+    // TODO - set json serializer configuration here
+
+    props.put(
+        org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.StringSerializer");
+    props.put(
+        org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.StringSerializer");
+
+    // never register schemas on behalf of the user
+    props.put("auto.register.schemas", "false");
     // if user sets a different serializer, it will be overwritten with a warning message
     log.info("Kafka producer props read from user input ConfigMap: {}", props);
     is.close();

@@ -163,7 +163,6 @@ public class KafkaSinkerTest {
         .when(producer)
         .send(any(ProducerRecord.class));
 
-    // doReturn(recordMetadataFuture).when(producer).send(any(ProducerRecord.class));
     ResponseList responseList = underTest.processMessages(datumIterator);
     List<Response> responses = responseList.getResponses();
     Response response1 = Response.responseFailure("1", "future error");
