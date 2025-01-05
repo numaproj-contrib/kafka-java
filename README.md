@@ -12,7 +12,7 @@ Apache Kafka. It allows you to read/write data from/to Kafka using Numaflow.
 Kafka Sourcer reads data from a Kafka topic and passes the data to the downstream vertices. Below is an example of how
 to use.
 
-In this example, we read data from a Kafka topic named `numagen` and pass the data to a built-in cat UDF and a built-in
+In this example, we read data from a Kafka topic named `numagen` and pass the data to a built-in
 log sink. Feel free to use your own topic when trying this example.
 
 #### Steps
@@ -89,13 +89,6 @@ spec:
             volumeMounts:
               - name: kafka-config-volume
                 mountPath: /conf
-    - name: cat
-      scale:
-        min: 1
-        max: 1
-      udf:
-        builtin:
-          name: cat
     - name: sink
       scale:
         min: 1
@@ -105,23 +98,20 @@ spec:
           { }
   edges:
     - from: in
-      to: cat
-    - from: cat
       to: sink
 ```
 
 Please make sure that the args list under the sink vertex matches the file paths in the ConfigMap.
 
 3. Apply the ConfigMap and the pipeline, wait for the pipeline to be running. You should see the messages being consumed
-   from the Kafka topic and passed to the cat UDF, and finally logged in sink vertex.
+   from the Kafka topic and logged in sink vertex.
 
 ### Sink Vertex
 
 Kafka Sinker reads data from the upstream vertices and writes the data to a Kafka topic. It uses the schema defined in
 schema registry to validate and publish messages to the target Kafka topic. Below is an example of how to use.
 
-In this example, we use Numaflow built-in generator source to generate data, and a built-in cat UDF to pass the data to
-our Kafka sinker.
+In this example, we use Numaflow built-in generator source to generate data, and pass the data to our Kafka sinker.
 
 Data produced by the generator source is a nested struct with a `Data` field and a `Createdts` field. A sample data
 looks
@@ -233,12 +223,6 @@ spec:
         generator:
           rpu: 1
           duration: 1s
-    - name: cat
-      scale:
-        min: 1
-      udf:
-        builtin:
-          name: cat
     - name: sink
       volumes:
         - name: kafka-config-volume
@@ -267,8 +251,6 @@ spec:
                 mountPath: /conf
   edges:
     - from: in
-      to: cat
-    - from: cat
       to: sink
 ```
 
