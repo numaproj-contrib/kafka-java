@@ -42,11 +42,11 @@ public class ProducerConfig {
 
   // Kafka producer client for topics with no schema associated
   // it sends raw messages without serialization
-  // FIXME - I believe this gets created even when the schemaType is json/avro.
   @Bean
+  @ConditionalOnProperty(name = "schemaType", havingValue = "raw")
   public KafkaProducer<String, byte[]> kafkaByteArrayProducer() throws IOException {
     log.info(
-        "Instantiating the Kafka producer from the producer properties file path: {}",
+        "Instantiating the Kafka raw data producer from the producer properties file path: {}",
         this.producerPropertiesFilePath);
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
@@ -62,17 +62,17 @@ public class ProducerConfig {
     // never register schemas on behalf of the user
     props.put("auto.register.schemas", "false");
     // if user sets a different serializer, it will be overwritten with a warning message
-    log.info("Kafka producer props read from user input ConfigMap: {}", props);
+    log.info("Kafka raw data producer props read from user input ConfigMap: {}", props);
     is.close();
     return new KafkaProducer<>(props);
   }
 
   // Kafka producer client for avro
-  // FIXME - I believe this gets created even when the schemaType is json.
   @Bean
+  @ConditionalOnProperty(name = "schemaType", havingValue = "avro")
   public KafkaProducer<String, GenericRecord> kafkaAvroProducer() throws IOException {
     log.info(
-        "Instantiating the Kafka producer from the producer properties file path: {}",
+        "Instantiating the Kafka avro producer from the producer properties file path: {}",
         this.producerPropertiesFilePath);
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
@@ -88,17 +88,17 @@ public class ProducerConfig {
     // never register schemas on behalf of the user
     props.put("auto.register.schemas", "false");
     // if user sets a different serializer, it will be overwritten with a warning message
-    log.info("Kafka producer props read from user input ConfigMap: {}", props);
+    log.info("Kafka avro producer props read from user input ConfigMap: {}", props);
     is.close();
     return new KafkaProducer<>(props);
   }
 
   // Kafka producer client for json
-  // FIXME - I believe this gets created even when the schemaType is avro.
   @Bean
+  @ConditionalOnProperty(name = "schemaType", havingValue = "json")
   public KafkaProducer<String, String> kafkaJsonProducer() throws IOException {
     log.info(
-        "Instantiating the Kafka producer from the producer properties file path: {}",
+        "Instantiating the Kafka json producer from the producer properties file path: {}",
         this.producerPropertiesFilePath);
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
@@ -115,7 +115,7 @@ public class ProducerConfig {
     // never register schemas on behalf of the user
     props.put("auto.register.schemas", "false");
     // if user sets a different serializer, it will be overwritten with a warning message
-    log.info("Kafka producer props read from user input ConfigMap: {}", props);
+    log.info("Kafka json producer props read from user input ConfigMap: {}", props);
     is.close();
     return new KafkaProducer<>(props);
   }

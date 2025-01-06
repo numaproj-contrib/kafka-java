@@ -49,6 +49,10 @@ public class KafkaAvroSinker extends BaseKafkaSinker<GenericRecord> {
           "Failed to retrieve the latest schema for topic {}", this.userConfig.getTopicName());
       throw new RuntimeException("Failed to retrieve the latest schema for topic");
     }
+    log.info(
+        "Retrieved the latest schema for topic {}, schema name is {}",
+        this.userConfig.getTopicName(),
+        schema.getFullName());
 
     this.isShutdown = new AtomicBoolean(false);
     this.countDownLatch = new CountDownLatch(1);

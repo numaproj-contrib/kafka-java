@@ -28,7 +28,9 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "schemaType", matchIfMissing = true)
+// TODO - this should be default when schemaType is not set, user should not have to set this when
+// there is no schema associated with the topic
+@ConditionalOnProperty(name = "schemaType", havingValue = "raw")
 public class KafkaPlainSinker extends BaseKafkaSinker<byte[]> {
   private AtomicBoolean isShutdown;
   private final CountDownLatch countDownLatch;
