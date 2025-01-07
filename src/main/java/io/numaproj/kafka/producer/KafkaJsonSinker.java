@@ -1,9 +1,13 @@
 package io.numaproj.kafka.producer;
 
+import io.numaproj.kafka.common.JsonValidator;
 import io.numaproj.kafka.config.UserConfig;
+import io.numaproj.kafka.schema.Registry;
 import io.numaproj.numaflow.sinker.*;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
@@ -22,14 +26,34 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "schemaType", havingValue = "json")
 public class KafkaJsonSinker extends BaseKafkaSinker<String> {
+  private final Registry schemaRegistry;
+  private final String jsonSchema;
+
   private AtomicBoolean isShutdown;
   private final CountDownLatch countDownLatch;
 
   @Autowired
-  public KafkaJsonSinker(UserConfig userConfig, KafkaProducer<String, String> producer) {
+  public KafkaJsonSinker(
+      UserConfig userConfig, KafkaProducer<String, String> producer, Registry schemaRegistry) {
     super(userConfig, producer);
+
+    this.schemaRegistry = schemaRegistry;
+    this.jsonSchema = schemaRegistry.getJsonSchemaString(this.userConfig.getTopicName());
+    if (Objects.equals(jsonSchema, "") || jsonSchema == null) {
+      log.error(
+          "Failed to retrieve the latest json schema string for topic {}",
+          this.userConfig.getTopicName());
+      throw new RuntimeException("Failed to retrieve the latest json schema string for topic");
+    } else {
+      log.info(
+          "Retrieved the latest json schema string for topic {}, schema is {}",
+          this.userConfig.getTopicName(),
+          jsonSchema);
+    }
+
     this.isShutdown = new AtomicBoolean(false);
     this.countDownLatch = new CountDownLatch(1);
+
     log.info("KafkaJsonSinker initialized with use configurations: {}", userConfig);
   }
 
@@ -67,6 +91,12 @@ public class KafkaJsonSinker extends BaseKafkaSinker<String> {
       // To build a generic one, we need to validate messages by ourselves by retrieving the schema
       // from the registry and use third party json validator to validate the raw input and then
       // directly use string serializer to send raw validated string to the topic.
+      if (!JsonValidator.validate(msg, jsonSchema)) {
+        log.error("Failed to validate the message with id: {}, message: {}", datum.getId(), msg);
+        responseListBuilder.addResponse(
+            Response.responseFailure(datum.getId(), "Failed to validate the message"));
+        continue;
+      }
 
       ProducerRecord<String, String> record =
           new ProducerRecord<>(this.userConfig.getTopicName(), key, msg);
@@ -96,11 +126,12 @@ public class KafkaJsonSinker extends BaseKafkaSinker<String> {
    * down.
    */
   @Override
-  public void destroy() throws InterruptedException {
+  public void destroy() throws InterruptedException, IOException {
     log.info("Sending shutdown signal...");
     isShutdown = new AtomicBoolean(true);
     countDownLatch.await();
     producer.close();
+    schemaRegistry.close();
     log.info("Kafka producer and schema registry client are closed.");
   }
 }

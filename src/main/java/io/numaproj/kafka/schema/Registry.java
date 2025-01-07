@@ -10,6 +10,8 @@ public interface Registry {
   // If the schema is not found, it returns null.
   Schema getAvroSchema(String topicName);
 
+  String getJsonSchemaString(String topicName);
+
   // close closes the schema registry client.
   void close() throws IOException;
 }

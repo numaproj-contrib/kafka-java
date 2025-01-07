@@ -108,6 +108,8 @@ public class ProducerConfig {
     props.put(
         org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.StringSerializer");
+    // TODO - byte array serializer might be better because it is more flexible
+    // string will change the message format. e.g., integer to string
     props.put(
         org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.StringSerializer");
