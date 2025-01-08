@@ -51,7 +51,7 @@ public class ProducerConfig {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
     props.load(is);
-    // override the serializer with StringSerializer
+    // override the serializer
     // TODO - warning message if user sets a different serializer
     props.put(
         org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
@@ -77,7 +77,7 @@ public class ProducerConfig {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
     props.load(is);
-    // override the serializer with StringSerializer
+    // override the serializer
     // TODO - warning message if user sets a different serializer
     props.put(
         org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
@@ -103,7 +103,7 @@ public class ProducerConfig {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
     props.load(is);
-    // override the serializer with StringSerializer
+    // override the serializer
     // TODO - warning message if user sets a different serializer
     props.put(
         org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
