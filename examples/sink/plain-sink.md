@@ -39,10 +39,6 @@ data:
     session.timeout.ms=45000
     # Best practice for Kafka producer to prevent data loss
     acks=all
-    # Schema Registry connection configurations
-    schema.registry.url=[placeholder]
-    basic.auth.credentials.source=[placeholder]
-    basic.auth.user.info=[placeholder]
     # Other configurations
     retries=0
   user.configuration: |
