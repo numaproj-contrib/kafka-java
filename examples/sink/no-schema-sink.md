@@ -3,7 +3,7 @@
 ### Introduction
 
 This document demonstrates how to publish messages to a topic with no schema registered. When a topic has no schema, we
-assume no data validation is required before sending. Hence, for the key, the native string serializer
+assume no data validation is required before sending. Hence, for the key, string serializer
 `org.apache.kafka.common.serialization.StringSerializer` is used. For the value,
 `org.apache.kafka.common.serialization.ByteArraySerializer`.
 
@@ -25,7 +25,7 @@ Create a config map with the following configurations:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: kafka-producer-config
+  name: raw-producer-config
 data:
   producer.properties: |
     # Required connection configs for Kafka producer
@@ -54,7 +54,7 @@ the Kubernetes cluster.
 
 #### Create the pipeline
 
-Create the pipeline with numaflow built-in generator and Kafka sink. Configure the Kafka sink with the ConfigMap created
+Create the pipeline with numaflow builtin generator and Kafka sink. Configure the Kafka sink with the ConfigMap created
 in the previous step.
 
 ```yaml

@@ -3,13 +3,13 @@
 ### Introduction
 
 This document demonstrates how to publish messages to a topic that has an Avro schema registered. When a topic has an
-Avro schema, Kafka sink will serialize the message using the schema. For the key, the native string serializer
+Avro schema, Kafka sink will serialize the message using the schema. For the key, string serializer
 `org.apache.kafka.common.serialization.StringSerializer` is used. For the value, confluent Avro serializer
 `io.confluent.kafka.serializers.KafkaAvroSerializer`.
 
 Limitation:
 
-* The avro sinker assumes the input payload is in json format, it uses the
+* The avro sink assumes the input payload is in json format, it uses the
   `org.apache.avro.io.JsonEncoder` to encode the payload before sending to the Kafka topic. It's in our roadmap to
   support other encoders.
 * The avro sinker assumes the schema follows the default subject naming strategy (TopicNameStrategy) in the schema
@@ -60,7 +60,7 @@ Create a config map with the following configurations:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: kafka-producer-config
+  name: avro-producer-config
 data:
   producer.properties: |
     # Required connection configs for Kafka producer
@@ -89,7 +89,7 @@ serialize the data. Deploy the ConfigMap to the Kubernetes cluster.
 
 #### Create the pipeline
 
-Create the pipeline with numaflow built-in generator and Kafka sink. Configure the Kafka sink with the ConfigMap created
+Create the pipeline with numaflow builtin generator and Kafka sink. Configure the Kafka sink with the ConfigMap created
 in the previous step.
 
 ```yaml

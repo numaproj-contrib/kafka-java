@@ -20,7 +20,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
-/** Beans used by Kafka producer */
+/** Beans used by Kafka sinker */
 @Slf4j
 @Configuration
 @ComponentScan(basePackages = {"io.numaproj.kafka.producer", "io.numaproj.kafka.schema"})
@@ -35,10 +35,10 @@ public class ProducerConfig {
     this.producerPropertiesFilePath = producerPropertiesFilePath;
   }
 
-  // Kafka producer client for topics with no schema associated
-  // it sends raw messages without serialization
+  // Kafka producer client to publish raw date in byte array format to Kafka
+  // It is used when the destination topic has no schema or json schema
   @Bean
-  @ConditionalOnProperty(name = "schemaType", havingValue = "raw")
+  @ConditionalOnExpression("'${schemaType}'.equals('json') or '${schemaType}'.equals('raw')")
   public KafkaProducer<String, byte[]> kafkaByteArrayProducer() throws IOException {
     log.info(
         "Instantiating the Kafka raw data producer from the producer properties file path: {}",
@@ -56,8 +56,7 @@ public class ProducerConfig {
         "org.apache.kafka.common.serialization.ByteArraySerializer");
     // never register schemas on behalf of the user
     props.put("auto.register.schemas", "false");
-    // if user sets a different serializer, it will be overwritten with a warning message
-    log.info("Kafka raw data producer props read from user input ConfigMap: {}", props);
+    log.info("Kafka byte array data producer props read from user input ConfigMap: {}", props);
     is.close();
     return new KafkaProducer<>(props);
   }
@@ -82,37 +81,7 @@ public class ProducerConfig {
         "io.confluent.kafka.serializers.KafkaAvroSerializer");
     // never register schemas on behalf of the user
     props.put("auto.register.schemas", "false");
-    // if user sets a different serializer, it will be overwritten with a warning message
     log.info("Kafka avro producer props read from user input ConfigMap: {}", props);
-    is.close();
-    return new KafkaProducer<>(props);
-  }
-
-  // Kafka producer client for json
-  @Bean
-  @ConditionalOnProperty(name = "schemaType", havingValue = "json")
-  public KafkaProducer<String, String> kafkaJsonProducer() throws IOException {
-    log.info(
-        "Instantiating the Kafka json producer from the producer properties file path: {}",
-        this.producerPropertiesFilePath);
-    Properties props = new Properties();
-    InputStream is = new FileInputStream(this.producerPropertiesFilePath);
-    props.load(is);
-    // override the serializer
-    // TODO - warning message if user sets a different serializer
-    props.put(
-        org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.StringSerializer");
-    // TODO - byte array serializer might be better because it is more flexible
-    // string will change the message format. e.g., integer to string
-    props.put(
-        org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.StringSerializer");
-
-    // never register schemas on behalf of the user
-    props.put("auto.register.schemas", "false");
-    // if user sets a different serializer, it will be overwritten with a warning message
-    log.info("Kafka json producer props read from user input ConfigMap: {}", props);
     is.close();
     return new KafkaProducer<>(props);
   }

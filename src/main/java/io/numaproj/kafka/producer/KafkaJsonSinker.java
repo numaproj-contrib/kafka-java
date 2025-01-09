@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @ConditionalOnProperty(name = "schemaType", havingValue = "json")
-public class KafkaJsonSinker extends BaseKafkaSinker<String> {
+public class KafkaJsonSinker extends BaseKafkaSinker<byte[]> {
   private final Registry schemaRegistry;
   private final String jsonSchema;
 
@@ -34,7 +34,7 @@ public class KafkaJsonSinker extends BaseKafkaSinker<String> {
 
   @Autowired
   public KafkaJsonSinker(
-      UserConfig userConfig, KafkaProducer<String, String> producer, Registry schemaRegistry) {
+      UserConfig userConfig, KafkaProducer<String, byte[]> producer, Registry schemaRegistry) {
     super(userConfig, producer);
 
     this.schemaRegistry = schemaRegistry;
@@ -91,15 +91,15 @@ public class KafkaJsonSinker extends BaseKafkaSinker<String> {
       // To build a generic one, we need to validate messages by ourselves by retrieving the schema
       // from the registry and use third party json validator to validate the raw input and then
       // directly use string serializer to send raw validated string to the topic.
-      if (!JsonValidator.validate(msg, jsonSchema)) {
+      if (!JsonValidator.validate(jsonSchema, datum.getValue())) {
         log.error("Failed to validate the message with id: {}, message: {}", datum.getId(), msg);
         responseListBuilder.addResponse(
             Response.responseFailure(datum.getId(), "Failed to validate the message"));
         continue;
       }
 
-      ProducerRecord<String, String> record =
-          new ProducerRecord<>(this.userConfig.getTopicName(), key, msg);
+      ProducerRecord<String, byte[]> record =
+          new ProducerRecord<>(this.userConfig.getTopicName(), key, datum.getValue());
       inflightTasks.put(datum.getId(), this.producer.send(record));
     }
     log.debug("Number of messages inflight to the topic is {}", inflightTasks.size());

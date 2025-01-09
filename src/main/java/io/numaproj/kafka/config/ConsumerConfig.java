@@ -16,7 +16,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
-/** Beans used by Kafka consumer */
+/** Beans used by Kafka sourcer */
 @Slf4j
 @Configuration
 @ComponentScan(basePackages = "io.numaproj.kafka.consumer")

@@ -3,6 +3,7 @@ package io.numaproj.kafka.common;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 
 public class JsonValidatorTest {
@@ -29,14 +30,15 @@ public class JsonValidatorTest {
             }
         }
         """;
-    String data =
+    byte[] data =
         """
         {
             "age": -5,
             "name": null,
             "email": "invalid"
         }
-        """;
+        """
+            .getBytes(StandardCharsets.UTF_8);
     assertFalse(JsonValidator.validate(schema, data));
   }
 
@@ -73,7 +75,7 @@ public class JsonValidatorTest {
           "type": "object"
         }
         """;
-    String data =
+    byte[] data =
         """
         {
           "Data": {
@@ -81,7 +83,8 @@ public class JsonValidatorTest {
           },
           "Createdts": 1736093588709026645
         }
-        """;
+        """
+            .getBytes(StandardCharsets.UTF_8);
     assertTrue(JsonValidator.validate(schema, data));
   }
 
@@ -91,10 +94,11 @@ public class JsonValidatorTest {
         """
     {"$schema":"http://json-schema.org/draft-07/schema#","$id":"http://example.com/myURI.schema.json","title":"numagen-json","description":"schema for the topic numagen-json","type":"object","additionalProperties":false,"required":["Data","Createdts"],"properties":{"Data":{"type":"object","properties":{"value":{"type":"integer","format":"int64"}},"additionalProperties":false},"Createdts":{"type":"integer","format":"int64"}}}
     """;
-    String data =
+    byte[] data =
         """
     {"Data":{"value":1736093588709026645},"Createdts":1736093588709026645}
-    """;
+    """
+            .getBytes(StandardCharsets.UTF_8);
     assertTrue(JsonValidator.validate(schema, data));
   }
 }
