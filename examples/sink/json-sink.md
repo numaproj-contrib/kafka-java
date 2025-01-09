@@ -4,8 +4,9 @@
 
 This document demonstrates how to publish messages to a topic that has a JSON schema registered. When a topic has a
 JSON schema, Kafka sink will validate the message against the schema and then use the byte array serializer to
-serialize the message. For the key, string serializer `org.apache.kafka.common.serialization.StringSerializer` is used.
-For the value, `org.apache.kafka.common.serialization.ByteArraySerializer`.
+serialize the value of the message. For the key, string serializer
+`org.apache.kafka.common.serialization.StringSerializer` is used. For the value,
+`org.apache.kafka.common.serialization.ByteArraySerializer`.
 
 Current Limitations:
 

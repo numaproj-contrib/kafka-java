@@ -3,13 +3,14 @@
 ### Introduction
 
 This document demonstrates how to read messages from a topic that either has no schema or a JSON schema registered.
-Kafka source will de-serialize the message using the byte array de-serializer. For the key, string de-serializer
-`org.apache.kafka.common.serialization.StringDeserializer` is used. For the value, byte array de-serializer
-`io.confluent.kafka.serializers.ByteArrayDeserializer`.
+Kafka source will de-serialize the value of the message using the byte array de-serializer. For the key, string
+de-serializer `org.apache.kafka.common.serialization.StringDeserializer` is used. For the value, byte array
+de-serializer `io.confluent.kafka.serializers.ByteArrayDeserializer`.
 
 Current Limitations:
 
-* For topics with JSON schema or NO schema, there is NO schema validation for the messages read from the topic.
+* For topics with JSON schema or NO schema, there is NO schema validation for the messages read from the topic. The
+  Kafka source assumes the message is valid.
 
 ### Example
 
@@ -70,7 +71,8 @@ data:
 `consumer.properties`: [properties](https://kafka.apache.org/documentation/#consumerconfigs) to configure the consumer.
 `user.configuration`: User configurations for the source vertex. The configurations include `topicName`, `groupId` and
 `schemaType`, which is the Kafka topic name, consumer group id and schema type respectively. The `schemaType` is set to
-`raw` to indicate that there is no schema registered for the topic.
+`raw` to indicate that there is no schema registered for the topic. (You can also set the `schemaType` to `json` if the
+topic has a JSON schema registered).
 
 Deploy the ConfigMap to the Kubernetes cluster.
 

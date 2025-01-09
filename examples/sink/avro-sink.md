@@ -3,7 +3,7 @@
 ### Introduction
 
 This document demonstrates how to publish messages to a topic that has an Avro schema registered. When a topic has an
-Avro schema, Kafka sink will serialize the message using the schema. For the key, string serializer
+Avro schema, Kafka sink will serialize the value of the message using the schema. For the key, string serializer
 `org.apache.kafka.common.serialization.StringSerializer` is used. For the value, confluent Avro serializer
 `io.confluent.kafka.serializers.KafkaAvroSerializer`.
 

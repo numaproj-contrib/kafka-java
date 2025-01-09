@@ -3,7 +3,7 @@
 ### Introduction
 
 This document demonstrates how to read messages from a topic that has an Avro schema registered. When a topic has an
-Avro schema, Kafka source will de-serialize the message using the schema. For the key, string de-serializer
+Avro schema, Kafka source will de-serialize the value of the message using the schema. For the key, string de-serializer
 `org.apache.kafka.common.serialization.StringDeserializer` is used. For the value, confluent Avro de-serializer
 `io.confluent.kafka.serializers.KafkaAvroDeserializer`.
 
