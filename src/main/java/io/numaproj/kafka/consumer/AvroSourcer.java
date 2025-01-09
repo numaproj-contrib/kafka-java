@@ -14,20 +14,22 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.EncoderFactory;
+import org.apache.avro.io.JsonEncoder;
 import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.Header;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-/** KafkaSourcer is the implementation of the Numaflow Sourcer to read messages from Kafka */
+/** AvroSourcer is the implementation of the Numaflow Sourcer to read avro messages from Kafka */
 @Slf4j
 @Component
-public class KafkaSourcer extends Sourcer {
-  private final Worker worker;
+@ConditionalOnProperty(name = "schemaType", havingValue = "avro")
+public class AvroSourcer extends Sourcer {
+  private final AvroWorker avroWorker;
   private final Admin admin;
   private Thread workerThread;
 
@@ -38,15 +40,15 @@ public class KafkaSourcer extends Sourcer {
   private Map<String, Long> readTopicPartitionOffsetMap;
 
   @Autowired
-  public KafkaSourcer(Worker worker, Admin admin) {
-    this.worker = worker;
+  public AvroSourcer(AvroWorker avroWorker, Admin admin) {
+    this.avroWorker = avroWorker;
     this.admin = admin;
   }
 
   @PostConstruct
   public void startConsumer() throws Exception {
     log.info("Starting the Kafka consumer worker thread...");
-    workerThread = new Thread(worker, "consumerWorkerThread");
+    workerThread = new Thread(avroWorker, "consumerWorkerThread");
     workerThread.start();
     log.info("Initializing Kafka sourcer server...");
     new Server(this).start();
@@ -92,7 +94,7 @@ public class KafkaSourcer extends Sourcer {
         break;
       }
       try {
-        consumerRecordList = worker.poll();
+        consumerRecordList = avroWorker.poll();
       } catch (InterruptedException e) {
         // Exit from the loop if the thread is interrupted
         kill(new RuntimeException(e));
@@ -114,7 +116,7 @@ public class KafkaSourcer extends Sourcer {
         // TODO - Do we need to add cluster ID to the offset value?
         // For now, it's probably good enough.
         String offsetValue = consumerRecord.topic() + ":" + consumerRecord.offset();
-        byte[] payload = toByteArray(consumerRecord.value());
+        byte[] payload = toJSON(consumerRecord.value());
         if (payload == null) {
           String errMsg = "Failed to convert the record to Json format: " + consumerRecord;
           log.error(errMsg);
@@ -178,7 +180,7 @@ public class KafkaSourcer extends Sourcer {
         request.getOffsets().size(),
         topicPartitionOffsetMap);
     try {
-      worker.commit();
+      avroWorker.commit();
     } catch (InterruptedException e) {
       // Exit from the loop if the thread is interrupted
       kill(new RuntimeException(e));
@@ -211,19 +213,19 @@ public class KafkaSourcer extends Sourcer {
 
   @Override
   public List<Integer> getPartitions() {
-    return worker.getPartitions();
+    return avroWorker.getPartitions();
   }
 
   // TODO - this is opinionated that we are transforming the record to JSON format
   // and send to the next Numaflow vertex. We need to make this more generic
   // It is implemented this way mainly because I am testing using Numaflow generator which generates
   // messages in JSON format
-  private byte[] toByteArray(GenericRecord record) {
+  private byte[] toJSON(GenericRecord record) {
     Schema schema = record.getSchema();
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     try (out) {
       DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<>(schema);
-      BinaryEncoder encoder = EncoderFactory.get().binaryEncoder(out, null);
+      JsonEncoder encoder = EncoderFactory.get().jsonEncoder(schema, out);
       datumWriter.write(record, encoder);
       encoder.flush();
     } catch (IOException e) {

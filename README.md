@@ -55,7 +55,7 @@ data:
 
 `consumer.properties`: [properties](https://kafka.apache.org/documentation/#consumerconfigs) to configure
 the consumer.
-`user.configuration`: User configurations for the sink vertex. The configurations include `topicName` and `groupId`,
+`user.configuration`: User configurations for the source vertex. The configurations include `topicName` and `groupId`,
 which is the Kafka topic name and consumer group id respectively.
 
 2. Specify the source in a Numaflow pipeline.

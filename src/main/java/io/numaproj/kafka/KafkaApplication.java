@@ -1,9 +1,10 @@
 package io.numaproj.kafka;
 
-import io.numaproj.kafka.consumer.Admin;
-import io.numaproj.kafka.consumer.KafkaSourcer;
-import io.numaproj.kafka.consumer.Worker;
+import io.numaproj.kafka.consumer.*;
+import io.numaproj.kafka.producer.BaseKafkaSinker;
 import io.numaproj.kafka.producer.KafkaAvroSinker;
+import io.numaproj.kafka.producer.KafkaByteArraySinker;
+import io.numaproj.kafka.producer.KafkaJsonSinker;
 import io.numaproj.kafka.schema.ConfluentRegistry;
 import io.numaproj.kafka.schema.Registry;
 import lombok.extern.slf4j.Slf4j;
@@ -23,10 +24,15 @@ import org.springframework.context.annotation.FilterType;
       @ComponentScan.Filter(
           type = FilterType.ASSIGNABLE_TYPE,
           classes = {
+            BaseKafkaSinker.class,
             KafkaAvroSinker.class,
-            KafkaSourcer.class,
+            KafkaJsonSinker.class,
+            KafkaByteArraySinker.class,
+            AvroSourcer.class,
+            ByteArraySourcer.class,
             Admin.class,
-            Worker.class,
+            AvroWorker.class,
+            ByteArrayWorker.class,
             ConfluentRegistry.class,
             Registry.class
           })

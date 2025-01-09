@@ -11,6 +11,7 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -33,9 +34,10 @@ public class ConsumerConfig {
 
   // Kafka consumer client
   @Bean
-  public KafkaConsumer<String, GenericRecord> kafkaConsumer() throws IOException {
+  @ConditionalOnProperty(name = "schemaType", havingValue = "avro")
+  public KafkaConsumer<String, GenericRecord> kafkaAvroConsumer() throws IOException {
     log.info(
-        "Instantiating the Kafka consumer from the consumer properties file: {}",
+        "Instantiating the Kafka avro consumer from the consumer properties file: {}",
         this.consumerPropertiesFilePath);
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
@@ -57,6 +59,57 @@ public class ConsumerConfig {
     if (groupId == null || StringUtils.isBlank((String) groupId)) {
       throw new IllegalArgumentException("group.id is mandatory for Kafka consumer");
     }
+
+    // override the deserializer
+    // TODO - warning message if user sets a different deserializer
+    props.put(
+        org.apache.kafka.clients.consumer.ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.StringDeserializer");
+    props.put(
+        org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+        "io.confluent.kafka.serializers.KafkaAvroDeserializer");
+
+    log.info("Kafka consumer props read from user input ConfigMap: {}", props);
+    return new KafkaConsumer<>(props);
+  }
+
+  // Kafka consumer client
+  @Bean
+  @ConditionalOnExpression("'${schemaType}'.equals('json') or '${schemaType}'.equals('raw')")
+  public KafkaConsumer<String, byte[]> kafkaByteArrayConsumer() throws IOException {
+    log.info(
+        "Instantiating the Kafka byte array consumer from the consumer properties file: {}",
+        this.consumerPropertiesFilePath);
+    Properties props = new Properties();
+    InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
+    props.load(is);
+    is.close();
+    // disable auto commit, numaflow data forwarder takes care of committing offsets
+    if (props.getProperty(
+                org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG)
+            != null
+        && Boolean.parseBoolean(
+            props.getProperty(
+                org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG))) {
+      log.info("Overwriting enable.auto.commit to false ");
+    }
+    props.put(org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+    // ensure  consumer group id is present
+    var groupId =
+        props.getOrDefault(org.apache.kafka.clients.consumer.ConsumerConfig.GROUP_ID_CONFIG, null);
+    if (groupId == null || StringUtils.isBlank((String) groupId)) {
+      throw new IllegalArgumentException("group.id is mandatory for Kafka consumer");
+    }
+
+    // override the deserializer
+    // TODO - warning message if user sets a different deserializer
+    props.put(
+        org.apache.kafka.clients.consumer.ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.StringDeserializer");
+    props.put(
+        org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.ByteArrayDeserializer");
+
     log.info("Kafka consumer props read from user input ConfigMap: {}", props);
     return new KafkaConsumer<>(props);
   }

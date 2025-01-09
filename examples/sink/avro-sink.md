@@ -7,13 +7,12 @@ Avro schema, Kafka sink will serialize the message using the schema. For the key
 `org.apache.kafka.common.serialization.StringSerializer` is used. For the value, confluent Avro serializer
 `io.confluent.kafka.serializers.KafkaAvroSerializer`.
 
-Limitation:
+Current Limitations:
 
 * The avro sink assumes the input payload is in json format, it uses the
-  `org.apache.avro.io.JsonEncoder` to encode the payload before sending to the Kafka topic. It's in our roadmap to
-  support other encoders.
+  `org.apache.avro.io.JsonDecoder` to decode the payload to Avro GenericRecord before sending to the Kafka topic.
 * The avro sinker assumes the schema follows the default subject naming strategy (TopicNameStrategy) in the schema
-  registry. It's in our roadmap to support other naming strategies.
+  registry.
 
 ### Example
 

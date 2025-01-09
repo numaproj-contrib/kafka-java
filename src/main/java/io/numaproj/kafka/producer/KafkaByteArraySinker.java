@@ -18,25 +18,20 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * KafkaPlainSinker sends the raw messages without executing serialization. It is used when the
- * schemaType from {@link UserConfig} is not set, meaning the topic does not have a schema.
- *
- * <p>If there is a schema associated with the topic, this sinker will send the raw message even
- * when the message doesn't match the schema. There is no client side validation for the message.
- *
- * <p>TODO - consider consulting the schema registry first and throw an error if a schema is found.
+ * KafkaByteArraySinker sends the raw messages without executing serialization. It is used when the
+ * schemaType from {@link UserConfig} is set to raw, meaning the topic does not have a schema.
  */
 @Slf4j
 @Component
 // TODO - this should be default when schemaType is not set, user should not have to set this when
 // there is no schema associated with the topic
 @ConditionalOnProperty(name = "schemaType", havingValue = "raw")
-public class KafkaPlainSinker extends BaseKafkaSinker<byte[]> {
+public class KafkaByteArraySinker extends BaseKafkaSinker<byte[]> {
   private AtomicBoolean isShutdown;
   private final CountDownLatch countDownLatch;
 
   @Autowired
-  public KafkaPlainSinker(UserConfig userConfig, KafkaProducer<String, byte[]> producer) {
+  public KafkaByteArraySinker(UserConfig userConfig, KafkaProducer<String, byte[]> producer) {
     super(userConfig, producer);
     this.isShutdown = new AtomicBoolean(false);
     this.countDownLatch = new CountDownLatch(1);
@@ -93,8 +88,8 @@ public class KafkaPlainSinker extends BaseKafkaSinker<byte[]> {
 
   /**
    * Triggerred during shutdown by the Spring framework. Allows the {@link
-   * KafkaPlainSinker#processMessages(DatumIterator)} to complete in-flight requests and then shuts
-   * down.
+   * KafkaByteArraySinker#processMessages(DatumIterator)} to complete in-flight requests and then
+   * shuts down.
    */
   @Override
   public void destroy() throws InterruptedException {

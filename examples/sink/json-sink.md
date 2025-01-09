@@ -7,10 +7,10 @@ JSON schema, Kafka sink will validate the message against the schema and then us
 serialize the message. For the key, string serializer `org.apache.kafka.common.serialization.StringSerializer` is used.
 For the value, `org.apache.kafka.common.serialization.ByteArraySerializer`.
 
-Limitation:
+Current Limitations:
 
 * The JSON sink assumes the schema follows the default subject naming strategy (TopicNameStrategy) in the schema
-  registry. It's in our roadmap to support other naming strategies.
+  registry.
 
 ### Example
 

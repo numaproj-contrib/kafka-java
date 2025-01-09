@@ -21,16 +21,16 @@ import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-public class KafkaSourcerTest {
+public class AvroSourcerTest {
   private final Admin adminMock = mock(Admin.class);
-  private final Worker workerMock = mock(Worker.class);
+  private final AvroWorker avroWorkerMock = mock(AvroWorker.class);
 
-  private KafkaSourcer underTest;
+  private AvroSourcer underTest;
 
   @Test
   void givenSourcer_whenStartConsumer_thenNumaflowSourceServerStarted() {
     try {
-      underTest = Mockito.spy(new KafkaSourcer(workerMock, adminMock));
+      underTest = Mockito.spy(new AvroSourcer(avroWorkerMock, adminMock));
       try (var mockedConstruction = Mockito.mockConstruction(Server.class)) {
         AtomicBoolean runMethodInvoked = new AtomicBoolean(false);
         doAnswer(
@@ -38,7 +38,7 @@ public class KafkaSourcerTest {
                   runMethodInvoked.set(true);
                   return null;
                 })
-            .when(workerMock)
+            .when(avroWorkerMock)
             .run();
         underTest.startConsumer();
         verify(mockedConstruction.constructed().getFirst(), times(1)).start();
@@ -61,9 +61,9 @@ public class KafkaSourcerTest {
           new ConsumerRecord<>("foo", 1, 1, "bar", generateTestData());
       consumerRecords.add(consumerRecord);
       OutputObserver outputObserver = Mockito.mock(OutputObserver.class);
-      underTest = Mockito.spy(new KafkaSourcer(workerMock, adminMock));
+      underTest = Mockito.spy(new AvroSourcer(avroWorkerMock, adminMock));
       Mockito.doReturn(true).when(underTest).isWorkerThreadAlive();
-      doReturn(consumerRecords).when(workerMock).poll();
+      doReturn(consumerRecords).when(avroWorkerMock).poll();
       doAnswer(
               methodInvocation -> {
                 methodInvocation.getArgument(0);
@@ -86,9 +86,9 @@ public class KafkaSourcerTest {
       when(readRequest.getTimeout()).thenReturn(Duration.ofMillis(100));
       OutputObserver outputObserver = Mockito.mock(OutputObserver.class);
 
-      underTest = Mockito.spy(new KafkaSourcer(workerMock, adminMock));
+      underTest = Mockito.spy(new AvroSourcer(avroWorkerMock, adminMock));
       Mockito.doReturn(true).when(underTest).isWorkerThreadAlive();
-      doThrow(new InterruptedException("foo")).when(workerMock).poll();
+      doThrow(new InterruptedException("foo")).when(avroWorkerMock).poll();
       doAnswer(
               mi -> {
                 // more than read request time out
@@ -120,9 +120,9 @@ public class KafkaSourcerTest {
       cr.headers().add("foo", "bar".getBytes());
       consumerRecords.add(cr);
       OutputObserver outputObserver = Mockito.mock(OutputObserver.class);
-      underTest = Mockito.spy(new KafkaSourcer(workerMock, adminMock));
+      underTest = Mockito.spy(new AvroSourcer(avroWorkerMock, adminMock));
       Mockito.doReturn(true).when(underTest).isWorkerThreadAlive();
-      doReturn(consumerRecords).when(workerMock).poll();
+      doReturn(consumerRecords).when(avroWorkerMock).poll();
       doAnswer(
               methodInvocation -> {
                 Message message = methodInvocation.getArgument(0);
@@ -143,7 +143,7 @@ public class KafkaSourcerTest {
   void givenSourcerRead_whenWorkerThreadIsNotAlive_thenKillInvoked() {
     ReadRequest readRequest = mock(ReadRequest.class);
     when(readRequest.getCount()).thenReturn(1L);
-    underTest = Mockito.spy(new KafkaSourcer(workerMock, adminMock));
+    underTest = Mockito.spy(new AvroSourcer(avroWorkerMock, adminMock));
     doReturn(false).when(underTest).isWorkerThreadAlive();
     doAnswer(
             mi -> {
@@ -161,7 +161,7 @@ public class KafkaSourcerTest {
   void givenSourcerRead_whenReadTimeout_thenDoNotReadMore() {
     try {
       ReadRequest readRequest = mock(ReadRequest.class);
-      underTest = Mockito.spy(new KafkaSourcer(workerMock, adminMock));
+      underTest = Mockito.spy(new AvroSourcer(avroWorkerMock, adminMock));
 
       when(readRequest.getCount()).thenReturn(2L);
       // set timeout to 100 milliseconds
@@ -180,7 +180,7 @@ public class KafkaSourcerTest {
                 consumerRecords.add(consumerRecord);
                 return consumerRecords;
               })
-          .when(workerMock)
+          .when(avroWorkerMock)
           .poll();
       underTest.read(readRequest, outputObserver);
       // verify that only one message is read
@@ -199,9 +199,9 @@ public class KafkaSourcerTest {
       List<ConsumerRecord<String, GenericRecord>> consumerRecords = new ArrayList<>();
       consumerRecords.add(null);
       OutputObserver outputObserver = Mockito.mock(OutputObserver.class);
-      underTest = Mockito.spy(new KafkaSourcer(workerMock, adminMock));
+      underTest = Mockito.spy(new AvroSourcer(avroWorkerMock, adminMock));
       doReturn(true).when(underTest).isWorkerThreadAlive();
-      doReturn(consumerRecords).when(workerMock).poll();
+      doReturn(consumerRecords).when(avroWorkerMock).poll();
       underTest.read(readRequest, outputObserver);
       verify(outputObserver, times(0)).send(any());
     } catch (Exception e) {
@@ -216,9 +216,9 @@ public class KafkaSourcerTest {
       when(readRequest.getCount()).thenReturn(1L);
       when(readRequest.getTimeout()).thenReturn(Duration.ofMillis(100));
       OutputObserver outputObserver = Mockito.mock(OutputObserver.class);
-      underTest = Mockito.spy(new KafkaSourcer(workerMock, adminMock));
+      underTest = Mockito.spy(new AvroSourcer(avroWorkerMock, adminMock));
       doReturn(true).when(underTest).isWorkerThreadAlive();
-      doReturn(null).when(workerMock).poll();
+      doReturn(null).when(avroWorkerMock).poll();
       underTest.read(readRequest, outputObserver);
       verify(outputObserver, times(0)).send(any());
     } catch (Exception e) {
@@ -229,7 +229,7 @@ public class KafkaSourcerTest {
   @Test
   void givenSourcerAck_whenAckRequestReceived_thenWorkerCommit() {
     try {
-      underTest = Mockito.spy(new KafkaSourcer(workerMock, adminMock));
+      underTest = Mockito.spy(new AvroSourcer(avroWorkerMock, adminMock));
       String offsetValue = "test-topic" + ":" + 1;
       Offset offset = new Offset(offsetValue.getBytes(StandardCharsets.UTF_8), 10);
       List<Offset> offsets = new ArrayList<>();
@@ -242,7 +242,7 @@ public class KafkaSourcerTest {
             }
           };
       underTest.ack(ackRequest);
-      verify(workerMock, times(1)).commit();
+      verify(avroWorkerMock, times(1)).commit();
     } catch (Exception e) {
       fail();
     }
@@ -253,7 +253,7 @@ public class KafkaSourcerTest {
     try {
       Map<String, Long> readTopicPartionMap = new HashMap<>();
       readTopicPartionMap.put("test-topic:10", 100L);
-      underTest = Mockito.spy(new KafkaSourcer(workerMock, adminMock));
+      underTest = Mockito.spy(new AvroSourcer(avroWorkerMock, adminMock));
       underTest.setReadTopicPartitionOffsetMap(readTopicPartionMap);
       // the requested offset doesn't exist in readTopicPartitionOffsetMap, which indicates that
       // the ack is out of sync with the previous read
@@ -270,7 +270,7 @@ public class KafkaSourcerTest {
           };
       underTest.ack(ackRequest);
       // TODO - verify that error metrics are emitted, once we have metrics added.
-      verify(workerMock, times(1)).commit();
+      verify(avroWorkerMock, times(1)).commit();
     } catch (Exception e) {
       fail();
     }
@@ -279,8 +279,8 @@ public class KafkaSourcerTest {
   @Test
   void givenSourcerAck_whenAckInterrupted_sourcerKilled() {
     try {
-      underTest = Mockito.spy(new KafkaSourcer(workerMock, adminMock));
-      doThrow(new InterruptedException("foo")).when(workerMock).commit();
+      underTest = Mockito.spy(new AvroSourcer(avroWorkerMock, adminMock));
+      doThrow(new InterruptedException("foo")).when(avroWorkerMock).commit();
       String offsetValue = "test-topic" + ":" + 1;
       Offset offset = new Offset(offsetValue.getBytes(StandardCharsets.UTF_8), 10);
       List<Offset> offsets = new ArrayList<>();
@@ -294,7 +294,7 @@ public class KafkaSourcerTest {
           };
       doNothing().when(underTest).kill(any(RuntimeException.class));
       underTest.ack(ackRequest);
-      verify(workerMock, times(1)).commit();
+      verify(avroWorkerMock, times(1)).commit();
       verify(underTest, times(1)).kill(any(RuntimeException.class));
     } catch (Exception e) {
       fail();
@@ -303,7 +303,7 @@ public class KafkaSourcerTest {
 
   @Test
   void givenSourcer_whenGetPending_thenAdminReturnPendingCount() {
-    underTest = Mockito.spy(new KafkaSourcer(workerMock, adminMock));
+    underTest = Mockito.spy(new AvroSourcer(avroWorkerMock, adminMock));
     doReturn(100L).when(adminMock).getPendingMessages();
     long count = underTest.getPending();
     assertEquals(100L, count);
@@ -311,10 +311,10 @@ public class KafkaSourcerTest {
 
   @Test
   void givenSourcer_whenGetPartitions_thenWorkerReturnPartitions() {
-    underTest = Mockito.spy(new KafkaSourcer(workerMock, adminMock));
-    doReturn(List.of(1)).when(workerMock).getPartitions();
+    underTest = Mockito.spy(new AvroSourcer(avroWorkerMock, adminMock));
+    doReturn(List.of(1)).when(avroWorkerMock).getPartitions();
     underTest.getPartitions();
-    verify(workerMock, times(1)).getPartitions();
+    verify(avroWorkerMock, times(1)).getPartitions();
     assertEquals(1, underTest.getPartitions().size());
     assertEquals(1, underTest.getPartitions().getFirst());
   }
