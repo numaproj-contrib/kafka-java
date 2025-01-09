@@ -23,9 +23,6 @@ public class ProducerConfigTest {
     underTest =
         new ProducerConfig(
             Objects.requireNonNull(getClass().getClassLoader().getResource("producer.properties"))
-                .getPath(),
-            Objects.requireNonNull(
-                    getClass().getClassLoader().getResource("schema.registry.properties"))
                 .getPath());
   }
 

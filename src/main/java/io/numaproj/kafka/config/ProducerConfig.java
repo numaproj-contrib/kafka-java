@@ -29,15 +29,9 @@ public class ProducerConfig {
   @Value("${producer.properties.path:NA}")
   private String producerPropertiesFilePath;
 
-  @Value("${schema.registry.properties.path:NA}")
-  private String schemaRegistryPropertiesFilePath;
-
   // package-private constructor. this is for unit test only.
-  ProducerConfig(
-      @Value("${producer.properties.path:NA}") String producerPropertiesFilePath,
-      @Value("${schema.registry.properties.path:NA}") String schemaRegistryPropertiesFilePath) {
+  ProducerConfig(@Value("${producer.properties.path:NA}") String producerPropertiesFilePath) {
     this.producerPropertiesFilePath = producerPropertiesFilePath;
-    this.schemaRegistryPropertiesFilePath = schemaRegistryPropertiesFilePath;
   }
 
   // Kafka producer client for topics with no schema associated
@@ -126,11 +120,8 @@ public class ProducerConfig {
   @Bean
   @ConditionalOnProperty(name = "schemaType", havingValue = "avro")
   public SchemaRegistryClient schemaRegistryClient() throws IOException {
-    log.info(
-        "Instantiating the Kafka schema registry client from the schema registry properties file path: {}",
-        this.schemaRegistryPropertiesFilePath);
     Properties props = new Properties();
-    InputStream is = new FileInputStream(this.schemaRegistryPropertiesFilePath);
+    InputStream is = new FileInputStream(this.producerPropertiesFilePath);
     props.load(is);
     String schemaRegistryUrl = props.getProperty("schema.registry.url");
     int identityMapCapacity =

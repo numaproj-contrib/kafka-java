@@ -3,7 +3,7 @@
 ### Introduction
 
 This document demonstrates how to publish messages to a topic with no schema registered. When a topic has no schema, we
-assume no data validation is required before sending. Hence, for the key, the native
+assume no data validation is required before sending. Hence, for the key, the native string serializer
 `org.apache.kafka.common.serialization.StringSerializer` is used. For the value,
 `org.apache.kafka.common.serialization.ByteArraySerializer`.
 
@@ -67,6 +67,7 @@ spec:
     - name: in
       scale:
         min: 1
+        max: 1
       source:
         generator:
           rpu: 1
@@ -83,7 +84,7 @@ spec:
                 path: producer.properties
       scale:
         min: 1
-        max: 6
+        max: 1
       sink:
         udsink:
           container:
