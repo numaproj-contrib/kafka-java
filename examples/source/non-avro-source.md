@@ -1,55 +1,24 @@
-# Read from a topic with an Avro schema registered
+# Read from a topic with no schema or JSON schema registered
 
 ### Introduction
 
-This document demonstrates how to read messages from a topic that has an Avro schema registered. When a topic has an
-Avro schema, Kafka source will de-serialize the message using the schema. For the key, string de-serializer
-`org.apache.kafka.common.serialization.StringDeserializer` is used. For the value, confluent Avro de-serializer
-`io.confluent.kafka.serializers.KafkaAvroDeserializer`.
+This document demonstrates how to read messages from a topic that either has no schema or a JSON schema registered.
+Kafka source will de-serialize the message using the byte array de-serializer. For the key, string de-serializer
+`org.apache.kafka.common.serialization.StringDeserializer` is used. For the value, byte array de-serializer
+`io.confluent.kafka.serializers.ByteArrayDeserializer`.
 
 Current Limitations:
 
-* The Avro source assumes the de-serialized message is in json format, it uses the
-  `org.apache.avro.io.JsonEncoder` to encode the de-serialized Avro GenericRecord to byte array before sending to the
-  next vertex.
-* The avro source assumes the schema follows the default subject naming strategy (TopicNameStrategy) in the schema
-  registry.
+* For topics with JSON schema or NO schema, there is NO schema validation for the messages read from the topic.
 
 ### Example
 
-In this example, we create a pipeline that reads a topic `numagen-avro` with Avro schema `numagen-avro-value` registered
-for the value of the message and writes the messages to the builtin log sink.
+In this example, we create a pipeline that reads a topic `numagen-raw` with no schema registered for the value of the
+message and writes the messages to the builtin log sink.
 
 #### Pre-requisite
 
-Create a topic called `numagen-avro` in your Kafka cluster with the following Avro schema `numagen-avro-value`
-registered.
-
-```avroschema
-{
-  "fields": [
-    {
-      "name": "Data",
-      "type": {
-        "fields": [
-          {
-            "name": "value",
-            "type": "long"
-          }
-        ],
-        "name": "Data",
-        "type": "record"
-      }
-    },
-    {
-      "name": "Createdts",
-      "type": "long"
-    }
-  ],
-  "name": "numagen-avro",
-  "type": "record"
-}
-```
+Create a topic called `numagen-raw` in your Kafka cluster.
 
 Produce some messages to the `numagen-avro` topic. A sample message
 
@@ -74,7 +43,7 @@ Create a config map with the following configurations:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: avro-consumer-config
+  name: raw-consumer-config
 data:
   consumer.properties: |
     # Required connection configs for Kafka producer
@@ -86,11 +55,6 @@ data:
     client.dns.lookup=use_all_dns_ips
     # Best practice for higher availability in Apache Kafka clients prior to 3.0
     session.timeout.ms=45000
-    # Schema Registry connection configurations
-    # Consumer client uses the schema registry to get the schema for the data in the topic and de-serialize the data
-    schema.registry.url=[placeholder]
-    basic.auth.credentials.source=[placeholder]
-    basic.auth.user.info=[placeholder]
     # Best practice for Kafka producer to prevent data loss
     acks=all
     # Other configurations
@@ -98,17 +62,15 @@ data:
     # group.id is required for consumer clients
     group.id=group1
   user.configuration: |
-    topicName: numagen-avro
+    topicName: numagen-raw
     groupId: group1
-    schemaType: avro
+    schemaType: raw
 ```
 
-`consumer.properties`: [properties](https://kafka.apache.org/documentation/#consumerconfigs) to configure
-the consumer. Ensure that the schema registry configurations are set because Avro schema is used to deserialize the
-data.
+`consumer.properties`: [properties](https://kafka.apache.org/documentation/#consumerconfigs) to configure the consumer.
 `user.configuration`: User configurations for the source vertex. The configurations include `topicName`, `groupId` and
 `schemaType`, which is the Kafka topic name, consumer group id and schema type respectively. The `schemaType` is set to
-`avro` to indicate that Avro schema is used to deserialize the data.
+`raw` to indicate that there is no schema registered for the topic.
 
 Deploy the ConfigMap to the Kubernetes cluster.
 
@@ -121,14 +83,14 @@ created in the previous step.
 apiVersion: numaflow.numaproj.io/v1alpha1
 kind: Pipeline
 metadata:
-  name: avro-consumer
+  name: raw-consumer
 spec:
   vertices:
     - name: in
       volumes:
         - name: kafka-config-volume
           configMap:
-            name: avro-consumer-config
+            name: raw-consumer-config
             items:
               - key: user.configuration
                 path: user.configuration.yaml
