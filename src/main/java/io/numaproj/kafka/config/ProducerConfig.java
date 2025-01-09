@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -118,7 +119,7 @@ public class ProducerConfig {
 
   // Schema registry client
   @Bean
-  @ConditionalOnProperty(name = "schemaType", havingValue = "avro")
+  @ConditionalOnExpression("'${schemaType}'.equals('json') or '${schemaType}'.equals('avro')")
   public SchemaRegistryClient schemaRegistryClient() throws IOException {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
@@ -137,7 +138,7 @@ public class ProducerConfig {
   }
 
   @Bean
-  @ConditionalOnProperty(name = "schemaType", havingValue = "avro")
+  @ConditionalOnExpression("'${schemaType}'.equals('json') or '${schemaType}'.equals('avro')")
   public Registry schemaRegistry(SchemaRegistryClient schemaRegistryClient) {
     return new ConfluentRegistry(schemaRegistryClient);
   }

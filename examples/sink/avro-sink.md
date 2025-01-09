@@ -3,23 +3,27 @@
 ### Introduction
 
 This document demonstrates how to publish messages to a topic that has an Avro schema registered. When a topic has an
-Avro schema,
-Kafka sink will serialize the message using the schema. For the key, the native string serializer
+Avro schema, Kafka sink will serialize the message using the schema. For the key, the native string serializer
 `org.apache.kafka.common.serialization.StringSerializer` is used. For the value, confluent Avro serializer
 `io.confluent.kafka.serializers.KafkaAvroSerializer`.
 
-Limitation: currently the avro sinker assumes the input payload is in json format, it uses the
-`org.apache.avro.io.JsonEncoder` to encode the payload before sending to the Kafka topic. It's in our roadmap to support
-other encoders.
+Limitation:
+
+* The avro sinker assumes the input payload is in json format, it uses the
+  `org.apache.avro.io.JsonEncoder` to encode the payload before sending to the Kafka topic. It's in our roadmap to
+  support other encoders.
+* The avro sinker assumes the schema follows the default subject naming strategy (TopicNameStrategy) in the schema
+  registry. It's in our roadmap to support other naming strategies.
 
 ### Example
 
 In this example, we create a pipeline that reads from the builtin generator and write the messages to a target topic
-`numagen-avro` with Avro schema registered.
+`numagen-avro` with Avro schema `numagen-avro-value` registered for the value of the message.
 
 #### Pre-requisite
 
-Create a topic called `numagen-avro` in your Kafka cluster with the following Avro schema registered.
+Create a topic called `numagen-avro` in your Kafka cluster with the following Avro schema `numagen-avro-value`
+registered.
 
 ```avroschema
 {
@@ -147,4 +151,3 @@ Wait for the pipeline to be up and running. You can observe the messages in the 
   }
 }
 ```
-

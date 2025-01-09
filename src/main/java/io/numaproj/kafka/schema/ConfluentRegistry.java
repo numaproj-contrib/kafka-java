@@ -9,12 +9,12 @@ import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "schemaType", havingValue = "avro")
+@ConditionalOnExpression("'${schemaType}'.equals('json') or '${schemaType}'.equals('avro')")
 public class ConfluentRegistry implements Registry {
 
   private final SchemaRegistryClient schemaRegistryClient;
