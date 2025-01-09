@@ -124,6 +124,7 @@ public class ProducerConfig {
 
   // Schema registry client
   @Bean
+  @ConditionalOnProperty(name = "schemaType", havingValue = "avro")
   public SchemaRegistryClient schemaRegistryClient() throws IOException {
     log.info(
         "Instantiating the Kafka schema registry client from the schema registry properties file path: {}",
@@ -145,6 +146,7 @@ public class ProducerConfig {
   }
 
   @Bean
+  @ConditionalOnProperty(name = "schemaType", havingValue = "avro")
   public Registry schemaRegistry(SchemaRegistryClient schemaRegistryClient) {
     return new ConfluentRegistry(schemaRegistryClient);
   }

@@ -88,9 +88,8 @@ public class KafkaAvroSinker extends BaseKafkaSinker<GenericRecord> {
 
       GenericRecord avroGenericRecord;
       try {
-        // FIXME - this assumes the input data is in json format
         DatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);
-        Decoder decoder = DecoderFactory.get().jsonDecoder(schema, msg);
+        Decoder decoder = DecoderFactory.get().binaryDecoder(datum.getValue(), null);
         avroGenericRecord = reader.read(null, decoder);
       } catch (Exception e) {
         String errMsg = "Failed to prepare avro generic record " + e;

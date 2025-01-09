@@ -14,9 +14,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.EncoderFactory;
-import org.apache.avro.io.JsonEncoder;
 import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.Header;
@@ -114,7 +114,7 @@ public class KafkaSourcer extends Sourcer {
         // TODO - Do we need to add cluster ID to the offset value?
         // For now, it's probably good enough.
         String offsetValue = consumerRecord.topic() + ":" + consumerRecord.offset();
-        byte[] payload = toJSON(consumerRecord.value());
+        byte[] payload = toByteArray(consumerRecord.value());
         if (payload == null) {
           String errMsg = "Failed to convert the record to Json format: " + consumerRecord;
           log.error(errMsg);
@@ -218,12 +218,12 @@ public class KafkaSourcer extends Sourcer {
   // and send to the next Numaflow vertex. We need to make this more generic
   // It is implemented this way mainly because I am testing using Numaflow generator which generates
   // messages in JSON format
-  private byte[] toJSON(GenericRecord record) {
+  private byte[] toByteArray(GenericRecord record) {
     Schema schema = record.getSchema();
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     try (out) {
       DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<>(schema);
-      JsonEncoder encoder = EncoderFactory.get().jsonEncoder(schema, out);
+      BinaryEncoder encoder = EncoderFactory.get().binaryEncoder(out, null);
       datumWriter.write(record, encoder);
       encoder.flush();
     } catch (IOException e) {
