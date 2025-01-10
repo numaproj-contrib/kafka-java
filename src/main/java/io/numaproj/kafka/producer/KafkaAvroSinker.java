@@ -25,7 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-/** KafkaAvroSinker uses avro schema to serialize and send the message */
+/** KafkaAvroSinker uses Avro schema to serialize and send the message */
 @Slf4j
 @Component
 @ConditionalOnProperty(name = "schemaType", havingValue = "avro")
@@ -47,7 +47,8 @@ public class KafkaAvroSinker extends BaseKafkaSinker<GenericRecord> {
     if (schema == null) {
       log.error(
           "Failed to retrieve the latest schema for topic {}", this.userConfig.getTopicName());
-      throw new RuntimeException("Failed to retrieve the latest schema for topic");
+      throw new RuntimeException(
+          "Failed to retrieve the latest schema for topic " + this.userConfig.getTopicName());
     }
     log.info(
         "Retrieved the latest schema for topic {}, schema name is {}",
@@ -61,7 +62,7 @@ public class KafkaAvroSinker extends BaseKafkaSinker<GenericRecord> {
 
   @PostConstruct
   public void startSinker() throws Exception {
-    log.info("Initializing Kafka avro sinker server...");
+    log.info("Initializing Kafka Avro sinker server...");
     new Server(this).start();
   }
 
@@ -88,7 +89,7 @@ public class KafkaAvroSinker extends BaseKafkaSinker<GenericRecord> {
 
       GenericRecord avroGenericRecord;
       try {
-        // TODO - this assumes the input data is in json format
+        // FIXME - this assumes the input data is in json format
         DatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);
         Decoder decoder = DecoderFactory.get().jsonDecoder(schema, msg);
         avroGenericRecord = reader.read(null, decoder);

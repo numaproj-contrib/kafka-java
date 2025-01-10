@@ -32,12 +32,12 @@ public class ConsumerConfig {
     this.consumerPropertiesFilePath = consumerPropertiesFilePath;
   }
 
-  // Kafka consumer client
+  // Kafka Avro consumer client
   @Bean
   @ConditionalOnProperty(name = "schemaType", havingValue = "avro")
   public KafkaConsumer<String, GenericRecord> kafkaAvroConsumer() throws IOException {
     log.info(
-        "Instantiating the Kafka avro consumer from the consumer properties file: {}",
+        "Instantiating the Kafka Avro consumer from the consumer properties file: {}",
         this.consumerPropertiesFilePath);
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
@@ -53,7 +53,7 @@ public class ConsumerConfig {
       log.info("Overwriting enable.auto.commit to false ");
     }
     props.put(org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
-    // ensure  consumer group id is present
+    // ensure consumer group id is present
     var groupId =
         props.getOrDefault(org.apache.kafka.clients.consumer.ConsumerConfig.GROUP_ID_CONFIG, null);
     if (groupId == null || StringUtils.isBlank((String) groupId)) {
@@ -69,11 +69,11 @@ public class ConsumerConfig {
         org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
         "io.confluent.kafka.serializers.KafkaAvroDeserializer");
 
-    log.info("Kafka consumer props read from user input ConfigMap: {}", props);
+    log.info("Kafka Avro consumer instantiated with properties: {}", props);
     return new KafkaConsumer<>(props);
   }
 
-  // Kafka consumer client
+  // Kafka byte array consumer client
   @Bean
   @ConditionalOnExpression("'${schemaType}'.equals('json') or '${schemaType}'.equals('raw')")
   public KafkaConsumer<String, byte[]> kafkaByteArrayConsumer() throws IOException {
@@ -94,7 +94,7 @@ public class ConsumerConfig {
       log.info("Overwriting enable.auto.commit to false ");
     }
     props.put(org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
-    // ensure  consumer group id is present
+    // ensure consumer group id is present
     var groupId =
         props.getOrDefault(org.apache.kafka.clients.consumer.ConsumerConfig.GROUP_ID_CONFIG, null);
     if (groupId == null || StringUtils.isBlank((String) groupId)) {
@@ -110,7 +110,7 @@ public class ConsumerConfig {
         org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.ByteArrayDeserializer");
 
-    log.info("Kafka consumer props read from user input ConfigMap: {}", props);
+    log.info("Kafka byte array consumer instantiated with properties: {}", props);
     return new KafkaConsumer<>(props);
   }
 

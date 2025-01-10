@@ -61,7 +61,7 @@ public class KafkaJsonSinker extends BaseKafkaSinker<byte[]> {
 
   @PostConstruct
   public void startSinker() throws Exception {
-    log.info("Initializing Kafka json sinker server...");
+    log.info("Initializing Kafka JSON sinker server...");
     new Server(this).start();
   }
 
@@ -85,14 +85,14 @@ public class KafkaJsonSinker extends BaseKafkaSinker<byte[]> {
       String msg = new String(datum.getValue());
       log.trace("Processing message with id: {}, payload: {}", datum.getId(), msg);
 
-      // TODO - validate the input data against Json schema
+      // validate the input data against Json schema.
       // the classic KafkaJsonSchemaSerializer requires a POJO being defined. It relies on
       // Java class annotations to generate and validate JSON schemas against stored schemas in the
       // Schema Registry.
       // Hence, we can’t build a generic solution around that.
-      // To build a generic one, we need to validate messages by ourselves by retrieving the schema
+      // To build a generic one, we validate messages by ourselves by retrieving the schema
       // from the registry and use third party json validator to validate the raw input and then
-      // directly use string serializer to send raw validated string to the topic.
+      // directly use byte array serializer to send raw validated data to the topic.
       if (!JsonValidator.validate(jsonSchema, datum.getValue())) {
         log.error("Failed to validate the message with id: {}, message: {}", datum.getId(), msg);
         responseListBuilder.addResponse(

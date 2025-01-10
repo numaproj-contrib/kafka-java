@@ -35,13 +35,13 @@ public class ProducerConfig {
     this.producerPropertiesFilePath = producerPropertiesFilePath;
   }
 
-  // Kafka producer client to publish raw date in byte array format to Kafka
+  // Kafka producer client to publish raw data in byte array format to Kafka
   // It is used when the destination topic has no schema or json schema
   @Bean
   @ConditionalOnExpression("'${schemaType}'.equals('json') or '${schemaType}'.equals('raw')")
   public KafkaProducer<String, byte[]> kafkaByteArrayProducer() throws IOException {
     log.info(
-        "Instantiating the Kafka raw data producer from the producer properties file path: {}",
+        "Instantiating the Kafka byte array producer from the producer properties file path: {}",
         this.producerPropertiesFilePath);
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
@@ -56,17 +56,17 @@ public class ProducerConfig {
         "org.apache.kafka.common.serialization.ByteArraySerializer");
     // never register schemas on behalf of the user
     props.put("auto.register.schemas", "false");
-    log.info("Kafka byte array data producer props read from user input ConfigMap: {}", props);
+    log.info("Kafka byte array data producer props instantiated with properties: {}", props);
     is.close();
     return new KafkaProducer<>(props);
   }
 
-  // Kafka producer client for avro
+  // Kafka producer client for Avro
   @Bean
   @ConditionalOnProperty(name = "schemaType", havingValue = "avro")
   public KafkaProducer<String, GenericRecord> kafkaAvroProducer() throws IOException {
     log.info(
-        "Instantiating the Kafka avro producer from the producer properties file path: {}",
+        "Instantiating the Kafka Avro producer from the producer properties file path: {}",
         this.producerPropertiesFilePath);
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
@@ -81,12 +81,13 @@ public class ProducerConfig {
         "io.confluent.kafka.serializers.KafkaAvroSerializer");
     // never register schemas on behalf of the user
     props.put("auto.register.schemas", "false");
-    log.info("Kafka avro producer props read from user input ConfigMap: {}", props);
+    log.info("Kafka Avro producer instantiated with properties: {}", props);
     is.close();
     return new KafkaProducer<>(props);
   }
 
   // Schema registry client
+  // It is used when the destination topic has json or avro schema
   @Bean
   @ConditionalOnExpression("'${schemaType}'.equals('json') or '${schemaType}'.equals('avro')")
   public SchemaRegistryClient schemaRegistryClient() throws IOException {

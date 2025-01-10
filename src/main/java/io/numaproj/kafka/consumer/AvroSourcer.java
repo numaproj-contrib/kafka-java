@@ -24,7 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-/** AvroSourcer is the implementation of the Numaflow Sourcer to read avro messages from Kafka */
+/** AvroSourcer is the implementation of the Numaflow Sourcer to read Avro messages from Kafka */
 @Slf4j
 @Component
 @ConditionalOnProperty(name = "schemaType", havingValue = "avro")
@@ -50,7 +50,7 @@ public class AvroSourcer extends Sourcer {
     log.info("Starting the Kafka consumer worker thread...");
     workerThread = new Thread(avroWorker, "consumerWorkerThread");
     workerThread.start();
-    log.info("Initializing Kafka sourcer server...");
+    log.info("Initializing Kafka Avro sourcer server...");
     new Server(this).start();
   }
 

@@ -40,7 +40,7 @@ public class KafkaByteArraySinker extends BaseKafkaSinker<byte[]> {
 
   @PostConstruct
   public void startSinker() throws Exception {
-    log.info("Initializing Kafka plain sinker server...");
+    log.info("Initializing Kafka byte array sinker server...");
     new Server(this).start();
   }
 
