@@ -22,6 +22,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /** KafkaJsonSinker uses json schema to serialize and send the message */
+// TODO - JsonSinker can be merged with ByteArraySinker. The merged sinker will based on the schema
+// information, serialize the message.
 @Slf4j
 @Component
 @ConditionalOnProperty(name = "schemaType", havingValue = "json")

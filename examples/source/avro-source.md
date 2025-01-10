@@ -9,11 +9,10 @@ Avro schema, Kafka source will de-serialize the value of the message using the s
 
 Current Limitations:
 
-* The Avro source assumes the de-serialized message is in json format, it uses the
-  `org.apache.avro.io.JsonEncoder` to encode the de-serialized Avro GenericRecord to byte array before sending to the
-  next vertex.
-* The avro source assumes the schema follows the default subject naming strategy (TopicNameStrategy) in the schema
-  registry.
+* The Avro source assumes the de-serialized message is in JSON format. It uses `org.apache.Avro.io.JsonEncoder` to
+  encode the de-serialized Avro GenericRecord to a byte array before sending to the next vertex.
+* The Avro source assumes the schema follows the default subject naming strategy (TopicNameStrategy) in the schema
+  registry, meaning the name of the schema matches `{TopicName}-value`.
 
 ### Example
 
@@ -67,7 +66,7 @@ Produce some messages to the `numagen-avro` topic. A sample message
 
 #### Configure the Kafka consumer
 
-Create a config map with the following configurations:
+Create a ConfigMap with the following configurations:
 
 ```yaml
 ---
@@ -103,12 +102,14 @@ data:
     schemaType: avro
 ```
 
-`consumer.properties`: [properties](https://kafka.apache.org/documentation/#consumerconfigs) to configure
-the consumer. Ensure that the schema registry configurations are set because Avro schema is used to deserialize the
-data.
-`user.configuration`: User configurations for the source vertex. The configurations include `topicName`, `groupId` and
-`schemaType`, which is the Kafka topic name, consumer group id and schema type respectively. The `schemaType` is set to
-`avro` to indicate that Avro schema is used to deserialize the data.
+`consumer.properties` holds the [properties](https://kafka.apache.org/documentation/#consumerconfigs) as well
+as [schema registry properties](https://github.com/confluentinc/schema-registry/blob/master/client/src/main/java/io/confluent/kafka/schemaregistry/client/SchemaRegistryClientConfig.java)
+to configure the consumer. Ensure that the schema registry configurations are set because Avro schema is used to
+de-serialize the data.
+
+`user.configuration` is the user configuration for the source vertex. The configuration includes `topicName`, `groupId`
+and `schemaType`, which is the Kafka topic name, consumer group id and schema type respectively. The `schemaType` is set
+to `avro` to indicate that Avro schema is used to de-serialize the data.
 
 Deploy the ConfigMap to the Kubernetes cluster.
 
@@ -158,7 +159,8 @@ spec:
       to: sink
 ```
 
-Please make sure that the args list under the source vertex matches the file paths in the ConfigMap.
+Please make sure that the args list under the source vertex container specification matches the file paths in the
+ConfigMap.
 
 #### Observe the log sink
 

@@ -11,7 +11,7 @@ serialize the value of the message. For the key, string serializer
 Current Limitations:
 
 * The JSON sink assumes the schema follows the default subject naming strategy (TopicNameStrategy) in the schema
-  registry.
+  registry, meaning the name of the schema matches `{TopicName}-value`.
 
 ### Example
 
@@ -56,7 +56,7 @@ registered.
 
 #### Configure the Kafka producer
 
-Create a config map with the following configurations:
+Create a ConfigMap with the following configurations:
 
 ```yaml
 ---
@@ -84,15 +84,18 @@ data:
     schemaType: json
 ```
 
-// TODO - what exactly is the right link?
-`producer.properties`: [properties](https://kafka.apache.org/documentation/#producerconfigs) to configure the producer.
-`user.configuration`: User configurations for the sink vertex. The configurations include topicName, the Kafka topic
-name to write data to, and schemaType. The `schemaType` is set to `json` to indicate that json schema is used to
-validate the data before publishing. Deploy the ConfigMap to the Kubernetes cluster.
+`producer.properties` holds the [properties](https://kafka.apache.org/documentation/#producerconfigs) to configure the
+producer.
+
+`user.configuration` is the user configuration for the sink vertex. The configuration includes topicName, the Kafka
+topic name to write data to, and schemaType. The `schemaType` is set to `json` to indicate that JSON schema is used to
+validate the data before publishing.
+
+Deploy the ConfigMap to the Kubernetes cluster.
 
 #### Create the pipeline
 
-Create the pipeline with numaflow builtin generator and Kafka sink. Configure the Kafka sink with the ConfigMap created
+Create the pipeline with Numaflow builtin generator and Kafka sink. Configure the Kafka sink with the ConfigMap created
 in the previous step.
 
 ```yaml

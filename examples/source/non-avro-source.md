@@ -21,7 +21,7 @@ message and writes the messages to the builtin log sink.
 
 Create a topic called `numagen-raw` in your Kafka cluster.
 
-Produce some messages to the `numagen-avro` topic. A sample message
+Produce some messages to the `numagen-raw` topic. A sample message
 
 ```json
 {
@@ -37,7 +37,7 @@ Produce some messages to the `numagen-avro` topic. A sample message
 
 #### Configure the Kafka consumer
 
-Create a config map with the following configurations:
+Create a ConfigMap with the following configurations:
 
 ```yaml
 ---
@@ -68,8 +68,10 @@ data:
     schemaType: raw
 ```
 
-`consumer.properties`: [properties](https://kafka.apache.org/documentation/#consumerconfigs) to configure the consumer.
-`user.configuration`: User configurations for the source vertex. The configurations include `topicName`, `groupId` and
+`consumer.properties` holds the [properties](https://kafka.apache.org/documentation/#consumerconfigs) to configure the
+consumer.
+
+`user.configuration` is the configuration for the source vertex. The configuration includes `topicName`, `groupId` and
 `schemaType`, which is the Kafka topic name, consumer group id and schema type respectively. The `schemaType` is set to
 `raw` to indicate that there is no schema registered for the topic. (You can also set the `schemaType` to `json` if the
 topic has a JSON schema registered).

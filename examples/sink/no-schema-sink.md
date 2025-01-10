@@ -46,15 +46,17 @@ data:
     schemaType: raw
 ```
 
-// TODO - what exactly is the right link?
-`producer.properties`: [properties](https://kafka.apache.org/documentation/#producerconfigs) to configure the producer.
-`user.configuration`: User configurations for the sink vertex. The configurations include topicName, the Kafka topic
-name to write data to, and schemaType. The `schemaType` is set to `raw` to indicate no schema. Deploy the ConfigMap to
-the Kubernetes cluster.
+`producer.properties` holds the [properties](https://kafka.apache.org/documentation/#producerconfigs) to configure the
+producer.
+
+`user.configuration` is the user configuration for the sink vertex. The configuration includes topicName, the Kafka
+topic name to write data to, and schemaType. The `schemaType` is set to `raw` to indicate no schema.
+
+Deploy the ConfigMap to the Kubernetes cluster.
 
 #### Create the pipeline
 
-Create the pipeline with numaflow builtin generator and Kafka sink. Configure the Kafka sink with the ConfigMap created
+Create the pipeline with Numaflow builtin generator and Kafka sink. Configure the Kafka sink with the ConfigMap created
 in the previous step.
 
 ```yaml

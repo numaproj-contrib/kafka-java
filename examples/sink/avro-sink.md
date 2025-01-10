@@ -9,10 +9,10 @@ Avro schema, Kafka sink will serialize the value of the message using the schema
 
 Current Limitations:
 
-* The avro sink assumes the input payload is in json format, it uses the
+* The Avro sink assumes the input payload is in json format, it uses the
   `org.apache.avro.io.JsonDecoder` to decode the payload to Avro GenericRecord before sending to the Kafka topic.
-* The avro sinker assumes the schema follows the default subject naming strategy (TopicNameStrategy) in the schema
-  registry.
+* The Avro sinker assumes the schema follows the default subject naming strategy (TopicNameStrategy) in the schema
+  registry, meaning the name of the schema matches `{TopicName}-value`.
 
 ### Example
 
@@ -52,7 +52,7 @@ registered.
 
 #### Configure the Kafka producer
 
-Create a config map with the following configurations:
+Create a ConfigMap with the following configurations:
 
 ```yaml
 ---
@@ -73,6 +73,10 @@ data:
     session.timeout.ms=45000
     # Best practice for Kafka producer to prevent data loss
     acks=all
+    # Schema Registry connection configurations
+    schema.registry.url=[placeholder]
+    basic.auth.credentials.source=[placeholder]
+    basic.auth.user.info=[placeholder]
     # Other configurations
     retries=0
   user.configuration: |
@@ -80,15 +84,20 @@ data:
     schemaType: avro
 ```
 
-// TODO - what exactly is the right link?
-`producer.properties`: [properties](https://kafka.apache.org/documentation/#producerconfigs) to configure the producer.
-`user.configuration`: User configurations for the sink vertex. The configurations include topicName, the Kafka topic
-name to write data to, and schemaType. The `schemaType` is set to `avro` to indicate that avro schema is used to
-serialize the data. Deploy the ConfigMap to the Kubernetes cluster.
+`producer.properties` holds the [producer properties](https://kafka.apache.org/documentation/#producerconfigs) as well
+as [schema registry properties](https://github.com/confluentinc/schema-registry/blob/master/client/src/main/java/io/confluent/kafka/schemaregistry/client/SchemaRegistryClientConfig.java)
+to configure the producer. Ensure that the schema registry configurations are set because Avro schema is used to
+serialize the data.
+
+`user.configuration` is the user configurations for the sink vertex. The configuration includes topicName, the Kafka
+topic name to write data to, and schemaType. The `schemaType` is set to `avro` to indicate that Avro schema is used to
+serialize the data.
+
+Deploy the ConfigMap to the Kubernetes cluster.
 
 #### Create the pipeline
 
-Create the pipeline with numaflow builtin generator and Kafka sink. Configure the Kafka sink with the ConfigMap created
+Create the pipeline with Numaflow builtin generator and Kafka sink. Configure the Kafka sink with the ConfigMap created
 in the previous step.
 
 ```yaml
