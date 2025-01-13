@@ -27,4 +27,8 @@ public class UserConfig {
   // TODO - technically this field can be derived from schema registry
   //  Figure out a way to do that and remove this field.
   private String schemaType;
+
+  // optional schema subject and version if user wants to use a specific schema
+  private String schemaSubject;
+  private int schemaVersion;
 }

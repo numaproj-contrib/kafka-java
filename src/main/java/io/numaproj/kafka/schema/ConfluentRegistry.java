@@ -25,40 +25,45 @@ public class ConfluentRegistry implements Registry {
   }
 
   @Override
-  public Schema getAvroSchema(String topicName) {
+  public Schema getAvroSchema(String subject, int version) {
     try {
-      // Retrieve the latest schema metadata for the {topicName}-value
-      SchemaMetadata schemaMetadata =
-          schemaRegistryClient.getLatestSchemaMetadata(topicName + "-value");
-      if (!Objects.equals(schemaMetadata.getSchemaType(), "AVRO")) {
-        throw new RuntimeException("Schema type is not AVRO for topic " + topicName);
+      if (!subject.isEmpty() && version != 0) {
+        SchemaMetadata schemaMetadata = schemaRegistryClient.getSchemaMetadata(subject, version);
+        if (!Objects.equals(schemaMetadata.getSchemaType(), "AVRO")) {
+          log.error("Schema type is not AVRO for subject {}, version {}.", subject, version);
+          return null;
+        }
+        AvroSchema avroSchema =
+            (AvroSchema) schemaRegistryClient.getSchemaById(schemaMetadata.getId());
+        return avroSchema.rawSchema();
       }
-      AvroSchema avroSchema =
-          (AvroSchema) schemaRegistryClient.getSchemaById(schemaMetadata.getId());
-      return avroSchema.rawSchema();
     } catch (IOException | RestClientException e) {
       log.error(
-          "Failed to retrieve the latest Avro schema for topic {}. {}", topicName, e.getMessage());
-      return null;
+          "Failed to retrieve the Avro schema for subject {}, version {}. {}",
+          subject,
+          version,
+          e.getMessage());
     }
+    return null;
   }
 
-  public String getJsonSchemaString(String topicName) {
+  @Override
+  public String getJsonSchemaString(String subject, int version) {
     try {
-      // Retrieve the latest schema metadata for the {topicName}-value
-      SchemaMetadata schemaMetadata =
-          schemaRegistryClient.getLatestSchemaMetadata(topicName + "-value");
+      SchemaMetadata schemaMetadata = schemaRegistryClient.getSchemaMetadata(subject, version);
       if (!Objects.equals(schemaMetadata.getSchemaType(), "JSON")) {
-        throw new RuntimeException("Schema type is not JSON for topic " + topicName);
+        log.error("Schema type is not JSON for subject {}, version {}.", subject, version);
+        return "";
       }
       return schemaMetadata.getSchema();
     } catch (IOException | RestClientException e) {
       log.error(
-          "Failed to retrieve the latest JSON schema string for topic {}. {}",
-          topicName,
+          "Failed to retrieve the JSON schema string for subject {}, version {}. {}",
+          subject,
+          version,
           e.getMessage());
-      return null;
     }
+    return "";
   }
 
   @Override

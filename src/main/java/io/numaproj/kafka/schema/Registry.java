@@ -5,20 +5,18 @@ import org.apache.avro.Schema;
 
 /** Registry is an interface that defines the methods to interact with a schema registry. */
 public interface Registry {
-  /**
-   * getAvroSchema returns the latest Avro schema for the given topic. It retrieves the subject with
-   * name {topicName}-value from the schema registry. If the schema is not found, it returns null.
-   */
-  // TODO - throw an exception with more details
-  Schema getAvroSchema(String topicName);
 
   /**
-   * getJsonSchemaString returns the latest JSON schema string for the given topic. It retrieves the
-   * subject with name {topicName}-value from the schema registry. If the schema is not found, it
+   * getSchemaById returns the schema for the given schema ID. If the schema is not found, it
    * returns null.
    */
-  // TODO - throw an exception with more details
-  String getJsonSchemaString(String topicName);
+  Schema getAvroSchema(String subject, int version);
+
+  /**
+   * getJsonSchemaString returns the JSON schema string for the given subject and version. If the
+   * schema is not found, it returns an empty string "".
+   */
+  String getJsonSchemaString(String subject, int version);
 
   // close closes the schema registry client.
   void close() throws IOException;

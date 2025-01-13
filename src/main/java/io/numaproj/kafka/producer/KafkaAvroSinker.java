@@ -43,17 +43,20 @@ public class KafkaAvroSinker extends BaseKafkaSinker<GenericRecord> {
       Registry schemaRegistry) {
     super(userConfig, producer);
     this.schemaRegistry = schemaRegistry;
-    this.schema = schemaRegistry.getAvroSchema(this.userConfig.getTopicName());
+    // Retrieve the schema from the schema registry
+    this.schema =
+        schemaRegistry.getAvroSchema(
+            this.userConfig.getSchemaSubject(), this.userConfig.getSchemaVersion());
     if (schema == null) {
-      log.error(
-          "Failed to retrieve the latest schema for topic {}", this.userConfig.getTopicName());
-      throw new RuntimeException(
-          "Failed to retrieve the latest schema for topic " + this.userConfig.getTopicName());
+      String errMsg =
+          "Failed to retrieve the schema for subject "
+              + this.userConfig.getSchemaSubject()
+              + ", version "
+              + this.userConfig.getSchemaVersion();
+      log.error(errMsg);
+      throw new RuntimeException(errMsg);
     }
-    log.info(
-        "Retrieved the latest schema for topic {}, schema name is {}",
-        this.userConfig.getTopicName(),
-        schema.getFullName());
+    log.info("Successfully retrieved the schema {}", schema.getFullName());
 
     this.isShutdown = new AtomicBoolean(false);
     this.countDownLatch = new CountDownLatch(1);

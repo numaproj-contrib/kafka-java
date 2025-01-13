@@ -40,15 +40,20 @@ public class KafkaJsonSinker extends BaseKafkaSinker<byte[]> {
     super(userConfig, producer);
 
     this.schemaRegistry = schemaRegistry;
-    this.jsonSchema = schemaRegistry.getJsonSchemaString(this.userConfig.getTopicName());
+    this.jsonSchema =
+        schemaRegistry.getJsonSchemaString(
+            this.userConfig.getSchemaSubject(), this.userConfig.getSchemaVersion());
     if (Objects.equals(jsonSchema, "") || jsonSchema == null) {
-      log.error(
-          "Failed to retrieve the latest json schema string for topic {}",
-          this.userConfig.getTopicName());
-      throw new RuntimeException("Failed to retrieve the latest json schema string for topic");
+      String errMsg =
+          "Failed to retrieve the JSON schema, subject: "
+              + this.userConfig.getSchemaSubject()
+              + ", version: "
+              + this.userConfig.getSchemaVersion();
+      log.error(errMsg);
+      throw new RuntimeException(errMsg);
     } else {
       log.info(
-          "Retrieved the latest json schema string for topic {}, schema is {}",
+          "Successfully retrieved the JSON schema string for topic {}, schema string is {}",
           this.userConfig.getTopicName(),
           jsonSchema);
     }

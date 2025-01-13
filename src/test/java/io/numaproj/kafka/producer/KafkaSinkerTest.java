@@ -29,7 +29,8 @@ public class KafkaSinkerTest {
   private final KafkaProducer<String, GenericRecord> producer = mock(KafkaProducer.class);
   private final Registry schemaRegistry = mock(Registry.class);
 
-  private static final String TEST_TOPIC = "test-topic";
+  private static final String TEST_SUBJECT = "test-topic-value";
+  private static final int TEST_VERSION = 1;
 
   private KafkaAvroSinker underTest;
 
@@ -44,14 +45,16 @@ public class KafkaSinkerTest {
             + "]"
             + "}";
     var schema = new Schema.Parser().parse(USER_SCHEMA_JSON);
-    when(userConfig.getTopicName()).thenReturn(TEST_TOPIC);
-    when(schemaRegistry.getAvroSchema(TEST_TOPIC)).thenReturn(schema);
+    when(userConfig.getSchemaSubject()).thenReturn(TEST_SUBJECT);
+    when(userConfig.getSchemaVersion()).thenReturn(TEST_VERSION);
+    when(userConfig.getTopicName()).thenReturn(TEST_SUBJECT);
+    when(schemaRegistry.getAvroSchema(TEST_SUBJECT, TEST_VERSION)).thenReturn(schema);
     underTest = new KafkaAvroSinker(userConfig, producer, schemaRegistry);
   }
 
   @Test
   void constructSinkerThrows_schemaNotFound() {
-    when(schemaRegistry.getAvroSchema(TEST_TOPIC)).thenReturn(null);
+    when(schemaRegistry.getAvroSchema(TEST_SUBJECT, TEST_VERSION)).thenReturn(null);
     assertThrows(
         RuntimeException.class,
         () -> underTest = new KafkaAvroSinker(userConfig, producer, schemaRegistry));
