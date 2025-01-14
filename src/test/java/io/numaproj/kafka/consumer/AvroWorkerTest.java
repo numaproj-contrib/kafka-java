@@ -20,17 +20,17 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
-public class WorkerTest {
+public class AvroWorkerTest {
   private final UserConfig userConfigMock = mock(UserConfig.class);
   private final KafkaConsumer<String, GenericRecord> consumer = mock(KafkaConsumer.class);
 
   private static final String TEST_TOPIC = "test-topic";
 
-  private Worker underTest;
+  private AvroWorker underTest;
 
   @BeforeEach
   public void setUp() {
-    underTest = new Worker(userConfigMock, consumer);
+    underTest = new AvroWorker(userConfigMock, consumer);
     when(userConfigMock.getTopicName()).thenReturn(TEST_TOPIC);
     doNothing().when(consumer).subscribe(Collections.singleton(TEST_TOPIC));
   }

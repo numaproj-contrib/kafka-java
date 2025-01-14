@@ -17,12 +17,14 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /** Worker class that consumes messages from Kafka topic and commits offsets */
 @Slf4j
 @Component
-public class Worker implements Runnable, DisposableBean {
+@ConditionalOnProperty(name = "schemaType", havingValue = "avro")
+public class AvroWorker implements Runnable, DisposableBean {
   private final UserConfig userConfig;
   private final KafkaConsumer<String, GenericRecord> consumer;
 
@@ -35,7 +37,7 @@ public class Worker implements Runnable, DisposableBean {
   private volatile List<ConsumerRecord<String, GenericRecord>> consumerRecordList;
 
   @Autowired
-  public Worker(UserConfig userConfig, KafkaConsumer<String, GenericRecord> consumer) {
+  public AvroWorker(UserConfig userConfig, KafkaConsumer<String, GenericRecord> consumer) {
     this.userConfig = userConfig;
     this.consumer = consumer;
   }

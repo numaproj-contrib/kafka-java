@@ -3,7 +3,6 @@ package io.numaproj.kafka.consumer;
 import com.google.common.annotations.VisibleForTesting;
 import io.numaproj.kafka.common.CommonUtils;
 import io.numaproj.numaflow.sourcer.*;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.HashMap;
@@ -11,23 +10,21 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.DatumWriter;
-import org.apache.avro.io.EncoderFactory;
-import org.apache.avro.io.JsonEncoder;
-import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.Header;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
-/** KafkaSourcer is the implementation of the Numaflow Sourcer to read messages from Kafka */
+/**
+ * ByteArraySourcer is the implementation of the Numaflow Sourcer to read raw messages in byte array
+ * format from Kafka
+ */
 @Slf4j
 @Component
-public class KafkaSourcer extends Sourcer {
-  private final Worker worker;
+@ConditionalOnExpression("'${schemaType}'.equals('json') or '${schemaType}'.equals('raw')")
+public class ByteArraySourcer extends Sourcer {
+  private final ByteArrayWorker worker;
   private final Admin admin;
   private Thread workerThread;
 
@@ -38,17 +35,17 @@ public class KafkaSourcer extends Sourcer {
   private Map<String, Long> readTopicPartitionOffsetMap;
 
   @Autowired
-  public KafkaSourcer(Worker worker, Admin admin) {
+  public ByteArraySourcer(ByteArrayWorker worker, Admin admin) {
     this.worker = worker;
     this.admin = admin;
   }
 
   @PostConstruct
   public void startConsumer() throws Exception {
-    log.info("Starting the Kafka consumer worker thread...");
+    log.info("Starting the Kafka byte array consumer worker thread...");
     workerThread = new Thread(worker, "consumerWorkerThread");
     workerThread.start();
-    log.info("Initializing Kafka sourcer server...");
+    log.info("Initializing Kafka byte array sourcer server...");
     new Server(this).start();
   }
 
@@ -83,7 +80,7 @@ public class KafkaSourcer extends Sourcer {
     long startTime;
     long remainingTime = request.getTimeout().toMillis();
     int j = 0;
-    List<ConsumerRecord<String, GenericRecord>> consumerRecordList = null;
+    List<ConsumerRecord<String, byte[]>> consumerRecordList = null;
     readTopicPartitionOffsetMap = new HashMap<>();
     while (j < request.getCount()) {
       startTime = System.currentTimeMillis();
@@ -103,7 +100,7 @@ public class KafkaSourcer extends Sourcer {
         continue;
       }
 
-      for (ConsumerRecord<String, GenericRecord> consumerRecord : consumerRecordList) {
+      for (ConsumerRecord<String, byte[]> consumerRecord : consumerRecordList) {
         if (consumerRecord == null) {
           continue;
         }
@@ -114,15 +111,9 @@ public class KafkaSourcer extends Sourcer {
         // TODO - Do we need to add cluster ID to the offset value?
         // For now, it's probably good enough.
         String offsetValue = consumerRecord.topic() + ":" + consumerRecord.offset();
-        byte[] payload = toJSON(consumerRecord.value());
-        if (payload == null) {
-          String errMsg = "Failed to convert the record to Json format: " + consumerRecord;
-          log.error(errMsg);
-          throw new RuntimeException(errMsg);
-        }
         Message message =
             new Message(
-                payload,
+                consumerRecord.value(),
                 new Offset(
                     offsetValue.getBytes(StandardCharsets.UTF_8), consumerRecord.partition()),
                 Instant.ofEpochMilli(consumerRecord.timestamp()),
@@ -212,24 +203,5 @@ public class KafkaSourcer extends Sourcer {
   @Override
   public List<Integer> getPartitions() {
     return worker.getPartitions();
-  }
-
-  // TODO - this is opinionated that we are transforming the record to JSON format
-  // and send to the next Numaflow vertex. We need to make this more generic
-  // It is implemented this way mainly because I am testing using Numaflow generator which generates
-  // messages in JSON format
-  private byte[] toJSON(GenericRecord record) {
-    Schema schema = record.getSchema();
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    try (out) {
-      DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<>(schema);
-      JsonEncoder encoder = EncoderFactory.get().jsonEncoder(schema, out);
-      datumWriter.write(record, encoder);
-      encoder.flush();
-    } catch (IOException e) {
-      log.error("Failed to convert the record to JSON format: {}", record, e);
-      return null;
-    }
-    return out.toByteArray();
   }
 }

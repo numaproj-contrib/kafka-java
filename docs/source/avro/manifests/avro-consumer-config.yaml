@@ -1,0 +1,29 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: avro-consumer-config
+data:
+  consumer.properties: |
+    # Required connection configs for Kafka producer, consumer, and admin
+    bootstrap.servers=[placeholder]
+    security.protocol=[placeholder]
+    sasl.jaas.config=[placeholder]
+    sasl.mechanism=[placeholder]
+    # Required for correctness in Apache Kafka clients prior to 2.6
+    client.dns.lookup=use_all_dns_ips
+    # Best practice for higher availability in Apache Kafka clients prior to 3.0
+    session.timeout.ms=45000
+    # Schema Registry connection configurations
+    # Consumer client uses the schema registry to get the schema for the data in the topic and deserialize the data
+    schema.registry.url=[placeholder]
+    basic.auth.credentials.source=[placeholder]
+    basic.auth.user.info=[placeholder]
+    # Other configurations
+    retries=0
+    # group.id is required for consumer clients
+    group.id=group1
+  user.configuration: |
+    topicName: numagen-avro
+    groupId: group1
+    schemaType: avro

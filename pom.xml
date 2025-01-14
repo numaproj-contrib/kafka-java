@@ -36,6 +36,11 @@
             <version>7.8.0</version>
         </dependency>
         <dependency>
+            <groupId>com.github.erosb</groupId>
+            <artifactId>json-sKema</artifactId>
+            <version>0.20.0</version>
+        </dependency>
+        <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-schema-registry-client</artifactId>
             <version>7.8.0</version>
@@ -119,7 +124,7 @@
                             </container>
                             <to>
                                 <image>
-                                    numaproj-contrib/${project.artifactId}:v0.2.0
+                                    numaproj-contrib/${project.artifactId}:v0.3.0
                                 </image>
                             </to>
                         </configuration>

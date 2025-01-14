@@ -1,0 +1,39 @@
+apiVersion: numaflow.numaproj.io/v1alpha1
+kind: Pipeline
+metadata:
+  name: raw-producer-pipeline
+spec:
+  vertices:
+    - name: in
+      scale:
+        min: 1
+        max: 1
+      source:
+        generator:
+          rpu: 1
+          duration: 5s
+    - name: sink
+      volumes:
+        - name: kafka-config-volume
+          configMap:
+            name: raw-producer-config
+            items:
+              - key: user.configuration
+                path: user.configuration.yaml
+              - key: producer.properties
+                path: producer.properties
+      scale:
+        min: 1
+        max: 1
+      sink:
+        udsink:
+          container:
+            image: quay.io/numaio/numaflow-java/kafka-java:v0.3.0
+            args: [ "--spring.config.location=file:/conf/user.configuration.yaml", "--producer.properties.path=/conf/producer.properties" ]
+            imagePullPolicy: Always
+            volumeMounts:
+              - name: kafka-config-volume
+                mountPath: /conf
+  edges:
+    - from: in
+      to: sink

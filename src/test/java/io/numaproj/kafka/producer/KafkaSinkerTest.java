@@ -1,7 +1,6 @@
 package io.numaproj.kafka.producer;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import io.numaproj.kafka.config.UserConfig;
@@ -30,9 +29,10 @@ public class KafkaSinkerTest {
   private final KafkaProducer<String, GenericRecord> producer = mock(KafkaProducer.class);
   private final Registry schemaRegistry = mock(Registry.class);
 
-  private static final String TEST_TOPIC = "test-topic";
+  private static final String TEST_SUBJECT = "test-topic-value";
+  private static final int TEST_VERSION = 1;
 
-  private KafkaSinker underTest;
+  private KafkaAvroSinker underTest;
 
   @BeforeEach
   public void setUp() {
@@ -45,10 +45,19 @@ public class KafkaSinkerTest {
             + "]"
             + "}";
     var schema = new Schema.Parser().parse(USER_SCHEMA_JSON);
-    // MockitoAnnotations.initMocks(this);
-    when(userConfig.getTopicName()).thenReturn(TEST_TOPIC);
-    when(schemaRegistry.getAvroSchema(TEST_TOPIC)).thenReturn(schema);
-    underTest = new KafkaSinker(userConfig, producer, schemaRegistry);
+    when(userConfig.getSchemaSubject()).thenReturn(TEST_SUBJECT);
+    when(userConfig.getSchemaVersion()).thenReturn(TEST_VERSION);
+    when(userConfig.getTopicName()).thenReturn(TEST_SUBJECT);
+    when(schemaRegistry.getAvroSchema(TEST_SUBJECT, TEST_VERSION)).thenReturn(schema);
+    underTest = new KafkaAvroSinker(userConfig, producer, schemaRegistry);
+  }
+
+  @Test
+  void constructSinkerThrows_schemaNotFound() {
+    when(schemaRegistry.getAvroSchema(TEST_SUBJECT, TEST_VERSION)).thenReturn(null);
+    assertThrows(
+        RuntimeException.class,
+        () -> underTest = new KafkaAvroSinker(userConfig, producer, schemaRegistry));
   }
 
   @Test
@@ -83,54 +92,6 @@ public class KafkaSinkerTest {
     for (Response gotResponse : responses) {
       Response wantResponse = wantResponseMap.get(gotResponse.getId());
       assertEquals(wantResponse.getSuccess(), gotResponse.getSuccess());
-      assertEquals(wantResponse.getId(), gotResponse.getId());
-      wantResponseMap.remove(gotResponse.getId());
-    }
-    assertTrue(wantResponseMap.isEmpty(), "expected all the response object match as expected");
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
-  void processMessages_responseFailure_schemaNotFound() {
-    SinkerTestKit.TestDatum testDatum1 =
-        SinkerTestKit.TestDatum.builder()
-            .id("1")
-            .value("{\"name\": \"Michael Jordan\"}".getBytes())
-            .build();
-    SinkerTestKit.TestDatum testDatum2 =
-        SinkerTestKit.TestDatum.builder()
-            .id("2")
-            .value("{\"name\": \"Kobe Bryant\"}".getBytes())
-            .build();
-    SinkerTestKit.TestListIterator datumIterator = new SinkerTestKit.TestListIterator();
-    datumIterator.addDatum(testDatum1);
-    datumIterator.addDatum(testDatum2);
-    Future<RecordMetadata> recordMetadataFuture =
-        CompletableFuture.completedFuture(
-            new RecordMetadata(new TopicPartition(userConfig.getTopicName(), 1), 1, 1, 1, 1, 1));
-
-    // mock schema not found
-    when(schemaRegistry.getAvroSchema(TEST_TOPIC)).thenReturn(null);
-
-    doReturn(recordMetadataFuture).when(producer).send(any(ProducerRecord.class));
-    ResponseList responseList = underTest.processMessages(datumIterator);
-    List<Response> responses = responseList.getResponses();
-    Response response1 =
-        Response.responseFailure("1", "Failed to retrieve the latest schema for topic");
-    Response response2 =
-        Response.responseFailure("2", "Failed to retrieve the latest schema for topic");
-    Map<String, Response> wantResponseMap = new HashMap<>();
-    wantResponseMap.put(response1.getId(), response1);
-    wantResponseMap.put(response2.getId(), response2);
-    assertEquals(wantResponseMap.size(), responses.size(), "response objects are equal");
-    // no direct way to compare the Response object at the moment so check individually
-    for (Response gotResponse : responses) {
-      Response wantResponse = wantResponseMap.get(gotResponse.getId());
-      assertEquals(wantResponse.getSuccess(), gotResponse.getSuccess());
-      if (wantResponse.getErr() != null) {
-        assertTrue(gotResponse.getErr().contains(wantResponse.getErr()));
-      }
-
       assertEquals(wantResponse.getId(), gotResponse.getId());
       wantResponseMap.remove(gotResponse.getId());
     }
@@ -204,7 +165,6 @@ public class KafkaSinkerTest {
         .when(producer)
         .send(any(ProducerRecord.class));
 
-    // doReturn(recordMetadataFuture).when(producer).send(any(ProducerRecord.class));
     ResponseList responseList = underTest.processMessages(datumIterator);
     List<Response> responses = responseList.getResponses();
     Response response1 = Response.responseFailure("1", "future error");
