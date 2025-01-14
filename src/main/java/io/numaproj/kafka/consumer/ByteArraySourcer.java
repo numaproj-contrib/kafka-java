@@ -13,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.Header;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
 /**
@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "schemaType", havingValue = "raw")
+@ConditionalOnExpression("'${schemaType}'.equals('json') or '${schemaType}'.equals('raw')")
 public class ByteArraySourcer extends Sourcer {
   private final ByteArrayWorker worker;
   private final Admin admin;

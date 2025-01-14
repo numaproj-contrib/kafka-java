@@ -16,14 +16,14 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
 /** Worker class that consumes messages from Kafka topic and commits offsets */
 @Slf4j
 @Component
 // TODO - single place to hold the value "raw"
-@ConditionalOnProperty(name = "schemaType", havingValue = "raw")
+@ConditionalOnExpression("'${schemaType}'.equals('json') or '${schemaType}'.equals('raw')")
 public class ByteArrayWorker implements Runnable, DisposableBean {
   private final UserConfig userConfig;
   private final KafkaConsumer<String, byte[]> consumer;
