@@ -1,0 +1,24 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: raw-consumer-config
+data:
+  consumer.properties: |
+    # Required connection configs for Kafka producer, consumer, and admin
+    bootstrap.servers=pkc-921jm.us-east-2.aws.confluent.cloud:9092
+    security.protocol=SASL_SSL
+    sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username='SR7RM67IKBVXFZZP' password='JQXTx+r2CdYeL13ifFW665YDvfkMb0irhD5UqfjycIDrqEyKHJSbahH7+l+y6p/y';
+    sasl.mechanism=PLAIN
+    # Required for correctness in Apache Kafka clients prior to 2.6
+    client.dns.lookup=use_all_dns_ips
+    # Best practice for higher availability in Apache Kafka clients prior to 3.0
+    session.timeout.ms=45000
+    # Other configurations
+    retries=0
+    # group.id is required for consumer clients
+    group.id=group1
+  user.configuration: |
+    topicName: numagen-raw
+    groupId: group1
+    schemaType: raw

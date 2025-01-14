@@ -1,27 +1,22 @@
-# Publish to a topic with a JSON schema registered
+# Publish to a topic using a JSON schema to validate the data
 
 ### Introduction
 
-This document demonstrates how to publish messages to a topic that has a JSON schema registered. When a topic has a
-JSON schema, Kafka sink will validate the message against the schema and then use the byte array serializer to
-serialize the value of the message. For the key, string serializer
-`org.apache.kafka.common.serialization.StringSerializer` is used. For the value,
-`org.apache.kafka.common.serialization.ByteArraySerializer`.
-
-Current Limitations:
-
-* The JSON sink assumes the schema follows the default subject naming strategy (TopicNameStrategy) in the schema
-  registry, meaning the name of the schema matches `{TopicName}-value`.
+This document demonstrates how to publish messages to a topic, using a JSON schema to validate before sending.
+When a JSON schema is provided, `kafka-java` producer validates the value of the message against the schema and then
+uses the byte array serializer `org.apache.kafka.common.serialization.ByteArraySerializer` to serialize the value of the
+message. For the key, string serializer `org.apache.kafka.common.serialization.StringSerializer`.
 
 ### Example
 
-In this example, we create a pipeline that reads from the builtin generator and write the messages to a target topic
-`numagen-json` with JSON schema `numagen-json-value` registered for the value of the message.
+In this example, we create a pipeline that reads from the
+builtin [generator source](https://numaflow.numaproj.io/user-guide/sources/generator/) and write the messages to a
+target topic `numagen-json` with JSON schema `numagen-json-value` registered for the value of the message.
 
 #### Pre-requisite
 
 Create a topic called `numagen-json` in your Kafka cluster with the following JSON schema `numagen-json-value`
-registered.
+registered in Confluent schema registry.
 
 ```json
 {
@@ -56,91 +51,27 @@ registered.
 
 #### Configure the Kafka producer
 
-Create a ConfigMap with the following configurations:
+Use the example [ConfigMap](json-producer-config.yaml) to configure the Kafka sinker.
 
-```yaml
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: json-producer-config
-data:
-  producer.properties: |
-    # Required connection configs for Kafka producer
-    bootstrap.servers=[placeholder]
-    security.protocol=[placeholder]
-    sasl.jaas.config=[placeholder]
-    sasl.mechanism=[placeholder]
-    # Required for correctness in Apache Kafka clients prior to 2.6
-    client.dns.lookup=use_all_dns_ips
-    # Best practice for higher availability in Apache Kafka clients prior to 3.0
-    session.timeout.ms=45000
-    # Best practice for Kafka producer to prevent data loss
-    acks=all
-    # Other configurations
-    retries=0
-  user.configuration: |
-    topicName: numagen-json
-    schemaType: json
-```
+In the ConfigMap:
 
-`producer.properties` holds the [properties](https://kafka.apache.org/documentation/#producerconfigs) to configure the
-producer.
+* `producer.properties` holds the [properties](https://kafka.apache.org/documentation/#producerconfigs) as well
+  as [schema registry properties](https://github.com/confluentinc/schema-registry/blob/master/client/src/main/java/io/confluent/kafka/schemaregistry/client/SchemaRegistryClientConfig.java)
+  to configure the producer. Ensure that the schema registry configurations are set because JSON schema is used to
+  validate the data.
 
-`user.configuration` is the user configuration for the sink vertex. The configuration includes topicName, the Kafka
-topic name to write data to, and schemaType. The `schemaType` is set to `json` to indicate that JSON schema is used to
-validate the data before publishing.
+* `user.configuration` is the user configuration for the sink vertex.
+    * `topicName` is the Kafka topic name to write data to.
+    * `schemaType` is set to `json` to indicate that JSON schema is used to validate the data before publishing.
+    * `schemaSubject` is the subject name in the schema registry for the JSON schema.
+    * `schemaVersion` is the version of the schema in the schema registry.
 
 Deploy the ConfigMap to the Kubernetes cluster.
 
 #### Create the pipeline
 
-Create the pipeline with Numaflow builtin generator and Kafka sink. Configure the Kafka sink with the ConfigMap created
-in the previous step.
-
-```yaml
-apiVersion: numaflow.numaproj.io/v1alpha1
-kind: Pipeline
-metadata:
-  name: json-producer
-spec:
-  vertices:
-    - name: in
-      scale:
-        min: 1
-        max: 1
-      source:
-        generator:
-          rpu: 1
-          duration: 5s
-    - name: sink
-      volumes:
-        - name: kafka-config-volume
-          configMap:
-            name: json-producer-config
-            items:
-              - key: user.configuration
-                path: user.configuration.yaml
-              - key: producer.properties
-                path: producer.properties
-      scale:
-        min: 1
-        max: 1
-      sink:
-        udsink:
-          container:
-            image: quay.io/numaio/numaflow-java/kafka-java:v0.3.0
-            args: [ "--spring.config.location=file:/conf/user.configuration.yaml", "--producer.properties.path=/conf/producer.properties" ]
-            imagePullPolicy: Always
-            volumeMounts:
-              - name: kafka-config-volume
-                mountPath: /conf
-  edges:
-    - from: in
-      to: sink
-```
-
-Please make sure that the args list under the sink vertex matches the file paths in the ConfigMap.
+Use the example [pipeline](json-producer-pipeline.yaml) to create the pipeline, using the ConfigMap created in the
+previous step. Please make sure that the args list under the sink vertex matches the file paths in the ConfigMap.
 
 #### Observe the messages
 
@@ -157,3 +88,9 @@ Wait for the pipeline to be up and running. You can observe the messages in the 
   }
 }
 ```
+
+### Choose MonoVertex
+
+Although we use Pipeline to demonstrate, it is highly recommended to use
+the [MonoVertex](https://numaflow.numaproj.io/core-concepts/monovertex/) to build your streaming data processing
+application on Numaflow. The way you specify the sink specification stays the same.
