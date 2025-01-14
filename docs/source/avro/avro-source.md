@@ -66,7 +66,7 @@ Produce some messages to the `numagen-avro` topic using the Avro schema as seria
 
 #### Configure the Kafka consumer
 
-Use the example [ConfigMap](avro-consumer-config.yaml) to configure the Kafka sourcer.
+Use the example [ConfigMap](manifests/avro-consumer-config.yaml) to configure the Kafka sourcer.
 
 * `consumer.properties` holds the [properties](https://kafka.apache.org/documentation/#consumerconfigs) as well
   as [schema registry properties](https://github.com/confluentinc/schema-registry/blob/master/client/src/main/java/io/confluent/kafka/schemaregistry/client/SchemaRegistryClientConfig.java)
@@ -82,8 +82,8 @@ Deploy the ConfigMap to the Kubernetes cluster.
 
 #### Create the pipeline
 
-Use the example [pipeline](avro-consumer-pipeline.yaml) to create the pipeline, using the ConfigMap created in the
-previous step. Please make sure that the args list under the sink vertex matches the file paths in the ConfigMap.
+Use the example [pipeline](manifests/avro-consumer-pipeline.yaml) to create the pipeline, using the ConfigMap created in
+the previous step. Please make sure that the args list under the sink vertex matches the file paths in the ConfigMap.
 
 #### Observe the log sink
 

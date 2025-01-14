@@ -37,7 +37,7 @@ Produce some messages to the `numagen-raw` topic. A sample message
 
 #### Configure the Kafka consumer
 
-Use the example [ConfigMap](raw-consumer-config.yaml) to configure the Kafka sourcer.
+Use the example [ConfigMap](manifests/raw-consumer-config.yaml) to configure the Kafka sourcer.
 
 * `consumer.properties` holds the [properties](https://kafka.apache.org/documentation/#consumerconfigs) to configure the
   consumer. Ensure that the schema registry configurations are set because Avro schema is used to de-serialize the data.
@@ -55,8 +55,8 @@ Deploy the ConfigMap to the Kubernetes cluster.
 Create the pipeline with Kafka source and Numaflow builtin log sink. Configure the Kafka source with the ConfigMap
 created in the previous step.
 
-Use the example [pipeline](raw-consumer-pipeline.yaml) to create the pipeline, using the ConfigMap created in the
-previous step. Please make sure that the args list under the sink vertex matches the file paths in the ConfigMap.
+Use the example [pipeline](manifests/raw-consumer-pipeline.yaml) to create the pipeline, using the ConfigMap created in
+the previous step. Please make sure that the args list under the sink vertex matches the file paths in the ConfigMap.
 
 #### Observe the log sink
 

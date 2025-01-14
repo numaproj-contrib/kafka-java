@@ -53,7 +53,7 @@ registered.
 
 #### Configure the Kafka producer
 
-Use the example [ConfigMap](avro-producer-config.yaml) to configure the Kafka sinker.
+Use the example [ConfigMap](manifests/avro-producer-config.yaml) to configure the Kafka sinker.
 
 In the ConfigMap:
 
@@ -72,8 +72,8 @@ Deploy the ConfigMap to the Kubernetes cluster.
 
 #### Create the pipeline
 
-Use the example [pipeline](avro-producer-pipeline.yaml) to create the pipeline, using the ConfigMap created in the
-previous step. Please make sure that the args list under the sink vertex matches the file paths in the ConfigMap.
+Use the example [pipeline](manifests/avro-producer-pipeline.yaml) to create the pipeline, using the ConfigMap created in
+the previous step. Please make sure that the args list under the sink vertex matches the file paths in the ConfigMap.
 
 #### Observe the messages
 
