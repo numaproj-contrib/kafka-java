@@ -7,6 +7,7 @@ import io.numaproj.kafka.schema.Registry;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -81,7 +82,14 @@ public class ProducerConfig {
         "io.confluent.kafka.serializers.KafkaAvroSerializer");
     // never register schemas on behalf of the user
     props.put("auto.register.schemas", "false");
-    log.info("Kafka Avro producer instantiated with properties: {}", props);
+    // set credentials from environment variable
+    String base64EncodedCredentials = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
+    if (base64EncodedCredentials != null && !base64EncodedCredentials.isEmpty()) {
+      StringReader sr = new StringReader(base64EncodedCredentials);
+      props.load(sr);
+      sr.close();
+    }
+    log.info("Kafka Avro data producer props instantiated with properties: {}", props);
     is.close();
     return new KafkaProducer<>(props);
   }
@@ -94,6 +102,13 @@ public class ProducerConfig {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
     props.load(is);
+    // set credentials from environment variable
+    String base64EncodedCredentials = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
+    if (base64EncodedCredentials != null && !base64EncodedCredentials.isEmpty()) {
+      StringReader sr = new StringReader(base64EncodedCredentials);
+      props.load(sr);
+      sr.close();
+    }
     String schemaRegistryUrl = props.getProperty("schema.registry.url");
     int identityMapCapacity =
         Integer.parseInt(
@@ -103,6 +118,11 @@ public class ProducerConfig {
     for (String key : props.stringPropertyNames()) {
       schemaRegistryClientConfigs.put(key, props.getProperty(key));
     }
+    log.info(
+        "Schema registry client instantiated with schema registry URL: {} and identity map capacity: {}, and other configs: {}",
+        schemaRegistryUrl,
+        identityMapCapacity,
+        schemaRegistryClientConfigs);
     return new CachedSchemaRegistryClient(
         schemaRegistryUrl, identityMapCapacity, schemaRegistryClientConfigs);
   }

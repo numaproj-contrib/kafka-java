@@ -2,14 +2,11 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: json-producer-config
+  name: avro-producer-config
 data:
   producer.properties: |
     # Required connection configs for Kafka producer, consumer, and admin
-    bootstrap.servers=[placeholder]
-    security.protocol=[placeholder]
-    sasl.jaas.config=[placeholder]
-    sasl.mechanism=[placeholder]
+    bootstrap.servers=pkc-921jm.us-east-2.aws.confluent.cloud:9092
     # Required for correctness in Apache Kafka clients prior to 2.6
     client.dns.lookup=use_all_dns_ips
     # Best practice for higher availability in Apache Kafka clients prior to 3.0
@@ -17,9 +14,7 @@ data:
     # Best practice for Kafka producer to prevent data loss
     acks=all
     # Schema Registry connection configurations
-    schema.registry.url=[placeholder]
-    basic.auth.credentials.source=[placeholder]
-    basic.auth.user.info=[placeholder]
+    schema.registry.url=https://psrc-5j7x8.us-central1.gcp.confluent.cloud
     # Other configurations
     retries=0
   user.configuration: |

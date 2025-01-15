@@ -28,12 +28,18 @@ spec:
       sink:
         udsink:
           container:
-            image: quay.io/numaio/numaflow-java/kafka-java:v0.3.0
+            image: quay.io/numaio/numaflow-java/kafka-java:v0.4.0
             args: [ "--spring.config.location=file:/conf/user.configuration.yaml", "--producer.properties.path=/conf/producer.properties" ]
             imagePullPolicy: Always
             volumeMounts:
               - name: kafka-config-volume
                 mountPath: /conf
+            env:
+              - name: KAFKA_CREDENTIAL_PROPERTIES
+                valueFrom:
+                  secretKeyRef:
+                    name: kafka-credentials
+                    key: kafka.properties
   edges:
     - from: in
       to: sink
