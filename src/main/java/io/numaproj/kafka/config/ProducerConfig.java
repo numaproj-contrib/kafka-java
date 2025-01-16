@@ -57,10 +57,11 @@ public class ProducerConfig {
         "org.apache.kafka.common.serialization.ByteArraySerializer");
     // never register schemas on behalf of the user
     props.put("auto.register.schemas", "false");
-    // set credentials from environment variable
-    String base64EncodedCredentials = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
-    if (base64EncodedCredentials != null && !base64EncodedCredentials.isEmpty()) {
-      StringReader sr = new StringReader(base64EncodedCredentials);
+
+    // set credential properties from environment variable
+    String credentialProperties = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
+    if (credentialProperties != null && !credentialProperties.isEmpty()) {
+      StringReader sr = new StringReader(credentialProperties);
       props.load(sr);
       sr.close();
     }
@@ -88,10 +89,11 @@ public class ProducerConfig {
         "io.confluent.kafka.serializers.KafkaAvroSerializer");
     // never register schemas on behalf of the user
     props.put("auto.register.schemas", "false");
-    // set credentials from environment variable
-    String base64EncodedCredentials = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
-    if (base64EncodedCredentials != null && !base64EncodedCredentials.isEmpty()) {
-      StringReader sr = new StringReader(base64EncodedCredentials);
+
+    // set credential properties from environment variable
+    String credentialProperties = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
+    if (credentialProperties != null && !credentialProperties.isEmpty()) {
+      StringReader sr = new StringReader(credentialProperties);
       props.load(sr);
       sr.close();
     }
@@ -107,10 +109,11 @@ public class ProducerConfig {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
     props.load(is);
-    // set credentials from environment variable
-    String base64EncodedCredentials = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
-    if (base64EncodedCredentials != null && !base64EncodedCredentials.isEmpty()) {
-      StringReader sr = new StringReader(base64EncodedCredentials);
+
+    // set credential properties from environment variable
+    String credentialProperties = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
+    if (credentialProperties != null && !credentialProperties.isEmpty()) {
+      StringReader sr = new StringReader(credentialProperties);
       props.load(sr);
       sr.close();
     }
