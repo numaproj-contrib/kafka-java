@@ -64,7 +64,6 @@ public class ProducerConfig {
       props.load(sr);
       sr.close();
     }
-    log.info("Kafka byte array data producer props instantiated with properties: {}", props);
     is.close();
     return new KafkaProducer<>(props);
   }
@@ -96,7 +95,6 @@ public class ProducerConfig {
       props.load(sr);
       sr.close();
     }
-    log.info("Kafka Avro data producer props instantiated with properties: {}", props);
     is.close();
     return new KafkaProducer<>(props);
   }
@@ -125,11 +123,6 @@ public class ProducerConfig {
     for (String key : props.stringPropertyNames()) {
       schemaRegistryClientConfigs.put(key, props.getProperty(key));
     }
-    log.info(
-        "Schema registry client instantiated with schema registry URL: {} and identity map capacity: {}, and other configs: {}",
-        schemaRegistryUrl,
-        identityMapCapacity,
-        schemaRegistryClientConfigs);
     return new CachedSchemaRegistryClient(
         schemaRegistryUrl, identityMapCapacity, schemaRegistryClientConfigs);
   }
