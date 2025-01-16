@@ -31,6 +31,12 @@ retries=0
 The `sasl.jaas.config` and `base.auth.user.info` are the properties that contain the credentials. Having credentials
 directly in the ConfigMap is not secure. To protect the credentials, we use Kubernetes secrets.
 
+We use Secret to hold the encoded credential properties. The encoded properties are then passed to the sink vertex as an
+environment variable called `KAFKA_CREDENTIAL_PROPERTIES`. When the sink/source vertex starts and instantiates the Kafka
+producer/consumer, it decodes the properties and sets them in the producer/consumer, it first loads the properties from
+the ConfigMap and then appends the decoded properties from the environment variable. If some of the properties are set
+both in the ConfigMap and the environment variable, the properties from the environment variable take precedence.
+
 ### Steps to protect your credentials
 
 **Step 1** - Remove the credential properties from the original ConfigMap.
