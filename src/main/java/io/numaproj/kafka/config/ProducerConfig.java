@@ -7,6 +7,7 @@ import io.numaproj.kafka.schema.Registry;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -56,7 +57,14 @@ public class ProducerConfig {
         "org.apache.kafka.common.serialization.ByteArraySerializer");
     // never register schemas on behalf of the user
     props.put("auto.register.schemas", "false");
-    log.info("Kafka byte array data producer props instantiated with properties: {}", props);
+
+    // set credential properties from environment variable
+    String credentialProperties = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
+    if (credentialProperties != null && !credentialProperties.isEmpty()) {
+      StringReader sr = new StringReader(credentialProperties);
+      props.load(sr);
+      sr.close();
+    }
     is.close();
     return new KafkaProducer<>(props);
   }
@@ -81,7 +89,14 @@ public class ProducerConfig {
         "io.confluent.kafka.serializers.KafkaAvroSerializer");
     // never register schemas on behalf of the user
     props.put("auto.register.schemas", "false");
-    log.info("Kafka Avro producer instantiated with properties: {}", props);
+
+    // set credential properties from environment variable
+    String credentialProperties = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
+    if (credentialProperties != null && !credentialProperties.isEmpty()) {
+      StringReader sr = new StringReader(credentialProperties);
+      props.load(sr);
+      sr.close();
+    }
     is.close();
     return new KafkaProducer<>(props);
   }
@@ -94,6 +109,14 @@ public class ProducerConfig {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
     props.load(is);
+
+    // set credential properties from environment variable
+    String credentialProperties = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
+    if (credentialProperties != null && !credentialProperties.isEmpty()) {
+      StringReader sr = new StringReader(credentialProperties);
+      props.load(sr);
+      sr.close();
+    }
     String schemaRegistryUrl = props.getProperty("schema.registry.url");
     int identityMapCapacity =
         Integer.parseInt(

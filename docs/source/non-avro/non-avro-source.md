@@ -71,4 +71,9 @@ Payload -  {"Data":{"value":1736439076729944818},"Createdts":1736439076729944818
 
 Although we use Pipeline to demonstrate, it is highly recommended to use
 the [MonoVertex](https://numaflow.numaproj.io/core-concepts/monovertex/) to build your streaming data processing
-application on Numaflow. The way you specify the sink specification stays the same.
+application on Numaflow. The way you specify the source specification stays the same.
+
+### Protect your credentials
+
+In the example, the `consumer.properties` contains the credentials. Please
+see [credentials management](../../credentials-management/protecting-credentials.md) to protect your credentials.

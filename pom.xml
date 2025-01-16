@@ -124,7 +124,7 @@
                             </container>
                             <to>
                                 <image>
-                                    numaproj-contrib/${project.artifactId}:v0.3.0
+                                    numaproj-contrib/${project.artifactId}:v0.4.0
                                 </image>
                             </to>
                         </configuration>

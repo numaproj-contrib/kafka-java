@@ -8,7 +8,6 @@ data:
     # Required connection configs for Kafka producer, consumer, and admin
     bootstrap.servers=[placeholder]
     security.protocol=[placeholder]
-    sasl.jaas.config=[placeholder]
     sasl.mechanism=[placeholder]
     # Required for correctness in Apache Kafka clients prior to 2.6
     client.dns.lookup=use_all_dns_ips
@@ -19,7 +18,6 @@ data:
     # Schema Registry connection configurations
     schema.registry.url=[placeholder]
     basic.auth.credentials.source=[placeholder]
-    basic.auth.user.info=[placeholder]
     # Other configurations
     retries=0
   user.configuration: |
