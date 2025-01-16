@@ -3,6 +3,7 @@ package io.numaproj.kafka.config;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.util.Properties;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
@@ -69,7 +70,13 @@ public class ConsumerConfig {
         org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
         "io.confluent.kafka.serializers.KafkaAvroDeserializer");
 
-    log.info("Kafka Avro consumer instantiated with properties: {}", props);
+    // set credentials from environment variable
+    String base64EncodedCredentials = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
+    if (base64EncodedCredentials != null && !base64EncodedCredentials.isEmpty()) {
+      StringReader sr = new StringReader(base64EncodedCredentials);
+      props.load(sr);
+      sr.close();
+    }
     return new KafkaConsumer<>(props);
   }
 
@@ -110,7 +117,13 @@ public class ConsumerConfig {
         org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.ByteArrayDeserializer");
 
-    log.info("Kafka byte array consumer instantiated with properties: {}", props);
+    // set credentials from environment variable
+    String base64EncodedCredentials = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
+    if (base64EncodedCredentials != null && !base64EncodedCredentials.isEmpty()) {
+      StringReader sr = new StringReader(base64EncodedCredentials);
+      props.load(sr);
+      sr.close();
+    }
     return new KafkaConsumer<>(props);
   }
 
@@ -124,7 +137,14 @@ public class ConsumerConfig {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
     props.load(is);
-    log.info("Kafka admin client props read from consumer properties: {}", props);
+    is.close();
+    // set credentials from environment variable
+    String base64EncodedCredentials = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
+    if (base64EncodedCredentials != null && !base64EncodedCredentials.isEmpty()) {
+      StringReader sr = new StringReader(base64EncodedCredentials);
+      props.load(sr);
+      sr.close();
+    }
     return KafkaAdminClient.create(props);
   }
 }

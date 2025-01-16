@@ -34,6 +34,12 @@ spec:
             volumeMounts:
               - name: kafka-config-volume
                 mountPath: /conf
+            env:
+              - name: KAFKA_CREDENTIAL_PROPERTIES
+                valueFrom:
+                  secretKeyRef:
+                    name: kafka-credentials
+                    key: kafka.credential.properties
   edges:
     - from: in
       to: sink

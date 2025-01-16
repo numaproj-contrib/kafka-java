@@ -95,4 +95,4 @@ Wait for the pipeline to be up and running. You can observe the messages in the 
 
 Although we use Pipeline to demonstrate, it is highly recommended to use
 the [MonoVertex](https://numaflow.numaproj.io/core-concepts/monovertex/) to build your streaming data processing
-application on Numaflow. The way you specify th
+application on Numaflow. The way you specify the sink specification stays the same.

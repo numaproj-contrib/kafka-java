@@ -57,6 +57,13 @@ public class ProducerConfig {
         "org.apache.kafka.common.serialization.ByteArraySerializer");
     // never register schemas on behalf of the user
     props.put("auto.register.schemas", "false");
+    // set credentials from environment variable
+    String base64EncodedCredentials = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
+    if (base64EncodedCredentials != null && !base64EncodedCredentials.isEmpty()) {
+      StringReader sr = new StringReader(base64EncodedCredentials);
+      props.load(sr);
+      sr.close();
+    }
     log.info("Kafka byte array data producer props instantiated with properties: {}", props);
     is.close();
     return new KafkaProducer<>(props);
