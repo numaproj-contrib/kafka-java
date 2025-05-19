@@ -14,6 +14,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetCommitCallback;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.header.internals.RecordHeaders;
 import org.apache.kafka.common.record.TimestampType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -122,8 +123,18 @@ public class AvroWorkerTest {
       var value = new GenericData.Record(schema);
       if (generateNullRecord) value = null;
       ConsumerRecord<String, GenericRecord> record1 =
-          new ConsumerRecord<>(
-              topic, 1, i, 0L, TimestampType.CREATE_TIME, 0L, 0, 0, "k1" + i, value);
+          new ConsumerRecord<String, GenericRecord>(
+              topic,
+              1,
+              i,
+              0L,
+              TimestampType.CREATE_TIME,
+              0,
+              0,
+              "k1" + i,
+              value,
+              new RecordHeaders(),
+              Optional.empty());
       consumerRecordList.add(record1);
     }
     records.put(new TopicPartition(topic, 1), consumerRecordList);
