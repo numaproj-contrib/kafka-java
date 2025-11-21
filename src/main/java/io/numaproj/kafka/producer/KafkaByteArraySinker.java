@@ -1,5 +1,6 @@
 package io.numaproj.kafka.producer;
 
+import io.numaproj.kafka.common.CommonUtils;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.numaflow.sinker.*;
 import java.util.HashMap;
@@ -60,7 +61,10 @@ public class KafkaByteArraySinker extends BaseKafkaSinker<byte[]> {
       if (datum == null) {
         break;
       }
-      String key = UUID.randomUUID().toString();
+      String key = CommonUtils.extractKafkaKey(datum.getKeys());
+      if (key == null) {
+        key = UUID.randomUUID().toString();
+      }
       String msg = new String(datum.getValue());
       log.trace("Processing message with id: {}, payload: {}", datum.getId(), msg);
 

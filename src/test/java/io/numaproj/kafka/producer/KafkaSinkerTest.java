@@ -22,6 +22,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 public class KafkaSinkerTest {
 
@@ -247,5 +248,81 @@ public class KafkaSinkerTest {
       wantResponseMap.remove(gotResponse.getId());
     }
     assertTrue(wantResponseMap.isEmpty(), "expected all the response object match as expected");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void processMessages_usesKafkaKeyPrefix() {
+    SinkerTestKit.TestDatum testDatum =
+        SinkerTestKit.TestDatum.builder()
+            .id("1")
+            .value("{\"name\": \"Michael Jordan\"}".getBytes())
+            .keys(new String[] {"KAFKA_KEY:custom-key-123"})
+            .build();
+    SinkerTestKit.TestListIterator datumIterator = new SinkerTestKit.TestListIterator();
+    datumIterator.addDatum(testDatum);
+    Future<RecordMetadata> recordMetadataFuture =
+        CompletableFuture.completedFuture(
+            new RecordMetadata(new TopicPartition(userConfig.getTopicName(), 1), 1, 1, 1, 1, 1));
+    doReturn(recordMetadataFuture).when(producer).send(any(ProducerRecord.class));
+
+    underTest.processMessages(datumIterator);
+
+    ArgumentCaptor<ProducerRecord<String, GenericRecord>> recordCaptor =
+        ArgumentCaptor.forClass(ProducerRecord.class);
+    verify(producer).send(recordCaptor.capture());
+    ProducerRecord<String, GenericRecord> capturedRecord = recordCaptor.getValue();
+    assertEquals("custom-key-123", capturedRecord.key());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void processMessages_usesUuidWhenNoKafkaKeyPrefix() {
+    SinkerTestKit.TestDatum testDatum =
+        SinkerTestKit.TestDatum.builder()
+            .id("1")
+            .value("{\"name\": \"Michael Jordan\"}".getBytes())
+            .keys(new String[] {"other-key", "another-key"})
+            .build();
+    SinkerTestKit.TestListIterator datumIterator = new SinkerTestKit.TestListIterator();
+    datumIterator.addDatum(testDatum);
+    Future<RecordMetadata> recordMetadataFuture =
+        CompletableFuture.completedFuture(
+            new RecordMetadata(new TopicPartition(userConfig.getTopicName(), 1), 1, 1, 1, 1, 1));
+    doReturn(recordMetadataFuture).when(producer).send(any(ProducerRecord.class));
+
+    underTest.processMessages(datumIterator);
+
+    ArgumentCaptor<ProducerRecord<String, GenericRecord>> recordCaptor =
+        ArgumentCaptor.forClass(ProducerRecord.class);
+    verify(producer).send(recordCaptor.capture());
+    ProducerRecord<String, GenericRecord> capturedRecord = recordCaptor.getValue();
+    // UUID format: 8-4-4-4-12 characters = 36 characters total
+    assertEquals(36, capturedRecord.key().length());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void processMessages_usesFirstMatchingKafkaKeyPrefix() {
+    SinkerTestKit.TestDatum testDatum =
+        SinkerTestKit.TestDatum.builder()
+            .id("1")
+            .value("{\"name\": \"Michael Jordan\"}".getBytes())
+            .keys(new String[] {"KAFKA_KEY:first-key", "KAFKA_KEY:second-key"})
+            .build();
+    SinkerTestKit.TestListIterator datumIterator = new SinkerTestKit.TestListIterator();
+    datumIterator.addDatum(testDatum);
+    Future<RecordMetadata> recordMetadataFuture =
+        CompletableFuture.completedFuture(
+            new RecordMetadata(new TopicPartition(userConfig.getTopicName(), 1), 1, 1, 1, 1, 1));
+    doReturn(recordMetadataFuture).when(producer).send(any(ProducerRecord.class));
+
+    underTest.processMessages(datumIterator);
+
+    ArgumentCaptor<ProducerRecord<String, GenericRecord>> recordCaptor =
+        ArgumentCaptor.forClass(ProducerRecord.class);
+    verify(producer).send(recordCaptor.capture());
+    ProducerRecord<String, GenericRecord> capturedRecord = recordCaptor.getValue();
+    assertEquals("first-key", capturedRecord.key());
   }
 }

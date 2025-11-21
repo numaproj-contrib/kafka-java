@@ -1,5 +1,6 @@
 package io.numaproj.kafka.producer;
 
+import io.numaproj.kafka.common.CommonUtils;
 import io.numaproj.kafka.common.JsonValidator;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.schema.Registry;
@@ -86,7 +87,10 @@ public class KafkaJsonSinker extends BaseKafkaSinker<byte[]> {
       if (datum == null) {
         break;
       }
-      String key = UUID.randomUUID().toString();
+      String key = CommonUtils.extractKafkaKey(datum.getKeys());
+      if (key == null) {
+        key = UUID.randomUUID().toString();
+      }
       String msg = new String(datum.getValue());
       log.trace("Processing message with id: {}, payload: {}", datum.getId(), msg);
 
