@@ -101,3 +101,7 @@ application on Numaflow. The way you specify the sink specification stays the sa
 
 In the example, the `producer.properties` contains the credentials. Please
 see [credentials management](../../credentials-management/protecting-credentials.md) to protect your credentials.
+
+### Custom Message Keys
+
+By default, the sink generates a UUID for each message key. To specify a custom key, include a datum key prefixed with `KAFKA_KEY:`. The remaining string after the prefix will be used as the Kafka message key. If no `KAFKA_KEY:` prefix is found, a UUID is generated automatically.
