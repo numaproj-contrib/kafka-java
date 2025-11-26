@@ -77,4 +77,30 @@ public class ConsumerConfigTest {
       fail();
     }
   }
+
+  @Test
+  public void consumerGroupId_success() {
+    try {
+      var groupId = underTest.consumerGroupId();
+      assertEquals("groupId", groupId);
+    } catch (Exception e) {
+      fail();
+    }
+  }
+
+  @Test
+  public void consumerGroupId_notSpecified() {
+    underTest =
+        new ConsumerConfig(
+            Objects.requireNonNull(
+                    getClass()
+                        .getClassLoader()
+                        .getResource("consumer/consumer.properties.no.group.id"))
+                .getPath());
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          underTest.consumerGroupId();
+        });
+  }
 }
