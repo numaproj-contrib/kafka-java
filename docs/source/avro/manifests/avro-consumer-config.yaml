@@ -25,5 +25,4 @@ data:
     group.id=group1
   user.configuration: |
     topicName: numagen-avro
-    groupId: group1
     schemaType: avro

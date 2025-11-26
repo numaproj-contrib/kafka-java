@@ -44,7 +44,6 @@ Use the example [ConfigMap](manifests/raw-consumer-config.yaml) to configure the
 
 * `user.configuration` is the user configuration for the source vertex.
     * `topicName` is the Kafka topic name to read data from.
-    * `groupId` is the consumer group id.
     * `schemaType` is set to `raw` to indicate that there is no schema registered for the topic. (You can also set the
       `schemaType` to `json` if the topic has a JSON schema registered).
 

@@ -33,6 +33,26 @@ public class ConsumerConfig {
     this.consumerPropertiesFilePath = consumerPropertiesFilePath;
   }
 
+  /**
+   * Provides the consumer group ID from consumer.properties file. This is the single source of
+   * truth for group.id configuration.
+   */
+  @Bean
+  public String consumerGroupId() throws IOException {
+    Properties props = new Properties();
+    InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
+    props.load(is);
+    is.close();
+
+    var groupId =
+        props.getOrDefault(org.apache.kafka.clients.consumer.ConsumerConfig.GROUP_ID_CONFIG, null);
+    if (groupId == null || StringUtils.isBlank((String) groupId)) {
+      throw new IllegalArgumentException("group.id is mandatory for Kafka consumer");
+    }
+    log.info("Consumer group ID from consumer.properties: {}", groupId);
+    return (String) groupId;
+  }
+
   // Kafka Avro consumer client
   @Bean
   @ConditionalOnProperty(name = "schemaType", havingValue = "avro")
