@@ -34,9 +34,8 @@ public class AdminTest {
 
   @BeforeEach
   public void setUp() {
-    underTest = new Admin(userConfigMock, adminClientMock);
+    underTest = new Admin(userConfigMock, TEST_GROUP_ID, adminClientMock);
     when(userConfigMock.getTopicName()).thenReturn(TEST_TOPIC);
-    when(userConfigMock.getGroupId()).thenReturn(TEST_GROUP_ID);
   }
 
   @Test

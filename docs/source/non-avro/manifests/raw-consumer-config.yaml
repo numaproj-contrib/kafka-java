@@ -20,5 +20,4 @@ data:
     group.id=group1
   user.configuration: |
     topicName: numagen-raw
-    groupId: group1
     schemaType: raw

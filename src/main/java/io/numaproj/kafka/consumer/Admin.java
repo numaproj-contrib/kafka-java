@@ -24,18 +24,20 @@ public class Admin implements DisposableBean {
   static final long PendingNotAvailable = Long.MIN_VALUE;
 
   private final UserConfig userConfig;
+  private final String consumerGroupId;
   private final AdminClient adminClient;
 
   @Autowired
-  public Admin(UserConfig userConfig, AdminClient adminClient) {
+  public Admin(UserConfig userConfig, String consumerGroupId, AdminClient adminClient) {
     this.userConfig = userConfig;
+    this.consumerGroupId = consumerGroupId;
     this.adminClient = adminClient;
   }
 
   public long getPendingMessages() {
     try {
       ListConsumerGroupOffsetsResult listConsumerGroupOffsetsResult =
-          adminClient.listConsumerGroupOffsets(userConfig.getGroupId());
+          adminClient.listConsumerGroupOffsets(consumerGroupId);
       log.debug("listConsumerGroupOffsetsResult result: {}", listConsumerGroupOffsetsResult);
       Map<TopicPartition, OffsetSpec> topicPartitionOffsetSpecMap = new HashMap<>();
       Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap =
