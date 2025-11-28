@@ -28,7 +28,7 @@ spec:
       sink:
         udsink:
           container:
-            image: quay.io/numaio/numaflow-java/kafka-java:v0.5.3
+            image: quay.io/numaio/numaflow-java/kafka-java:v0.5.4
             args: [ "--spring.config.location=file:/conf/user.configuration.yaml", "--producer.properties.path=/conf/producer.properties" ]
             imagePullPolicy: Always
             volumeMounts:

@@ -134,7 +134,7 @@ public class AvroWorker implements Runnable, DisposableBean {
             .filter(p -> p.topic().equals(userConfig.getTopicName()))
             .map(TopicPartition::partition)
             .collect(Collectors.toList());
-    log.info("Partitions: {}", partitions);
+    log.debug("Partitions: {}", partitions);
     return partitions;
   }
 
