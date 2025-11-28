@@ -71,7 +71,7 @@ public class ConsumerConfig {
         && Boolean.parseBoolean(
             props.getProperty(
                 org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG))) {
-      log.info("Overwriting enable.auto.commit to false ");
+      log.info("Overwriting enable.auto.commit to false.");
     }
     props.put(org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
     // ensure consumer group id is present
@@ -118,7 +118,7 @@ public class ConsumerConfig {
         && Boolean.parseBoolean(
             props.getProperty(
                 org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG))) {
-      log.info("Overwriting enable.auto.commit to false ");
+      log.info("Overwriting enable.auto.commit to false.");
     }
     props.put(org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
     // ensure consumer group id is present
