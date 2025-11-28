@@ -43,3 +43,19 @@ env:
 ```
 
 Available levels: `TRACE`, `DEBUG`, `INFO` (default), `WARN`, `ERROR`, `OFF`
+
+### How do I enable structured logging (JSON)?
+
+Structured logging is supported out of the box. To enable it, set the following environment variable in your container
+spec:
+
+```yaml
+env:
+  - name: LOGGING_STRUCTURED_FORMAT_CONSOLE
+    value: "logstash"
+```
+
+| Value      | Format                |
+|------------|-----------------------|
+| `logstash` | Logstash JSON         |
+| `ecs`      | Elastic Common Schema |
