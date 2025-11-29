@@ -46,7 +46,8 @@ Available levels: `TRACE`, `DEBUG`, `INFO` (default), `WARN`, `ERROR`, `OFF`
 
 ### How do I enable structured logging (JSON)?
 
-Structured logging is supported out of the box. To enable it, set the following environment variable in your container
+Structured logging is [supported](https://spring.io/blog/2024/08/23/structured-logging-in-spring-boot-3-4) out of the
+box. To enable it, set the following environment variable in your container
 spec:
 
 ```yaml
