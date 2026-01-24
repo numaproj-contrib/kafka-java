@@ -2,6 +2,7 @@ package io.numaproj.kafka.config;
 
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.numaproj.kafka.common.EnvVarInterpolator;
 import io.numaproj.kafka.schema.ConfluentRegistry;
 import io.numaproj.kafka.schema.Registry;
 import java.io.FileInputStream;
@@ -47,6 +48,7 @@ public class ProducerConfig {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
     props.load(is);
+    EnvVarInterpolator.interpolate(props);
     // override the serializer
     // TODO - warning message if user sets a different serializer
     props.put(
@@ -64,6 +66,7 @@ public class ProducerConfig {
       StringReader sr = new StringReader(credentialProperties);
       props.load(sr);
       sr.close();
+      EnvVarInterpolator.interpolate(props);
     }
     is.close();
     return new KafkaProducer<>(props);
@@ -79,6 +82,7 @@ public class ProducerConfig {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
     props.load(is);
+    EnvVarInterpolator.interpolate(props);
     // override the serializer
     // TODO - warning message if user sets a different serializer
     props.put(
@@ -96,6 +100,7 @@ public class ProducerConfig {
       StringReader sr = new StringReader(credentialProperties);
       props.load(sr);
       sr.close();
+      EnvVarInterpolator.interpolate(props);
     }
     is.close();
     return new KafkaProducer<>(props);
@@ -109,6 +114,7 @@ public class ProducerConfig {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.producerPropertiesFilePath);
     props.load(is);
+    EnvVarInterpolator.interpolate(props);
 
     // set credential properties from environment variable
     String credentialProperties = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
@@ -116,6 +122,7 @@ public class ProducerConfig {
       StringReader sr = new StringReader(credentialProperties);
       props.load(sr);
       sr.close();
+      EnvVarInterpolator.interpolate(props);
     }
     String schemaRegistryUrl = props.getProperty("schema.registry.url");
     int identityMapCapacity =

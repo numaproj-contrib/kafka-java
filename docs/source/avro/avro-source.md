@@ -76,6 +76,8 @@ Use the example [ConfigMap](manifests/avro-consumer-config.yaml) to configure th
 * `user.configuration` is the user configuration for the source vertex.
     * `topicName` is the Kafka topic name to read data from.
     * `schemaType` is set to `avro` to indicate that Avro schema is used to de-serialize the data.
+* You can interpolate environment variables in `consumer.properties` values using `${ENV_VAR}` (for example, to set
+  `group.instance.id=my-instance-${NUMAFLOW_REPLICA}` for static membership).
 
 Deploy the ConfigMap to the Kubernetes cluster.
 
