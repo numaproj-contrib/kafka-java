@@ -1,5 +1,6 @@
 package io.numaproj.kafka.config;
 
+import io.numaproj.kafka.common.EnvVarInterpolator;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,6 +44,7 @@ public class ConsumerConfig {
     InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
     props.load(is);
     is.close();
+    EnvVarInterpolator.interpolate(props);
 
     var groupId =
         props.getOrDefault(org.apache.kafka.clients.consumer.ConsumerConfig.GROUP_ID_CONFIG, null);
@@ -64,6 +66,7 @@ public class ConsumerConfig {
     InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
     props.load(is);
     is.close();
+    EnvVarInterpolator.interpolate(props);
     // disable auto commit, numaflow data forwarder takes care of committing offsets
     if (props.getProperty(
                 org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG)
@@ -96,6 +99,7 @@ public class ConsumerConfig {
       StringReader sr = new StringReader(credentialProperties);
       props.load(sr);
       sr.close();
+      EnvVarInterpolator.interpolate(props);
     }
     return new KafkaConsumer<>(props);
   }
@@ -111,6 +115,7 @@ public class ConsumerConfig {
     InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
     props.load(is);
     is.close();
+    EnvVarInterpolator.interpolate(props);
     // disable auto commit, numaflow data forwarder takes care of committing offsets
     if (props.getProperty(
                 org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG)
@@ -143,6 +148,7 @@ public class ConsumerConfig {
       StringReader sr = new StringReader(credentialProperties);
       props.load(sr);
       sr.close();
+      EnvVarInterpolator.interpolate(props);
     }
     return new KafkaConsumer<>(props);
   }
@@ -158,12 +164,14 @@ public class ConsumerConfig {
     InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
     props.load(is);
     is.close();
+    EnvVarInterpolator.interpolate(props);
     // set credential properties from environment variable
     String credentialProperties = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
     if (credentialProperties != null && !credentialProperties.isEmpty()) {
       StringReader sr = new StringReader(credentialProperties);
       props.load(sr);
       sr.close();
+      EnvVarInterpolator.interpolate(props);
     }
     return KafkaAdminClient.create(props);
   }
