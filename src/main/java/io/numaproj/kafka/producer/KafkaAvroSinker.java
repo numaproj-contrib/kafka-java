@@ -8,10 +8,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
@@ -22,22 +19,13 @@ import org.apache.avro.io.DecoderFactory;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
 /** KafkaAvroSinker uses Avro schema to serialize and send the message */
 @Slf4j
-@Component
-@ConditionalOnProperty(name = "schemaType", havingValue = "avro")
 public class KafkaAvroSinker extends BaseKafkaSinker<GenericRecord> {
   private final Registry schemaRegistry;
   private final Schema schema;
 
-  private AtomicBoolean isShutdown;
-  private final CountDownLatch countDownLatch;
-
-  @Autowired
   public KafkaAvroSinker(
       UserConfig userConfig,
       KafkaProducer<String, GenericRecord> producer,
@@ -58,13 +46,9 @@ public class KafkaAvroSinker extends BaseKafkaSinker<GenericRecord> {
       throw new RuntimeException(errMsg);
     }
     log.info("Successfully retrieved the schema {}", schema.getFullName());
-
-    this.isShutdown = new AtomicBoolean(false);
-    this.countDownLatch = new CountDownLatch(1);
     log.info("KafkaAvroSinker initialized with use configurations: {}", userConfig);
   }
 
-  @PostConstruct
   public void startSinker() throws Exception {
     log.info("Initializing Kafka Avro sinker server...");
     new Server(this).start();
@@ -110,6 +94,7 @@ public class KafkaAvroSinker extends BaseKafkaSinker<GenericRecord> {
           new ProducerRecord<>(this.userConfig.getTopicName(), key, avroGenericRecord);
       inflightTasks.put(datum.getId(), this.producer.send(record));
     }
+    producer.flush();
     log.debug("Number of messages inflight to the topic is {}", inflightTasks.size());
     for (Map.Entry<String, Future<RecordMetadata>> entry : inflightTasks.entrySet()) {
       try {
@@ -121,25 +106,19 @@ public class KafkaAvroSinker extends BaseKafkaSinker<GenericRecord> {
         responseListBuilder.addResponse(Response.responseFailure(entry.getKey(), e.getMessage()));
       }
     }
-    if (isShutdown.get()) {
-      log.info("shutdown signal received");
-      countDownLatch.countDown();
-    }
     return responseListBuilder.build();
   }
 
-  /**
-   * Triggerred during shutdown by the Spring framework. Allows the {@link
-   * KafkaAvroSinker#processMessages(DatumIterator)} to complete in-flight requests and then shuts
-   * down.
-   */
-  @Override
-  public void destroy() throws InterruptedException, IOException {
-    log.info("Sending shutdown signal...");
-    isShutdown = new AtomicBoolean(true);
-    countDownLatch.await();
+  public void close() throws IOException {
+    log.info("Closing Kafka producer and schema registry client...");
     producer.close();
     schemaRegistry.close();
     log.info("Kafka producer and schema registry client are closed.");
+  }
+
+  /** @deprecated Use {@link #close()} instead. */
+  @Deprecated
+  public void destroy() throws IOException, InterruptedException {
+    close();
   }
 }

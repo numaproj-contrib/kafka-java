@@ -189,7 +189,7 @@ public class KafkaSinkerTest {
 
   @Test
   @SuppressWarnings("unchecked")
-  void destroy_inflightMessagesProcessed() {
+  void close_inflightMessagesProcessed() {
     SinkerTestKit.TestDatum testDatum1 =
         SinkerTestKit.TestDatum.builder()
             .id("1")
@@ -227,7 +227,7 @@ public class KafkaSinkerTest {
             });
     thread.start();
     try {
-      underTest.destroy();
+      underTest.close();
       countDownLatch.await();
     } catch (Exception e) {
       fail("destroy should not throw exception");

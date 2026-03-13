@@ -6,7 +6,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -14,29 +14,22 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
-import org.springframework.beans.factory.DisposableBean;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.stereotype.Component;
 
 /** Worker class that consumes messages from Kafka topic and commits offsets */
 @Slf4j
-@Component
 // TODO - single place to hold the value "raw"
-@ConditionalOnExpression("'${schemaType}'.equals('json') or '${schemaType}'.equals('raw')")
-public class ByteArrayWorker implements Runnable, DisposableBean {
+public class ByteArrayWorker implements Runnable {
   private final UserConfig userConfig;
   private final KafkaConsumer<String, byte[]> consumer;
 
   // A blocking queue to communicate with the consumer thread
   // It ensures only one of the tasks(POLL/COMMIT/SHUTDOWN) is performed at a time
-  private static final BlockingQueue<TaskType> taskQueue = new LinkedBlockingQueue<>();
-  // CountDownLatch to signal the main thread
-  private static CountDownLatch countdownLatchSignalMainThread = new CountDownLatch(1);
+  private final BlockingQueue<TaskType> taskQueue = new LinkedBlockingQueue<>();
+  // CompletableFuture to signal the main thread
+  private volatile CompletableFuture<Void> operationCompletion = new CompletableFuture<>();
   // List of messages consumed from kafka, volatile to ensure visibility across threads
   private volatile List<ConsumerRecord<String, byte[]>> consumerRecordList;
 
-  @Autowired
   public ByteArrayWorker(UserConfig userConfig, KafkaConsumer<String, byte[]> consumer) {
     this.userConfig = userConfig;
     this.consumer = consumer;
@@ -69,7 +62,7 @@ public class ByteArrayWorker implements Runnable, DisposableBean {
               consumerRecordList.add(consumerRecord);
             }
             log.debug("number of messages polled: {}", consumerRecordList.size());
-            countdownLatchSignalMainThread.countDown();
+            operationCompletion.complete(null);
           }
           case COMMIT -> {
             consumer.commitAsync(
@@ -80,7 +73,7 @@ public class ByteArrayWorker implements Runnable, DisposableBean {
                     log.debug("offsets committed: {}", offsets);
                   }
                 });
-            countdownLatchSignalMainThread.countDown();
+            operationCompletion.complete(null);
           }
           case SHUTDOWN -> {
             log.info("shutting down the consumer");
@@ -93,7 +86,7 @@ public class ByteArrayWorker implements Runnable, DisposableBean {
       log.error("error in consuming from kafka", e);
     } finally {
       consumer.close();
-      countdownLatchSignalMainThread.countDown();
+      operationCompletion.complete(null);
     }
   }
 
@@ -104,9 +97,14 @@ public class ByteArrayWorker implements Runnable, DisposableBean {
    * @throws InterruptedException if the thread is interrupted
    */
   public List<ConsumerRecord<String, byte[]>> poll() throws InterruptedException {
-    countdownLatchSignalMainThread = new CountDownLatch(1);
+    operationCompletion = new CompletableFuture<>();
     taskQueue.add(TaskType.POLL);
-    countdownLatchSignalMainThread.await();
+    try {
+      operationCompletion.get();
+    } catch (Exception e) {
+      Thread.currentThread().interrupt();
+      throw new InterruptedException(e.getMessage());
+    }
     if (consumerRecordList == null) {
       return new ArrayList<>();
     }
@@ -119,9 +117,14 @@ public class ByteArrayWorker implements Runnable, DisposableBean {
    * @throws InterruptedException if the thread is interrupted
    */
   public void commit() throws InterruptedException {
-    countdownLatchSignalMainThread = new CountDownLatch(1);
+    operationCompletion = new CompletableFuture<>();
     taskQueue.add(TaskType.COMMIT);
-    countdownLatchSignalMainThread.await();
+    try {
+      operationCompletion.get();
+    } catch (Exception e) {
+      Thread.currentThread().interrupt();
+      throw new InterruptedException(e.getMessage());
+    }
   }
 
   /**
@@ -137,13 +140,17 @@ public class ByteArrayWorker implements Runnable, DisposableBean {
     return partitions;
   }
 
-  @Override
-  public void destroy() throws InterruptedException {
+  public void shutdown() throws InterruptedException {
     if (consumer != null) {
       log.info("Consumer worker is shutting down...");
-      countdownLatchSignalMainThread = new CountDownLatch(1);
+      operationCompletion = new CompletableFuture<>();
       taskQueue.add(TaskType.SHUTDOWN);
-      countdownLatchSignalMainThread.await();
+      try {
+        operationCompletion.get();
+      } catch (Exception e) {
+        Thread.currentThread().interrupt();
+        throw new InterruptedException(e.getMessage());
+      }
       log.info("Consumer worker is closed");
     }
   }

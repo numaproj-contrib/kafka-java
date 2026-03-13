@@ -10,32 +10,20 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
 /** KafkaJsonSinker uses json schema to serialize and send the message */
 // TODO - JsonSinker can be merged with ByteArraySinker. The merged sinker will based on the schema
 // information, serialize the message.
 @Slf4j
-@Component
-@ConditionalOnProperty(name = "schemaType", havingValue = "json")
 public class KafkaJsonSinker extends BaseKafkaSinker<byte[]> {
   private final Registry schemaRegistry;
   private final String jsonSchema;
 
-  private AtomicBoolean isShutdown;
-  private final CountDownLatch countDownLatch;
-
-  @Autowired
   public KafkaJsonSinker(
       UserConfig userConfig, KafkaProducer<String, byte[]> producer, Registry schemaRegistry) {
     super(userConfig, producer);
@@ -59,13 +47,9 @@ public class KafkaJsonSinker extends BaseKafkaSinker<byte[]> {
           jsonSchema);
     }
 
-    this.isShutdown = new AtomicBoolean(false);
-    this.countDownLatch = new CountDownLatch(1);
-
     log.info("KafkaJsonSinker initialized with use configurations: {}", userConfig);
   }
 
-  @PostConstruct
   public void startSinker() throws Exception {
     log.info("Initializing Kafka JSON sinker server...");
     new Server(this).start();
@@ -98,7 +82,7 @@ public class KafkaJsonSinker extends BaseKafkaSinker<byte[]> {
       // the classic KafkaJsonSchemaSerializer requires a POJO being defined. It relies on
       // Java class annotations to generate and validate JSON schemas against stored schemas in the
       // Schema Registry.
-      // Hence, we can’t build a generic solution around that.
+      // Hence, we can't build a generic solution around that.
       // To build a generic one, we validate messages by ourselves by retrieving the schema
       // from the registry and use third party json validator to validate the raw input and then
       // directly use byte array serializer to send raw validated data to the topic.
@@ -113,6 +97,7 @@ public class KafkaJsonSinker extends BaseKafkaSinker<byte[]> {
           new ProducerRecord<>(this.userConfig.getTopicName(), key, datum.getValue());
       inflightTasks.put(datum.getId(), this.producer.send(record));
     }
+    producer.flush();
     log.debug("Number of messages inflight to the topic is {}", inflightTasks.size());
     for (Map.Entry<String, Future<RecordMetadata>> entry : inflightTasks.entrySet()) {
       try {
@@ -124,25 +109,19 @@ public class KafkaJsonSinker extends BaseKafkaSinker<byte[]> {
         responseListBuilder.addResponse(Response.responseFailure(entry.getKey(), e.getMessage()));
       }
     }
-    if (isShutdown.get()) {
-      log.info("shutdown signal received");
-      countDownLatch.countDown();
-    }
     return responseListBuilder.build();
   }
 
-  /**
-   * Triggerred during shutdown by the Spring framework. Allows the {@link
-   * KafkaJsonSinker#processMessages(DatumIterator)} to complete in-flight requests and then shuts
-   * down.
-   */
-  @Override
-  public void destroy() throws InterruptedException, IOException {
-    log.info("Sending shutdown signal...");
-    isShutdown = new AtomicBoolean(true);
-    countDownLatch.await();
+  public void close() throws IOException {
+    log.info("Closing Kafka producer and schema registry client...");
     producer.close();
     schemaRegistry.close();
     log.info("Kafka producer and schema registry client are closed.");
+  }
+
+  /** @deprecated Use {@link #close()} instead. */
+  @Deprecated
+  public void destroy() throws IOException, InterruptedException {
+    close();
   }
 }

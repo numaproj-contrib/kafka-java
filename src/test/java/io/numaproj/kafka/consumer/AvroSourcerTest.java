@@ -31,22 +31,22 @@ public class AvroSourcerTest {
   void givenSourcer_whenStartConsumer_thenNumaflowSourceServerStarted() {
     try {
       underTest = Mockito.spy(new AvroSourcer(avroWorkerMock, adminMock));
-      try (var mockedConstruction = Mockito.mockConstruction(Server.class)) {
-        AtomicBoolean runMethodInvoked = new AtomicBoolean(false);
-        doAnswer(
-                methodInvocation -> {
-                  runMethodInvoked.set(true);
-                  return null;
-                })
-            .when(avroWorkerMock)
-            .run();
-        underTest.startConsumer();
-        verify(mockedConstruction.constructed().getFirst(), times(1)).start();
-        Thread.sleep(100);
-        assertTrue(runMethodInvoked.get());
-      }
+      Server serverMock = mock(Server.class);
+      doReturn(serverMock).when(underTest).createServer();
+      AtomicBoolean runMethodInvoked = new AtomicBoolean(false);
+      doAnswer(
+              methodInvocation -> {
+                runMethodInvoked.set(true);
+                return null;
+              })
+          .when(avroWorkerMock)
+          .run();
+      underTest.startConsumer();
+      verify(serverMock, times(1)).start();
+      Thread.sleep(100);
+      assertTrue(runMethodInvoked.get());
     } catch (Exception e) {
-      fail();
+      fail(e.getMessage());
     }
   }
 

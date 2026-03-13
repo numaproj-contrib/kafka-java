@@ -2,12 +2,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.5</version>
-        <relativePath/> <!-- lookup parent from repository -->
-    </parent>
     <groupId>io.numaproj.kafka</groupId>
     <artifactId>kafka-java</artifactId>
     <version>0.0.1-SNAPSHOT</version>
@@ -27,7 +21,11 @@
         <url/>
     </scm>
     <properties>
-        <java.version>21</java.version>
+        <maven.compiler.release>23</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <gson.version>2.10.1</gson.version>
+        <jackson.version>2.17.2</jackson.version>
+        <lombok.version>1.18.32</lombok.version>
     </properties>
     <dependencies>
         <dependency>
@@ -61,46 +59,143 @@
             <version>0.10.1</version>
         </dependency>
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter</artifactId>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.13</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.5.6</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.14.0</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.16.1</version>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
             <optional>true</optional>
         </dependency>
+        <!-- Test dependencies -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <version>5.10.3</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>5.10.3</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>5.14.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>5.14.2</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <repositories>
+        <repository>
+            <id>confluent</id>
+            <url>https://packages.confluent.io/maven/</url>
+        </repository>
+    </repositories>
 
     <build>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
                 <configuration>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
             <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.3.0</version>
                 <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
+                    <argLine>
+                        -XX:+EnableDynamicAgentLoading
+                        -Djdk.attach.allowAttachSelf=true
+                        --add-opens java.base/java.lang=ALL-UNNAMED
+                        --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+                        --add-opens java.base/java.util=ALL-UNNAMED
+                        --add-opens java.base/java.io=ALL-UNNAMED
+                        --add-opens java.base/java.nio=ALL-UNNAMED
+                    </argLine>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>io.numaproj.kafka.KafkaApplication</mainClass>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>com.google.cloud.tools</groupId>
@@ -115,12 +210,32 @@
                         </goals>
                         <configuration>
                             <from>
-                                <image>amazoncorretto:21</image>
+                                <image>eclipse-temurin:23-jre-alpine</image>
                             </from>
                             <container>
                                 <mainClass>
                                     io.numaproj.kafka.KafkaApplication
                                 </mainClass>
+                                <jvmFlags>
+                                    <jvmFlag>-XX:MaxRAMPercentage=70</jvmFlag>
+                                    <jvmFlag>-XX:+UseG1GC</jvmFlag>
+                                    <jvmFlag>-XX:+ParallelRefProcEnabled</jvmFlag>
+                                    <jvmFlag>-XX:MaxGCPauseMillis=200</jvmFlag>
+                                    <jvmFlag>-XX:+DisableExplicitGC</jvmFlag>
+                                    <jvmFlag>-XX:+AlwaysPreTouch</jvmFlag>
+                                    <jvmFlag>-XX:G1HeapWastePercent=5</jvmFlag>
+                                    <jvmFlag>-XX:G1MixedGCCountTarget=4</jvmFlag>
+                                    <jvmFlag>-XX:InitiatingHeapOccupancyPercent=15</jvmFlag>
+                                    <jvmFlag>-XX:G1MixedGCLiveThresholdPercent=90</jvmFlag>
+                                    <jvmFlag>-XX:G1RSetUpdatingPauseTimePercent=5</jvmFlag>
+                                    <jvmFlag>-XX:G1NewSizePercent=30</jvmFlag>
+                                    <jvmFlag>-XX:G1MaxNewSizePercent=40</jvmFlag>
+                                    <jvmFlag>-XX:G1HeapRegionSize=8M</jvmFlag>
+                                    <jvmFlag>-XX:G1ReservePercent=20</jvmFlag>
+                                    <jvmFlag>-XX:SurvivorRatio=32</jvmFlag>
+                                    <jvmFlag>-XX:+PerfDisableSharedMem</jvmFlag>
+                                    <jvmFlag>-XX:MaxTenuringThreshold=1</jvmFlag>
+                                </jvmFlags>
                             </container>
                             <to>
                                 <image>

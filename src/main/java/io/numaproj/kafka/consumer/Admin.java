@@ -10,13 +10,9 @@ import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.springframework.beans.factory.DisposableBean;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 @Slf4j
-@Component
-public class Admin implements DisposableBean {
+public class Admin {
 
   // PendingNotAvailable is used to indicate that the pending count is not available
   // It matches PendingNotAvailable defined in
@@ -27,7 +23,6 @@ public class Admin implements DisposableBean {
   private final String consumerGroupId;
   private final AdminClient adminClient;
 
-  @Autowired
   public Admin(UserConfig userConfig, String consumerGroupId, AdminClient adminClient) {
     this.userConfig = userConfig;
     this.consumerGroupId = consumerGroupId;
@@ -79,12 +74,17 @@ public class Admin implements DisposableBean {
     }
   }
 
-  @Override
-  public void destroy() {
+  public void close() {
     log.info("Shutting down the Kafka admin client");
     if (adminClient != null) {
       adminClient.close();
     }
     log.info("Kafka admin client shutdown complete");
+  }
+
+  /** @deprecated Use {@link #close()} instead. */
+  @Deprecated
+  public void destroy() {
+    close();
   }
 }
