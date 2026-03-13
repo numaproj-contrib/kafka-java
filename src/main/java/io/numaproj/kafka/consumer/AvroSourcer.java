@@ -9,7 +9,6 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -20,14 +19,9 @@ import org.apache.avro.io.JsonEncoder;
 import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.Header;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
 /** AvroSourcer is the implementation of the Numaflow Sourcer to read Avro messages from Kafka */
 @Slf4j
-@Component
-@ConditionalOnProperty(name = "schemaType", havingValue = "avro")
 public class AvroSourcer extends Sourcer {
   private final AvroWorker avroWorker;
   private final Admin admin;
@@ -39,19 +33,21 @@ public class AvroSourcer extends Sourcer {
   // previous read request.
   private Map<String, Long> readTopicPartitionOffsetMap;
 
-  @Autowired
   public AvroSourcer(AvroWorker avroWorker, Admin admin) {
     this.avroWorker = avroWorker;
     this.admin = admin;
   }
 
-  @PostConstruct
   public void startConsumer() throws Exception {
     log.info("Starting the Kafka consumer worker thread...");
     workerThread = new Thread(avroWorker, "consumerWorkerThread");
     workerThread.start();
     log.info("Initializing Kafka Avro sourcer server...");
-    new Server(this).start();
+    createServer().start();
+  }
+
+  protected Server createServer() {
+    return new Server(this);
   }
 
   /**

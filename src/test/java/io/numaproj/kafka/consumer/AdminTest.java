@@ -107,8 +107,8 @@ public class AdminTest {
   }
 
   @Test
-  public void destroy() {
-    underTest.destroy();
+  public void close() {
+    underTest.close();
     verify(adminClientMock, times(1)).close();
   }
 }

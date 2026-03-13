@@ -5,7 +5,6 @@ import static org.mockito.Mockito.*;
 
 import io.numaproj.kafka.config.UserConfig;
 import java.util.*;
-import java.util.concurrent.CountDownLatch;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
@@ -19,7 +18,6 @@ import org.apache.kafka.common.record.TimestampType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
-import org.mockito.Mockito;
 
 public class AvroWorkerTest {
   private final UserConfig userConfigMock = mock(UserConfig.class);
@@ -87,17 +85,15 @@ public class AvroWorkerTest {
 
   @Test
   void getPartitions() {
-    try (var ignored = Mockito.mockConstruction(CountDownLatch.class)) {
-      Set<TopicPartition> topicPartitions =
-          new HashSet<>(
-              Arrays.asList(
-                  new TopicPartition(TEST_TOPIC, 1),
-                  new TopicPartition(TEST_TOPIC, 3),
-                  new TopicPartition(TEST_TOPIC, 6)));
-      when(consumer.assignment()).thenReturn(topicPartitions);
-      List<Integer> partitions = underTest.getPartitions();
-      assertEquals(new HashSet<>(Arrays.asList(1, 3, 6)), new HashSet<>(partitions));
-    }
+    Set<TopicPartition> topicPartitions =
+        new HashSet<>(
+            Arrays.asList(
+                new TopicPartition(TEST_TOPIC, 1),
+                new TopicPartition(TEST_TOPIC, 3),
+                new TopicPartition(TEST_TOPIC, 6)));
+    when(consumer.assignment()).thenReturn(topicPartitions);
+    List<Integer> partitions = underTest.getPartitions();
+    assertEquals(new HashSet<>(Arrays.asList(1, 3, 6)), new HashSet<>(partitions));
   }
 
   private ConsumerRecords<String, GenericRecord> generateConsumerRecords(

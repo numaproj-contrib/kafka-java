@@ -8,21 +8,15 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.header.Header;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.stereotype.Component;
 
 /**
  * ByteArraySourcer is the implementation of the Numaflow Sourcer to read raw messages in byte array
  * format from Kafka
  */
 @Slf4j
-@Component
-@ConditionalOnExpression("'${schemaType}'.equals('json') or '${schemaType}'.equals('raw')")
 public class ByteArraySourcer extends Sourcer {
   private final ByteArrayWorker worker;
   private final Admin admin;
@@ -34,13 +28,11 @@ public class ByteArraySourcer extends Sourcer {
   // previous read request.
   private Map<String, Long> readTopicPartitionOffsetMap;
 
-  @Autowired
   public ByteArraySourcer(ByteArrayWorker worker, Admin admin) {
     this.worker = worker;
     this.admin = admin;
   }
 
-  @PostConstruct
   public void startConsumer() throws Exception {
     log.info("Starting the Kafka byte array consumer worker thread...");
     workerThread = new Thread(worker, "consumerWorkerThread");

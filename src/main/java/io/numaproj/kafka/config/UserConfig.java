@@ -2,8 +2,6 @@ package io.numaproj.kafka.config;
 
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Configuration;
 
 @Getter
 @Setter
@@ -13,9 +11,6 @@ import org.springframework.context.annotation.Configuration;
 @Slf4j
 @AllArgsConstructor
 @NoArgsConstructor
-@Configuration
-@org.springframework.boot.context.properties.EnableConfigurationProperties
-@ConfigurationProperties(ignoreInvalidFields = true)
 public class UserConfig {
   // TODO - multiple topics support with different brokers
   private String topicName;

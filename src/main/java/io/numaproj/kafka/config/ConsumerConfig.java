@@ -12,25 +12,14 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Configuration;
 
-/** Beans used by Kafka sourcer */
+/** Factory for Kafka consumer clients and admin client */
 @Slf4j
-@Configuration
-@ComponentScan(basePackages = "io.numaproj.kafka.consumer")
-@ConditionalOnProperty(name = "consumer.properties.path")
 public class ConsumerConfig {
 
-  @Value("${consumer.properties.path:NA}")
-  private String consumerPropertiesFilePath;
+  private final String consumerPropertiesFilePath;
 
-  // package-private constructor. this is for unit test only.
-  ConsumerConfig(@Value("${consumer.properties.path:NA}") String consumerPropertiesFilePath) {
+  public ConsumerConfig(String consumerPropertiesFilePath) {
     this.consumerPropertiesFilePath = consumerPropertiesFilePath;
   }
 
@@ -38,7 +27,6 @@ public class ConsumerConfig {
    * Provides the consumer group ID from consumer.properties file. This is the single source of
    * truth for group.id configuration.
    */
-  @Bean
   public String consumerGroupId() throws IOException {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
@@ -56,8 +44,6 @@ public class ConsumerConfig {
   }
 
   // Kafka Avro consumer client
-  @Bean
-  @ConditionalOnProperty(name = "schemaType", havingValue = "avro")
   public KafkaConsumer<String, GenericRecord> kafkaAvroConsumer() throws IOException {
     log.info(
         "Instantiating the Kafka Avro consumer from the consumer properties file: {}",
@@ -105,8 +91,6 @@ public class ConsumerConfig {
   }
 
   // Kafka byte array consumer client
-  @Bean
-  @ConditionalOnExpression("'${schemaType}'.equals('json') or '${schemaType}'.equals('raw')")
   public KafkaConsumer<String, byte[]> kafkaByteArrayConsumer() throws IOException {
     log.info(
         "Instantiating the Kafka byte array consumer from the consumer properties file: {}",
@@ -158,7 +142,6 @@ public class ConsumerConfig {
   // TODO - consider having a separate properties file for admin client.
   // Admin client should be able to serve both consumer and producer,
   // and it does not need all the properties that consumer client needs.
-  @Bean
   public AdminClient kafkaAdminClient() throws IOException {
     Properties props = new Properties();
     InputStream is = new FileInputStream(this.consumerPropertiesFilePath);
