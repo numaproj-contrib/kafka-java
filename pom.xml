@@ -44,6 +44,18 @@
             <version>7.9.1</version>
         </dependency>
         <dependency>
+            <groupId>software.amazon.glue</groupId>
+            <artifactId>schema-registry-serde</artifactId>
+            <version>1.1.19</version>
+            <exclusions>
+                <!-- don't use 3.19.6 pulled in by schema-registry-serde; grpc 1.72+ requires 3.25+ -->
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
             <version>4.0.0</version>
