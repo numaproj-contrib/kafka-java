@@ -1,5 +1,6 @@
 package io.numaproj.kafka.config;
 
+import io.numaproj.kafka.common.AwsIamRoleUtils;
 import io.numaproj.kafka.common.EnvVarInterpolator;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -22,9 +23,9 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZE
 @Slf4j
 public class ConsumerConfig {
 
-  static final String SCHEMA_REGISTRY_TYPE_KEY = "schema.registry.type";
-  static final String SCHEMA_REGISTRY_TYPE_CONFLUENT = "confluent";
-  static final String SCHEMA_REGISTRY_TYPE_GLUE = "glue";
+  private static final String SCHEMA_REGISTRY_TYPE_KEY = "schema.registry.type";
+  private static final String SCHEMA_REGISTRY_TYPE_CONFLUENT = "confluent";
+  private static final String SCHEMA_REGISTRY_TYPE_GLUE = "glue";
 
   private final String consumerPropertiesFilePath;
 
@@ -91,6 +92,7 @@ public class ConsumerConfig {
     log.info("Schema registry type: {}", registryType);
 
     if (SCHEMA_REGISTRY_TYPE_GLUE.equalsIgnoreCase(registryType)) {
+      AwsIamRoleUtils.assumeRoleIfConfigured(props);
       props.put(VALUE_DESERIALIZER_CLASS_CONFIG,
           "com.amazonaws.services.schemaregistry.deserializers.GlueSchemaRegistryKafkaDeserializer");
       // Glue defaults to SPECIFIC_RECORD; force GENERIC_RECORD unless the user overrides it
