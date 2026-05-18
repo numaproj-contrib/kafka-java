@@ -59,6 +59,19 @@
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>sts</artifactId>
             <version>2.25.16</version>
+            <exclusions>
+                <!-- exclude Netty as it conflicts with the Netty version used by the gRPC dependency -->
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <!-- Pure java http client to be used by STS in place of Netty -->
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
+            <version>2.25.16</version>
         </dependency>
         <dependency>
             <groupId>org.apache.kafka</groupId>

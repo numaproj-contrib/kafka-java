@@ -1,6 +1,7 @@
 package io.numaproj.kafka.common;
 
 import lombok.extern.slf4j.Slf4j;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 import software.amazon.awssdk.services.sts.model.Credentials;
@@ -22,7 +23,10 @@ public class AwsIamRoleUtils {
       return;
     }
 
-    StsClient stsClient = StsClient.create();
+    StsClient stsClient = StsClient.builder()
+        // Use pure java http client instead of Netty (default) which conflicts with project dependencies
+        .httpClientBuilder(UrlConnectionHttpClient.builder())
+        .build();
     AssumeRoleRequest request = AssumeRoleRequest.builder()
       .roleArn(roleArn)
       .roleSessionName(AWS_IAM_SESSION_NAME)
