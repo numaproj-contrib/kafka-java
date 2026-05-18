@@ -1,0 +1,39 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: avro-glue-consumer-config
+data:
+  consumer.properties: |
+    # Required connection configs for Kafka consumer and admin
+    bootstrap.servers=[placeholder]
+    security.protocol=[placeholder]
+    sasl.jaas.config=[placeholder]
+    sasl.mechanism=[placeholder]
+    # Required for correctness in Apache Kafka clients prior to 2.6
+    client.dns.lookup=use_all_dns_ips
+    # Best practice for higher availability in Apache Kafka clients prior to 3.0
+    session.timeout.ms=45000
+    # Other configurations
+    retries=0
+    # group.id is required for consumer clients
+    group.id=group1
+
+    # Use AWS Glue Schema Registry instead of Confluent Schema Registry
+    schema.registry.type=glue
+    # AWS region where the Glue registry is hosted
+    region=us-east-1
+    # Name of the Glue registry (defaults to "default-registry" if omitted)
+    registry.name=[placeholder]
+    # Disable auto-registration; schemas must already exist in Glue
+    schemaAutoRegistrationEnabled=false
+
+    # Optional: assume an IAM role before connecting to Glue
+    # aws.role.arn=arn:aws:iam::123456789012:role/my-glue-role
+
+    # Optional: tune the in-process schema cache
+    # cacheSize=200
+    # timeToLiveMillis=86400000
+  user.configuration: |
+    topicName: [placeholder]
+    schemaType: avro
