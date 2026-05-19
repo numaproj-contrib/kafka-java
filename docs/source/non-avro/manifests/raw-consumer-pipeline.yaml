@@ -20,7 +20,7 @@ spec:
       source:
         udsource:
           container:
-            image: quay.io/numaio/numaflow-java/kafka-java:v0.5.5
+            image: quay.io/numaio/numaflow-java/kafka-java:v0.5.6
             args: [ "--config=/conf/user.configuration.yaml", "--consumer.properties.path=/conf/consumer.properties" ]
             imagePullPolicy: Always
             volumeMounts:
