@@ -160,7 +160,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
+                <version>3.14.0</version>
                 <configuration>
                     <annotationProcessorPaths>
                         <path>
@@ -261,7 +261,7 @@
                             </container>
                             <to>
                                 <image>
-                                    numaproj-contrib/${project.artifactId}:v0.5.5
+                                    quay.io/numaio/numaflow-java/${project.artifactId}:v0.5.6
                                 </image>
                             </to>
                         </configuration>
