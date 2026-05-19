@@ -3,8 +3,8 @@
 ## Overview
 
 Numaflow Kafka Sourcer/Sinker is a [Numaflow](https://numaflow.numaproj.io/) user-defined source/sink connector for
-Apache Kafka. It allows you to read/write data from/to a Kafka topic using Numaflow. Integration with Confluent Schema
-Registry is also supported.
+Apache Kafka. It allows you to read/write data from/to a Kafka topic using Numaflow. Integrations with Confluent Schema
+Registry and AWS Glue are also supported.
 
 ## Use Cases
 
@@ -13,18 +13,21 @@ Registry is also supported.
 Use Case 1: Read data from Kafka with an Avro schema registered in the Confluent Schema Registry. See an
 example [here](docs/source/avro/avro-source.md).
 
-Use Case 2: Read data from Kafka with no schema or JSON schema registered in the Confluent Schema Registry. See an
+Use Case 2: Read data from Kafka with an Avro schema registered in AWS Glue Schema Registry. See an
+example [here](docs/source/avro-glue/avro-glue-source.md).
+
+Use Case 3: Read data from Kafka with no schema or JSON schema registered in the Confluent Schema Registry. See an
 example [here](docs/source/non-avro/non-avro-source.md).
 
 ### Write data to Kafka
 
-Use Case 3: Write data to Kafka with an Avro schema registered in the Confluent Schema Registry. See an
+Use Case 4: Write data to Kafka with an Avro schema registered in the Confluent Schema Registry. See an
 example [here](docs/sink/avro/avro-sink.md).
 
-Use Case 4: Write data to Kafka with a JSON schema registered in the Confluent Schema Registry. See an
+Use Case 5: Write data to Kafka with a JSON schema registered in the Confluent Schema Registry. See an
 example [here](docs/sink/json/json-sink.md).
 
-Use Case 5: Write data to Kafka with no schema. See an example [here](docs/sink/no-schema/no-schema-sink.md).
+Use Case 6: Write data to Kafka with no schema. See an example [here](docs/sink/no-schema/no-schema-sink.md).
 
 ## Upgrading from a Spring Boot version?
 

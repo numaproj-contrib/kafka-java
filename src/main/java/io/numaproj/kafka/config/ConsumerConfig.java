@@ -22,6 +22,10 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZE
 @Slf4j
 public class ConsumerConfig {
 
+  private static final String SCHEMA_REGISTRY_TYPE_KEY = "schema.registry.type";
+  private static final String SCHEMA_REGISTRY_TYPE_CONFLUENT = "confluent";
+  private static final String SCHEMA_REGISTRY_TYPE_GLUE = "glue";
+
   private final String consumerPropertiesFilePath;
 
   public ConsumerConfig(String consumerPropertiesFilePath) {
@@ -81,9 +85,20 @@ public class ConsumerConfig {
     props.put(
         KEY_DESERIALIZER_CLASS_CONFIG,
         "org.apache.kafka.common.serialization.StringDeserializer");
-    props.put(
-        VALUE_DESERIALIZER_CLASS_CONFIG,
-        "io.confluent.kafka.serializers.KafkaAvroDeserializer");
+
+    String registryType = props.getProperty(SCHEMA_REGISTRY_TYPE_KEY, SCHEMA_REGISTRY_TYPE_CONFLUENT);
+    props.remove(SCHEMA_REGISTRY_TYPE_KEY); // no need to pass it on to KafkaConsumer
+    log.info("Schema registry type: {}", registryType);
+
+    if (SCHEMA_REGISTRY_TYPE_GLUE.equalsIgnoreCase(registryType)) {
+      props.put(VALUE_DESERIALIZER_CLASS_CONFIG,
+          "com.amazonaws.services.schemaregistry.deserializers.GlueSchemaRegistryKafkaDeserializer");
+      // Glue defaults to SPECIFIC_RECORD; force GENERIC_RECORD unless the user overrides it
+      props.putIfAbsent("avroRecordType", "GENERIC_RECORD");
+    } else {
+      props.put(VALUE_DESERIALIZER_CLASS_CONFIG,
+          "io.confluent.kafka.serializers.KafkaAvroDeserializer");
+    }
 
     // align max.poll.records with the Numaflow batch size so the consumer fetches
     // exactly as many records as the pipeline requests per read cycle

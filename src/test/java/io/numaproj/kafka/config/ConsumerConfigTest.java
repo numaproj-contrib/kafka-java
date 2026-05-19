@@ -103,4 +103,18 @@ public class ConsumerConfigTest {
           underTest.consumerGroupId();
         });
   }
+
+  @Test
+  public void consumer_glueRegistryType_initializeSuccess() {
+    underTest =
+        new ConsumerConfig(
+            Objects.requireNonNull(
+                    getClass().getClassLoader().getResource("consumer/consumer.properties.glue"))
+                .getPath());
+    try {
+      assertNotNull(underTest.kafkaAvroConsumer(500));
+    } catch (Exception e) {
+      fail("Failed to initialize Glue-backed Avro consumer: " + e.getMessage());
+    }
+  }
 }
