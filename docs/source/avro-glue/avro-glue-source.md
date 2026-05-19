@@ -79,11 +79,11 @@ Glue-specific properties:
 | `region` | Yes | — | AWS region of the Glue registry (e.g. `us-east-1`) |
 | `registry.name` | No | `default-registry` | Name of the Glue registry |
 | `schemaAutoRegistrationEnabled` | No | `false` | Whether to auto-create schemas; leave `false` for consumers |
-| `aws.role.arn` | No | — | IAM role ARN to assume before connecting to Glue (see below) |
+| `assumeRoleArn` | No | — | IAM role ARN to assume before connecting to Glue (see below) |
 | `cacheSize` | No | `200` | Max number of schema versions to cache in memory |
 | `timeToLiveMillis` | No | `86400000` | Schema cache TTL in milliseconds (default 24 h) |
 
-Of these, schema.registry.type and aws.role.arn are managed by kafka-java. The other properties are passed on to the 
+Of these, `schema.registry.type` is managed by kafka-java. All other properties are passed through directly to the
 Glue deserializer.
 
 Deploy the ConfigMap:
@@ -111,16 +111,14 @@ Payload -  {"Name":"John","Age":30}
 
 ### Assuming an IAM role
 
-If the pod's base credentials do not have direct Glue access, you can instruct the consumer to assume 
-an IAM role by adding `aws.role.arn` to `consumer.properties`:
+If the pod's base credentials do not have direct Glue access, add `assumeRoleArn` to `consumer.properties`:
 
 ```properties
-aws.role.arn=arn:aws:iam::123456789012:role/my-glue-role
+assumeRoleArn=arn:aws:iam::123456789012:role/my-glue-role
 ```
 
-The consumer calls AWS STS `AssumeRole` at startup using the pod's existing credentials, then uses the
-returned temporary credentials to authenticate with Glue. Credentials are automatically refreshed
-5 minutes before they expire — no pod restart is required.
+The Glue SDK calls AWS STS `AssumeRole` using the pod's existing credentials and handles credential
+refresh automatically — no pod restart is required.
 
 The pod's base credentials must have `sts:AssumeRole` permission on the target role, and the target
 role's trust policy must allow the pod's identity to assume it.

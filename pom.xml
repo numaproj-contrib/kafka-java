@@ -46,32 +46,14 @@
         <dependency>
             <groupId>software.amazon.glue</groupId>
             <artifactId>schema-registry-serde</artifactId>
-            <version>1.1.19</version>
+            <version>1.1.27</version>
             <exclusions>
-                <!-- don't use 3.19.6 pulled in by schema-registry-serde; grpc 1.72+ requires 3.25+ -->
+                <!-- don't use old version of protobuf pulled in by schema-registry-serde; grpc 1.72+ requires 3.25+ -->
                 <exclusion>
                     <groupId>com.google.protobuf</groupId>
                     <artifactId>protobuf-java</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>sts</artifactId>
-            <version>2.25.16</version>
-            <exclusions>
-                <!-- exclude Netty as it conflicts with the Netty version used by the gRPC dependency -->
-                <exclusion>
-                    <groupId>software.amazon.awssdk</groupId>
-                    <artifactId>netty-nio-client</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <!-- Pure java http client to be used by STS in place of Netty -->
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>url-connection-client</artifactId>
-            <version>2.25.16</version>
         </dependency>
         <dependency>
             <groupId>org.apache.kafka</groupId>
