@@ -31,6 +31,11 @@
         <dependencies>
             <dependency>
                 <groupId>io.netty</groupId>
+                <artifactId>netty-transport-native-epoll</artifactId>
+                <version>4.2.13.Final</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
                 <artifactId>netty-codec-http2</artifactId>
                 <version>4.2.13.Final</version>
             </dependency>
@@ -272,7 +277,7 @@
                         </goals>
                         <configuration>
                             <from>
-                                <image>eclipse-temurin:21-jre-alpine</image>
+                                <image>eclipse-temurin:21-jre</image>
                             </from>
                             <container>
                                 <mainClass>
