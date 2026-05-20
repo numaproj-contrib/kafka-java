@@ -18,9 +18,8 @@
    mvn package -DskipTests
    ```
 
-3. **Tag and push to quay.io**
+3. **Push to quay.io** (Jib builds the image with the correct tag — no separate tag step needed)
    ```bash
-   docker tag numaproj-contrib/kafka-java:<version> quay.io/numaio/numaflow-java/kafka-java:<version>
    docker push quay.io/numaio/numaflow-java/kafka-java:<version>
    ```
 
