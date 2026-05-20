@@ -52,6 +52,7 @@ jobs:
               version: latest
           EOF
           kubectl wait --for=jsonpath='{.status.phase}'=Running interstepbufferservice/default -n default --timeout=120s
+          kubectl wait --for=condition=Ready pod -l numaflow.numaproj.io/isbsvc-name=default -n default --timeout=120s
 
       - name: Deploy Kafka
         run: |
