@@ -37,7 +37,7 @@ jobs:
           kubectl create namespace numaflow-system
           kubectl apply -n numaflow-system -f https://github.com/numaproj/numaflow/releases/download/v1.7.5/install.yaml
           kubectl apply -f https://github.com/numaproj/numaflow/releases/download/v1.7.5/validating-webhook-install.yaml
-          kubectl rollout status deployment/numaflow-controller -n numaflow-system --timeout=120s
+          kubectl wait --for=condition=Available deployment --all -n numaflow-system --timeout=120s
 
       - name: Create InterStepBufferService
         run: |
