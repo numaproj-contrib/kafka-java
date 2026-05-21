@@ -28,6 +28,7 @@
         <lombok.version>1.18.32</lombok.version>
         <!-- Single Netty BOM: numaflow-java uses native HTTP/transport on 4.2.x alongside grpc-netty -->
         <netty.version>4.2.13.Final</netty.version>
+        <image.tag>v0.5.6</image.tag>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -275,7 +276,7 @@
                             </container>
                             <to>
                                 <image>
-                                    quay.io/numaio/numaflow-java/${project.artifactId}:v0.5.6
+                                    quay.io/numaio/numaflow-java/${project.artifactId}:${image.tag}
                                 </image>
                             </to>
                         </configuration>

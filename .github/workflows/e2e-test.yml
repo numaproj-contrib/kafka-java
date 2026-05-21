@@ -1,0 +1,104 @@
+name: E2E Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Build image
+        run: mvn package -DskipTests
+
+      - name: Set up k3d
+        uses: AbsaOSS/k3d-action@v2
+        with:
+          cluster-name: test-cluster
+          args: --agents 1
+
+      - name: Load image into k3d
+        run: k3d image import quay.io/numaio/numaflow-java/kafka-java:$(mvn help:evaluate -Dexpression=image.tag -q -DforceStdout | tr -d '\n') -c test-cluster
+        # Avoids needing to push to a registry — image is loaded directly into the cluster
+
+      - name: Install Numaflow
+        run: |
+          kubectl create namespace numaflow-system
+          kubectl apply -n numaflow-system -f https://github.com/numaproj/numaflow/releases/download/v1.7.5/install.yaml
+          kubectl apply -f https://github.com/numaproj/numaflow/releases/download/v1.7.5/validating-webhook-install.yaml
+          kubectl wait --for=condition=Available deployment --all -n numaflow-system --timeout=120s
+
+      - name: Create InterStepBufferService
+        run: |
+          kubectl apply -f - <<EOF
+          apiVersion: numaflow.numaproj.io/v1alpha1
+          kind: InterStepBufferService
+          metadata:
+            name: default
+            namespace: default
+          spec:
+            jetstream:
+              version: latest
+          EOF
+          kubectl wait --for=jsonpath='{.status.phase}'=Running interstepbufferservice/default -n default --timeout=120s
+          kubectl wait --for=condition=Ready pod -l numaflow.numaproj.io/isbsvc-name=default -n default --timeout=120s
+
+      - name: Deploy Kafka
+        run: |
+          kubectl create namespace kafka
+          kubectl apply -f test/kafka.yaml
+          kubectl rollout status deployment/kafka -n kafka --timeout=120s
+
+      - name: Create test topic
+        run: |
+          KAFKA_POD=$(kubectl get pod -n kafka -l app=kafka -o jsonpath='{.items[0].metadata.name}')
+          kubectl exec -n kafka $KAFKA_POD -- /opt/kafka/bin/kafka-topics.sh \
+            --create --topic test-raw \
+            --bootstrap-server localhost:9092 \
+            --partitions 1 --replication-factor 1
+
+      - name: Deploy pipeline
+        run: |
+          # Use the locally built image tag, not the quay.io remote
+          IMAGE_TAG=$(mvn help:evaluate -Dexpression=image.tag -q -DforceStdout | tr -d '\n')
+          sed "s|quay.io/numaio/numaflow-java/kafka-java:.*|quay.io/numaio/numaflow-java/kafka-java:$IMAGE_TAG|g" test/pipeline.yaml \
+            | kubectl apply -f -
+          kubectl apply -f test/pipeline-config.yaml
+          kubectl wait --for=condition=Ready pod \
+            -l numaflow.numaproj.io/pipeline-name=test-kafka-pipeline \
+            -n default --timeout=120s
+
+      - name: Produce test messages
+        run: |
+          KAFKA_POD=$(kubectl get pod -n kafka -l app=kafka -o jsonpath='{.items[0].metadata.name}')
+          kubectl exec -n kafka $KAFKA_POD -- bash -c \
+            'echo -e "hello numaflow 1\nhello numaflow 2\nhello numaflow 3" | /opt/kafka/bin/kafka-console-producer.sh --topic test-raw --bootstrap-server localhost:9092'
+
+      - name: Assert messages received by sink
+        run: |
+          SINK_POD=$(kubectl get pod -n default -l numaflow.numaproj.io/vertex-name=sink -o jsonpath='{.items[0].metadata.name}')
+          for i in $(seq 1 30); do
+            LOGS=$(kubectl logs $SINK_POD -n default --all-containers=true 2>/dev/null)
+            if echo "$LOGS" | grep -q "hello numaflow 1" && \
+               echo "$LOGS" | grep -q "hello numaflow 2" && \
+               echo "$LOGS" | grep -q "hello numaflow 3"; then
+              echo "All 3 messages received by sink"
+              exit 0
+            fi
+            echo "Waiting for messages... attempt $i/30"
+            sleep 5
+          done
+          echo "ERROR: Messages not received in sink after 150s"
+          kubectl logs $SINK_POD -n default --all-containers=true | tail -50
+          exit 1
