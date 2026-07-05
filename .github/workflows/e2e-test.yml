@@ -27,6 +27,7 @@ jobs:
         with:
           cluster-name: test-cluster
           args: --agents 1
+          k3d-version: v5.9.0
 
       - name: Load image into k3d
         run: k3d image import quay.io/numaio/numaflow-java/kafka-java:$(mvn help:evaluate -Dexpression=image.tag -q -DforceStdout | tr -d '\n') -c test-cluster
