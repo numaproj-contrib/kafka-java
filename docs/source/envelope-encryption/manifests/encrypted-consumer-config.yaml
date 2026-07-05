@@ -28,7 +28,7 @@ data:
     # Enable payload envelope decryption: set the KMS key ARN (its presence turns decryption on).
     payload.envelope.encryption.provider.aws-kms.key.arn=arn:aws:kms:us-east-1:123456789012:key/[placeholder]
     # Optional: plaintext-DEK cache TTL in ms (default 3600000 = 1h)
-    # payload.envelope.encryption.provider.aws-kms.dek.cache.ttl.ms=3600000
+    # payload.envelope.encryption.dek.cache.ttl.ms=3600000
 
     # Optional: assume a single IAM role before connecting to KMS and Glue
     # (the role must carry both kms:Decrypt and any glue:* permissions your schemaType needs)

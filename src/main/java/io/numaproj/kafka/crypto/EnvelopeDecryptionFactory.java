@@ -24,9 +24,9 @@ public final class EnvelopeDecryptionFactory {
   public static final String KEY_ARN =
       "payload.envelope.encryption.provider.aws-kms.key.arn";
 
-  /** Plaintext-DEK cache TTL in milliseconds. */
+  /** Plaintext-DEK cache TTL in milliseconds. Provider-agnostic (caching is applied by the core). */
   public static final String DEK_CACHE_TTL_MS =
-      "payload.envelope.encryption.provider.aws-kms.dek.cache.ttl.ms";
+      "payload.envelope.encryption.dek.cache.ttl.ms";
 
   /** Existing key reused for KMS as well as Glue (spec RD3). */
   public static final String ASSUME_ROLE_ARN = "assumeRoleArn";
@@ -60,8 +60,10 @@ public final class EnvelopeDecryptionFactory {
     String assumeRoleArn = props.getProperty(ASSUME_ROLE_ARN);
     KmsClient kmsClient = buildKmsClient(region, assumeRoleArn);
     log.info("Payload envelope decryption enabled (aws-kms, region {})", region.id());
+    // Caching is provider-agnostic: wrap the KMS provider with a DEK cache decorator.
     KeyProvider keyProvider =
-        new AwsKmsKeyProvider(kmsClient, keyArn, new DekCache(ttlMillis, Clock.systemUTC()));
+        new CachingKeyProvider(
+            new AwsKmsKeyProvider(kmsClient, keyArn), new DekCache(ttlMillis, Clock.systemUTC()));
     return new PayloadDecryptor(new JsonEnvelopeCodec(), keyProvider);
   }
 

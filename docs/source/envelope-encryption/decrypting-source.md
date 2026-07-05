@@ -58,7 +58,7 @@ the Kafka client):
 | Property | Required | Default | Description |
 |---|---|---|---|
 | `payload.envelope.encryption.provider.aws-kms.key.arn` | Yes, to enable decryption | — | Full KMS key ARN. Its presence enables decryption; it is enforced as the `KeyId` on `Decrypt` (KMS rejects ciphertext wrapped under any other key). The AWS region is derived from the ARN. Bare aliases are not accepted. |
-| `payload.envelope.encryption.provider.aws-kms.dek.cache.ttl.ms` | No | `3600000` (1 h) | How long a recovered plaintext DEK is cached in memory to avoid a KMS call per message. |
+| `payload.envelope.encryption.dek.cache.ttl.ms` | No | `3600000` (1 h) | How long a recovered plaintext DEK is cached in memory to avoid a `Decrypt` call per message. Provider-agnostic (applies regardless of key backend). |
 
 The existing `assumeRoleArn` property (if set) is reused for KMS as well as Glue — a **single assumed
 role** covers both, so it must carry `kms:Decrypt` (see IAM above) plus any `glue:*` permissions your
