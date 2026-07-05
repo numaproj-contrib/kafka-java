@@ -25,8 +25,7 @@ data:
     registry.name=[placeholder]
     schemaAutoRegistrationEnabled=false
 
-    # Enable payload envelope decryption. Presence of the key ARN turns it on; the AWS region for
-    # KMS is derived from the ARN. Scope kms:Decrypt IAM to this key.
+    # Enable payload envelope decryption: set the KMS key ARN (its presence turns decryption on).
     payload.envelope.encryption.provider.aws-kms.key.arn=arn:aws:kms:us-east-1:123456789012:key/[placeholder]
     # Optional: plaintext-DEK cache TTL in ms (default 3600000 = 1h)
     # payload.envelope.encryption.provider.aws-kms.dek.cache.ttl.ms=3600000
