@@ -75,6 +75,13 @@
             <artifactId>kafka-clients</artifactId>
             <version>4.0.0</version>
         </dependency>
+        <!-- AWS KMS for payload envelope decryption; version aligned with the AWS SDK v2 pulled by
+             schema-registry-serde (sts + arns are already transitive). -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>kms</artifactId>
+            <version>2.32.25</version>
+        </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>

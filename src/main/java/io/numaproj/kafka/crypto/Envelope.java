@@ -1,0 +1,13 @@
+package io.numaproj.kafka.crypto;
+
+/**
+ * The parsed encryption envelope: the pieces a codec extracts from a Kafka value so the payload can
+ * be decrypted. The wire layout that produced this is owned by the {@link EnvelopeCodec}.
+ *
+ * @param version the envelope format version (e.g. {@code enc_ver})
+ * @param alg the AEAD algorithm name (e.g. {@code AES-256-GCM})
+ * @param wrappedDek the KMS-wrapped data encryption key
+ * @param nonce the AEAD nonce / IV
+ * @param ciphertext the AEAD ciphertext (authentication tag appended)
+ */
+public record Envelope(int version, String alg, byte[] wrappedDek, byte[] nonce, byte[] ciphertext) {}
