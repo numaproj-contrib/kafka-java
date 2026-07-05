@@ -1,10 +1,18 @@
 package io.numaproj.kafka.config;
 
+import com.amazonaws.services.schemaregistry.deserializers.GlueSchemaRegistryKafkaDeserializer;
+import com.google.common.annotations.VisibleForTesting;
+import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.numaproj.kafka.common.EnvVarInterpolator;
+import io.numaproj.kafka.crypto.DecryptingDeserializer;
+import io.numaproj.kafka.crypto.EnvelopeDecryptionFactory;
+import io.numaproj.kafka.crypto.PayloadDecryptor;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
@@ -12,11 +20,12 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.Deserializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.GROUP_ID_CONFIG;
-import static org.apache.kafka.clients.consumer.ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.MAX_POLL_RECORDS_CONFIG;
-import static org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG;
 
 /** Factory for Kafka consumer clients and admin client */
 @Slf4j
@@ -25,6 +34,10 @@ public class ConsumerConfig {
   private static final String SCHEMA_REGISTRY_TYPE_KEY = "schema.registry.type";
   private static final String SCHEMA_REGISTRY_TYPE_CONFLUENT = "confluent";
   private static final String SCHEMA_REGISTRY_TYPE_GLUE = "glue";
+
+  // Prefix for kafka-java-managed payload-envelope-decryption keys; consumed internally and stripped
+  // before the props are handed to KafkaConsumer.
+  private static final String ENCRYPTION_PROP_PREFIX = "payload.envelope.encryption.";
 
   private final String consumerPropertiesFilePath;
 
@@ -80,42 +93,40 @@ public class ConsumerConfig {
       throw new IllegalArgumentException("group.id is mandatory for Kafka consumer");
     }
 
-    // override the deserializer
-    // TODO - warning message if user sets a different deserializer
-    props.put(
-        KEY_DESERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.StringDeserializer");
-
-    String registryType = props.getProperty(SCHEMA_REGISTRY_TYPE_KEY, SCHEMA_REGISTRY_TYPE_CONFLUENT);
+    String registryType =
+        props.getProperty(SCHEMA_REGISTRY_TYPE_KEY, SCHEMA_REGISTRY_TYPE_CONFLUENT);
     props.remove(SCHEMA_REGISTRY_TYPE_KEY); // no need to pass it on to KafkaConsumer
     log.info("Schema registry type: {}", registryType);
-
-    if (SCHEMA_REGISTRY_TYPE_GLUE.equalsIgnoreCase(registryType)) {
-      props.put(VALUE_DESERIALIZER_CLASS_CONFIG,
-          "com.amazonaws.services.schemaregistry.deserializers.GlueSchemaRegistryKafkaDeserializer");
+    boolean glue = SCHEMA_REGISTRY_TYPE_GLUE.equalsIgnoreCase(registryType);
+    if (glue) {
       // Glue defaults to SPECIFIC_RECORD; force GENERIC_RECORD unless the user overrides it
       props.putIfAbsent("avroRecordType", "GENERIC_RECORD");
-    } else {
-      props.put(VALUE_DESERIALIZER_CLASS_CONFIG,
-          "io.confluent.kafka.serializers.KafkaAvroDeserializer");
     }
 
     // align max.poll.records with the Numaflow batch size so the consumer fetches
     // exactly as many records as the pipeline requests per read cycle
-    props.put(
-        MAX_POLL_RECORDS_CONFIG,
-        String.valueOf(batchSize));
+    props.put(MAX_POLL_RECORDS_CONFIG, String.valueOf(batchSize));
     log.info("Setting max.poll.records to {}", batchSize);
 
     // set credential properties from environment variable
-    String credentialProperties = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
-    if (credentialProperties != null && !credentialProperties.isEmpty()) {
-      StringReader sr = new StringReader(credentialProperties);
-      props.load(sr);
-      sr.close();
-      EnvVarInterpolator.interpolate(props);
-    }
-    return new KafkaConsumer<>(props);
+    loadCredentialProperties(props);
+
+    // Build the (optional) payload decryptor before its keys are stripped, then build and configure
+    // the delegate value deserializer instance and wrap it when decryption is enabled.
+    PayloadDecryptor decryptor = EnvelopeDecryptionFactory.fromProps(props);
+    stripEncryptionProps(props);
+    Map<String, Object> configs = toConfigMap(props);
+
+    Deserializer<Object> avroDelegate =
+        glue ? new GlueSchemaRegistryKafkaDeserializer() : new KafkaAvroDeserializer();
+    avroDelegate.configure(configs, false);
+    StringDeserializer keyDeserializer = new StringDeserializer();
+    keyDeserializer.configure(configs, true);
+
+    @SuppressWarnings("unchecked")
+    Deserializer<GenericRecord> valueDeserializer =
+        (Deserializer<GenericRecord>) (Deserializer<?>) avroDelegate;
+    return new KafkaConsumer<>(props, keyDeserializer, maybeWrap(valueDeserializer, decryptor));
   }
 
   // Kafka byte array consumer client
@@ -141,31 +152,24 @@ public class ConsumerConfig {
       throw new IllegalArgumentException("group.id is mandatory for Kafka consumer");
     }
 
-    // override the deserializer
-    // TODO - warning message if user sets a different deserializer
-    props.put(
-        KEY_DESERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.StringDeserializer");
-    props.put(
-        VALUE_DESERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.ByteArrayDeserializer");
-
     // align max.poll.records with the Numaflow batch size so the consumer fetches
     // exactly as many records as the pipeline requests per read cycle
-    props.put(
-        MAX_POLL_RECORDS_CONFIG,
-        String.valueOf(batchSize));
+    props.put(MAX_POLL_RECORDS_CONFIG, String.valueOf(batchSize));
     log.info("Setting max.poll.records to {}", batchSize);
 
     // set credential properties from environment variable
-    String credentialProperties = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
-    if (credentialProperties != null && !credentialProperties.isEmpty()) {
-      StringReader sr = new StringReader(credentialProperties);
-      props.load(sr);
-      sr.close();
-      EnvVarInterpolator.interpolate(props);
-    }
-    return new KafkaConsumer<>(props);
+    loadCredentialProperties(props);
+
+    PayloadDecryptor decryptor = EnvelopeDecryptionFactory.fromProps(props);
+    stripEncryptionProps(props);
+    Map<String, Object> configs = toConfigMap(props);
+
+    ByteArrayDeserializer byteArrayDelegate = new ByteArrayDeserializer();
+    byteArrayDelegate.configure(configs, false);
+    StringDeserializer keyDeserializer = new StringDeserializer();
+    keyDeserializer.configure(configs, true);
+
+    return new KafkaConsumer<>(props, keyDeserializer, maybeWrap(byteArrayDelegate, decryptor));
   }
 
   // AdminClient is used to retrieve the number of pending messages.
@@ -176,13 +180,41 @@ public class ConsumerConfig {
   public AdminClient kafkaAdminClient() throws IOException {
     Properties props = loadProps();
     // set credential properties from environment variable
+    loadCredentialProperties(props);
+    stripEncryptionProps(props);
+    return KafkaAdminClient.create(props);
+  }
+
+  /** Merge credential properties supplied via the KAFKA_CREDENTIAL_PROPERTIES env var. */
+  private static void loadCredentialProperties(Properties props) throws IOException {
     String credentialProperties = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
     if (credentialProperties != null && !credentialProperties.isEmpty()) {
-      StringReader sr = new StringReader(credentialProperties);
-      props.load(sr);
-      sr.close();
+      try (StringReader sr = new StringReader(credentialProperties)) {
+        props.load(sr);
+      }
       EnvVarInterpolator.interpolate(props);
     }
-    return KafkaAdminClient.create(props);
+  }
+
+  /** Remove kafka-java-managed encryption keys so they are not passed to the Kafka client. */
+  private static void stripEncryptionProps(Properties props) {
+    props.keySet().removeIf(k -> k instanceof String s && s.startsWith(ENCRYPTION_PROP_PREFIX));
+  }
+
+  private static Map<String, Object> toConfigMap(Properties props) {
+    Map<String, Object> configs = new HashMap<>();
+    for (String name : props.stringPropertyNames()) {
+      configs.put(name, props.getProperty(name));
+    }
+    return configs;
+  }
+
+  /**
+   * Wraps the delegate value deserializer with envelope decryption when a decryptor is present;
+   * otherwise returns the delegate unchanged.
+   */
+  @VisibleForTesting
+  static <T> Deserializer<T> maybeWrap(Deserializer<T> delegate, PayloadDecryptor decryptor) {
+    return decryptor == null ? delegate : new DecryptingDeserializer<>(delegate, decryptor);
   }
 }

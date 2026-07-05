@@ -1,0 +1,9 @@
+bootstrap.servers=localhost:9092
+group.id=groupId
+schema.registry.type=glue
+region=us-east-1
+registry.name=test-registry-1
+schemaAutoRegistrationEnabled=false
+schemaName=test-schema-1
+dataFormat=AVRO
+payload.envelope.encryption.provider.aws-kms.key.arn=not-a-valid-arn
