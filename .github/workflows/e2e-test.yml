@@ -22,12 +22,11 @@ jobs:
       - name: Build image
         run: mvn package -DskipTests
 
-      - name: Set up k3d
-        uses: AbsaOSS/k3d-action@v2
-        with:
-          cluster-name: test-cluster
-          args: --agents 1
-          k3d-version: v5.9.0
+      - name: Install k3d
+        run: curl -sfL https://raw.githubusercontent.com/rancher/k3d/main/install.sh | bash
+
+      - name: Create k3d cluster
+        run: k3d cluster create test-cluster --agents 1
 
       - name: Load image into k3d
         run: k3d image import quay.io/numaio/numaflow-java/kafka-java:$(mvn help:evaluate -Dexpression=image.tag -q -DforceStdout | tr -d '\n') -c test-cluster
