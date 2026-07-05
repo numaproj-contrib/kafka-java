@@ -29,7 +29,7 @@ data:
     schemaAutoRegistrationEnabled=false
 
     # Optional: assume an IAM role before connecting to Glue
-    # assumeRoleArn=arn:aws:iam::123456789012:role/my-glue-role
+    # assumeRoleArn=arn:aws:iam::123456789012:role/my-consumer-role
 
     # Optional: tune the in-process schema cache
     # cacheSize=200

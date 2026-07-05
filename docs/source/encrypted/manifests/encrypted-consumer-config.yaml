@@ -31,8 +31,9 @@ data:
     # Optional: plaintext-DEK cache TTL in ms (default 3600000 = 1h)
     # payload.envelope.encryption.provider.aws-kms.dek.cache.ttl.ms=3600000
 
-    # Optional: assume an IAM role before connecting to KMS and Glue
-    # assumeRoleArn=arn:aws:iam::123456789012:role/my-role
+    # Optional: assume a single IAM role before connecting to KMS and Glue
+    # (the role must carry both kms:Decrypt and any glue:* permissions your schemaType needs)
+    # assumeRoleArn=arn:aws:iam::123456789012:role/my-consumer-role
   user.configuration: |
     topicName: [placeholder]
     schemaType: avro
