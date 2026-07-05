@@ -20,7 +20,7 @@ Use Case 3: Read data from Kafka with no schema or JSON schema registered in the
 example [here](docs/source/non-avro/non-avro-source.md).
 
 Use Case 7: Read data from Kafka whose values are envelope-encrypted (AWS KMS + AES-256-GCM). Decryption is
-opt-in and composes with any of the above `schemaType`s. See an example [here](docs/source/encrypted/decrypting-source.md).
+opt-in and composes with any of the above `schemaType`s. See an example [here](docs/source/envelope-encryption/decrypting-source.md).
 
 ### Write data to Kafka
 
