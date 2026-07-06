@@ -6,6 +6,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.common.testing.FakeTicker;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -22,8 +24,8 @@ class CachingDekUnwrapperTest {
   @Test
   void servesFromCacheWithinTtl() {
     when(delegate.unwrap(any())).thenReturn(DEK);
-    AdjustableClock clock = new AdjustableClock(0);
-    CachingDekUnwrapper unwrapper = new CachingDekUnwrapper(delegate, new DekCache(1000, clock));
+    FakeTicker ticker = new FakeTicker();
+    CachingDekUnwrapper unwrapper = new CachingDekUnwrapper(delegate, new DekCache(1000, ticker));
 
     assertArrayEquals(DEK, unwrapper.unwrap(WRAPPED));
     assertArrayEquals(DEK, unwrapper.unwrap(WRAPPED));
@@ -34,11 +36,11 @@ class CachingDekUnwrapperTest {
   @Test
   void refetchesAfterTtlExpiry() {
     when(delegate.unwrap(any())).thenReturn(DEK);
-    AdjustableClock clock = new AdjustableClock(0);
-    CachingDekUnwrapper unwrapper = new CachingDekUnwrapper(delegate, new DekCache(1000, clock));
+    FakeTicker ticker = new FakeTicker();
+    CachingDekUnwrapper unwrapper = new CachingDekUnwrapper(delegate, new DekCache(1000, ticker));
 
     unwrapper.unwrap(WRAPPED);
-    clock.advance(1001); // past TTL
+    ticker.advance(1001, TimeUnit.MILLISECONDS); // past TTL
     unwrapper.unwrap(WRAPPED);
 
     verify(delegate, times(2)).unwrap(any());
@@ -47,7 +49,7 @@ class CachingDekUnwrapperTest {
   @Test
   void closeClosesDelegate() {
     CachingDekUnwrapper unwrapper =
-        new CachingDekUnwrapper(delegate, new DekCache(1000, new AdjustableClock(0)));
+        new CachingDekUnwrapper(delegate, new DekCache(1000, new FakeTicker()));
     unwrapper.close();
     verify(delegate).close();
   }

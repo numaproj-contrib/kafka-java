@@ -1,6 +1,5 @@
 package io.numaproj.kafka.encryption;
 
-import java.time.Clock;
 import java.util.Properties;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.arns.Arn;
@@ -63,7 +62,7 @@ public final class EnvelopeDecryptionFactory {
     // Caching is backend-agnostic: wrap the KMS unwrapper with a DEK cache decorator.
     DekUnwrapper unwrapper =
         new CachingDekUnwrapper(
-            new AwsKmsDekUnwrapper(kmsClient, keyArn), new DekCache(ttlMillis, Clock.systemUTC()));
+            new AwsKmsDekUnwrapper(kmsClient, keyArn), new DekCache(ttlMillis));
     return new PayloadDecryptor(new JsonEnvelopeCodec(), unwrapper);
   }
 
