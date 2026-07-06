@@ -5,12 +5,14 @@
 Some producers wrap the Kafka message value in an **encryption envelope** before sending it: a data
 encryption key (DEK) encrypts the payload with AES-256-GCM, and the DEK itself is wrapped by a
 key-management service. This source can transparently **decrypt the value before deserialization**, so
-a Numaflow pipeline can consume encrypted topics.
+a Numaflow MonoVertex or Pipeline can consume encrypted topics.
 
 Decryption is **independent of serialization** — it composes with any `schemaType` (`avro` with the
 Confluent or Glue registry, `json`, or `raw`). The decrypted bytes are handed to the normal
 deserializer for that `schemaType`, so the downstream output is identical to the equivalent
 non-encrypted topic.
+
+The only key-management backend supported today is **AWS KMS**.
 
 It is **opt-in**: decryption runs only when the AWS KMS key ARN is configured. With the key unset, the
 source behaves exactly as before and makes no calls to the key-management service.
@@ -37,8 +39,7 @@ a Glue Schema Registry frame; for `raw`, the record bytes; and so on).
 1. A topic whose values are produced in the envelope format above, with the DEK wrapped by an AWS KMS
    key.
 
-2. AWS credentials available to the pod (IRSA / Pod Identity preferred; env-var credentials and an
-   assumed role are also supported) with permission to decrypt under that key:
+2. AWS credentials available to the pod with permission to decrypt under that key:
 
    ```json
    {
@@ -48,8 +49,6 @@ a Glue Schema Registry frame; for `raw`, the record bytes; and so on).
    }
    ```
 
-   Scope `Resource` to the specific key ARN rather than `"*"`.
-
 ### Configuration
 
 Add the following to `consumer.properties` (managed by kafka-java — consumed internally, not passed to
@@ -57,7 +56,7 @@ the Kafka client):
 
 | Property | Required | Default | Description |
 |---|---|---|---|
-| `payload.envelope.encryption.provider.aws-kms.key.arn` | Yes, to enable decryption | — | Full KMS key ARN. Its presence enables decryption; it is enforced as the `KeyId` on `Decrypt` (KMS rejects ciphertext wrapped under any other key). The AWS region is derived from the ARN. Bare aliases are not accepted. |
+| `payload.envelope.encryption.provider.aws-kms.key.arn` | Yes, to enable decryption | — | Full KMS key ARN. Its presence enables decryption; it is enforced as the `KeyId` on `Decrypt` (KMS rejects ciphertext wrapped under any other key). |
 | `payload.envelope.encryption.dek.cache.ttl.ms` | No | `3600000` (1 h) | How long a recovered plaintext DEK is cached in memory to avoid a `Decrypt` call per message. Provider-agnostic (applies regardless of key backend). |
 
 The existing `assumeRoleArn` property (if set) is reused for KMS as well as Glue — a **single assumed
