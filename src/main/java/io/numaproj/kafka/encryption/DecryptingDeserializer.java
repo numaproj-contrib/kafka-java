@@ -1,4 +1,4 @@
-package io.numaproj.kafka.crypto;
+package io.numaproj.kafka.encryption;
 
 import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.serialization.Deserializer;

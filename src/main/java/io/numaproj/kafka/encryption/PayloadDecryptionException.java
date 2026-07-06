@@ -1,4 +1,4 @@
-package io.numaproj.kafka.crypto;
+package io.numaproj.kafka.encryption;
 
 /**
  * Unrecoverable error while decrypting an envelope-encrypted Kafka value. Thrown by the codec, key

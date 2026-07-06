@@ -4,9 +4,9 @@ import com.amazonaws.services.schemaregistry.deserializers.GlueSchemaRegistryKaf
 import com.google.common.annotations.VisibleForTesting;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.numaproj.kafka.common.EnvVarInterpolator;
-import io.numaproj.kafka.crypto.DecryptingDeserializer;
-import io.numaproj.kafka.crypto.EnvelopeDecryptionFactory;
-import io.numaproj.kafka.crypto.PayloadDecryptor;
+import io.numaproj.kafka.encryption.DecryptingDeserializer;
+import io.numaproj.kafka.encryption.EnvelopeDecryptionFactory;
+import io.numaproj.kafka.encryption.PayloadDecryptor;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;

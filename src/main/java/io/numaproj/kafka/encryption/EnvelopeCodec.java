@@ -1,4 +1,4 @@
-package io.numaproj.kafka.crypto;
+package io.numaproj.kafka.encryption;
 
 /**
  * Parses the encryption envelope wire format into structured fields. A codec owns the wire layout

@@ -1,4 +1,4 @@
-package io.numaproj.kafka.crypto;
+package io.numaproj.kafka.encryption;
 
 import java.security.GeneralSecurityException;
 import javax.crypto.Cipher;

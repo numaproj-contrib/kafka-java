@@ -1,4 +1,4 @@
-package io.numaproj.kafka.crypto;
+package io.numaproj.kafka.encryption;
 
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.kms.KmsClient;

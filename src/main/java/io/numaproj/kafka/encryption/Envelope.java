@@ -1,4 +1,4 @@
-package io.numaproj.kafka.crypto;
+package io.numaproj.kafka.encryption;
 
 /**
  * The parsed encryption envelope: the pieces a codec extracts from a Kafka value so the payload can

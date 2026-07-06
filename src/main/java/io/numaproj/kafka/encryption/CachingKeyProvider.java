@@ -1,4 +1,4 @@
-package io.numaproj.kafka.crypto;
+package io.numaproj.kafka.encryption;
 
 /**
  * A {@link KeyProvider} decorator that caches recovered plaintext DEKs (keyed by the wrapped-DEK

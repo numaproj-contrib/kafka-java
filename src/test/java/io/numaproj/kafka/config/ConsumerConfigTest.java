@@ -2,9 +2,9 @@ package io.numaproj.kafka.config;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import io.numaproj.kafka.crypto.DecryptingDeserializer;
-import io.numaproj.kafka.crypto.EnvelopeDecryptionFactory;
-import io.numaproj.kafka.crypto.PayloadDecryptor;
+import io.numaproj.kafka.encryption.DecryptingDeserializer;
+import io.numaproj.kafka.encryption.EnvelopeDecryptionFactory;
+import io.numaproj.kafka.encryption.PayloadDecryptor;
 import java.util.Objects;
 import java.util.Properties;
 import lombok.extern.slf4j.Slf4j;

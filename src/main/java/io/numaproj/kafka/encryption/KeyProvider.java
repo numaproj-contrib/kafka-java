@@ -1,4 +1,4 @@
-package io.numaproj.kafka.crypto;
+package io.numaproj.kafka.encryption;
 
 /**
  * Unwraps a wrapped data encryption key (DEK) into its plaintext form via a key-management backend.
