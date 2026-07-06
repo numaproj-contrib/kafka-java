@@ -95,10 +95,9 @@ public class ConsumerConfig {
 
     String registryType =
         props.getProperty(SCHEMA_REGISTRY_TYPE_KEY, SCHEMA_REGISTRY_TYPE_CONFLUENT);
-    props.remove(SCHEMA_REGISTRY_TYPE_KEY); // no need to pass it on to KafkaConsumer
     log.info("Schema registry type: {}", registryType);
-    boolean glue = SCHEMA_REGISTRY_TYPE_GLUE.equalsIgnoreCase(registryType);
-    if (glue) {
+    boolean useGlueSchemaRegistry = SCHEMA_REGISTRY_TYPE_GLUE.equalsIgnoreCase(registryType);
+    if (useGlueSchemaRegistry) {
       // Glue defaults to SPECIFIC_RECORD; force GENERIC_RECORD unless the user overrides it
       props.putIfAbsent("avroRecordType", "GENERIC_RECORD");
     }
@@ -111,22 +110,26 @@ public class ConsumerConfig {
     // set credential properties from environment variable
     loadCredentialProperties(props);
 
-    // Build the (optional) payload decryptor before its keys are stripped, then build and configure
-    // the delegate value deserializer instance and wrap it when decryption is enabled.
+    // Build the (optional) payload decryptor, then build and configure the value deserializer
+    // instance and wrap it when decryption is enabled.
     PayloadDecryptor decryptor = EnvelopeDecryptionFactory.fromProps(props);
-    stripEncryptionProps(props);
-    Map<String, Object> configs = toConfigMap(props);
+    Map<String, Object> configs = toDeserializerConfigs(props);
 
-    Deserializer<Object> avroDelegate =
-        glue ? new GlueSchemaRegistryKafkaDeserializer() : new KafkaAvroDeserializer();
-    avroDelegate.configure(configs, false);
+    Deserializer<Object> avroDeserializer =
+        useGlueSchemaRegistry
+            ? new GlueSchemaRegistryKafkaDeserializer()
+            : new KafkaAvroDeserializer();
+    avroDeserializer.configure(configs, false);
     StringDeserializer keyDeserializer = new StringDeserializer();
     keyDeserializer.configure(configs, true);
 
     @SuppressWarnings("unchecked")
     Deserializer<GenericRecord> valueDeserializer =
-        (Deserializer<GenericRecord>) (Deserializer<?>) avroDelegate;
-    return new KafkaConsumer<>(props, keyDeserializer, maybeWrap(valueDeserializer, decryptor));
+        (Deserializer<GenericRecord>) (Deserializer<?>) avroDeserializer;
+
+    // strip kafka-java-managed keys as the last step before instantiating the client
+    stripManagedProps(props);
+    return new KafkaConsumer<>(props, keyDeserializer, wrapWithDecryption(valueDeserializer, decryptor));
   }
 
   // Kafka byte array consumer client
@@ -161,15 +164,16 @@ public class ConsumerConfig {
     loadCredentialProperties(props);
 
     PayloadDecryptor decryptor = EnvelopeDecryptionFactory.fromProps(props);
-    stripEncryptionProps(props);
-    Map<String, Object> configs = toConfigMap(props);
+    Map<String, Object> configs = toDeserializerConfigs(props);
 
-    ByteArrayDeserializer byteArrayDelegate = new ByteArrayDeserializer();
-    byteArrayDelegate.configure(configs, false);
+    ByteArrayDeserializer byteArrayDeserializer = new ByteArrayDeserializer();
+    byteArrayDeserializer.configure(configs, false);
     StringDeserializer keyDeserializer = new StringDeserializer();
     keyDeserializer.configure(configs, true);
 
-    return new KafkaConsumer<>(props, keyDeserializer, maybeWrap(byteArrayDelegate, decryptor));
+    // strip kafka-java-managed keys as the last step before instantiating the client
+    stripManagedProps(props);
+    return new KafkaConsumer<>(props, keyDeserializer, wrapWithDecryption(byteArrayDeserializer, decryptor));
   }
 
   // AdminClient is used to retrieve the number of pending messages.
@@ -181,7 +185,8 @@ public class ConsumerConfig {
     Properties props = loadProps();
     // set credential properties from environment variable
     loadCredentialProperties(props);
-    stripEncryptionProps(props);
+    // strip kafka-java-managed keys as the last step before instantiating the client
+    stripManagedProps(props);
     return KafkaAdminClient.create(props);
   }
 
@@ -196,12 +201,17 @@ public class ConsumerConfig {
     }
   }
 
-  /** Remove kafka-java-managed encryption keys so they are not passed to the Kafka client. */
-  private static void stripEncryptionProps(Properties props) {
+  /**
+   * Remove kafka-java-managed keys (consumed internally, not real Kafka client configs) so they are
+   * not passed to Kafka clients: {@code schema.registry.type} and the
+   * {@code payload.envelope.encryption.*} family.
+   */
+  private static void stripManagedProps(Properties props) {
+    props.remove(SCHEMA_REGISTRY_TYPE_KEY);
     props.keySet().removeIf(k -> k instanceof String s && s.startsWith(ENCRYPTION_PROP_PREFIX));
   }
 
-  private static Map<String, Object> toConfigMap(Properties props) {
+  private static Map<String, Object> toDeserializerConfigs(Properties props) {
     Map<String, Object> configs = new HashMap<>();
     for (String name : props.stringPropertyNames()) {
       configs.put(name, props.getProperty(name));
@@ -214,7 +224,7 @@ public class ConsumerConfig {
    * otherwise returns the delegate unchanged.
    */
   @VisibleForTesting
-  static <T> Deserializer<T> maybeWrap(Deserializer<T> delegate, PayloadDecryptor decryptor) {
+  static <T> Deserializer<T> wrapWithDecryption(Deserializer<T> delegate, PayloadDecryptor decryptor) {
     return decryptor == null ? delegate : new DecryptingDeserializer<>(delegate, decryptor);
   }
 }

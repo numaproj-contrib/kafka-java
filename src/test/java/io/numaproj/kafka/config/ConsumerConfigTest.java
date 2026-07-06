@@ -153,13 +153,13 @@ public class ConsumerConfigTest {
   }
 
   @Test
-  public void maybeWrap_noDecryptor_returnsDelegate() {
+  public void wrapWithDecryption_noDecryptor_returnsDelegate() {
     Deserializer<String> delegate = new StringDeserializer();
-    assertSame(delegate, ConsumerConfig.maybeWrap(delegate, null));
+    assertSame(delegate, ConsumerConfig.wrapWithDecryption(delegate, null));
   }
 
   @Test
-  public void maybeWrap_withDecryptor_wraps() {
+  public void wrapWithDecryption_withDecryptor_wraps() {
     Properties props = new Properties();
     props.setProperty(
         EnvelopeDecryptionFactory.KEY_ARN, "arn:aws:kms:us-east-1:123456789012:key/abcd-1234");
@@ -167,7 +167,7 @@ public class ConsumerConfigTest {
     assertNotNull(decryptor);
 
     Deserializer<String> wrapped =
-        ConsumerConfig.maybeWrap(new StringDeserializer(), decryptor);
+        ConsumerConfig.wrapWithDecryption(new StringDeserializer(), decryptor);
     assertInstanceOf(DecryptingDeserializer.class, wrapped);
     wrapped.close(); // releases the KMS client held by the decryptor
   }
