@@ -220,11 +220,12 @@ public class ConsumerConfig {
   }
 
   /**
-   * Wraps the delegate value deserializer with envelope decryption when a decryptor is present;
-   * otherwise returns the delegate unchanged.
+   * Wraps the given value deserializer with envelope decryption when a decryptor is present;
+   * otherwise returns it unchanged.
    */
   @VisibleForTesting
-  static <T> Deserializer<T> wrapWithDecryption(Deserializer<T> delegate, PayloadDecryptor decryptor) {
-    return decryptor == null ? delegate : new DecryptingDeserializer<>(delegate, decryptor);
+  static <T> Deserializer<T> wrapWithDecryption(
+      Deserializer<T> deserializer, PayloadDecryptor decryptor) {
+    return decryptor == null ? deserializer : new DecryptingDeserializer<>(deserializer, decryptor);
   }
 }

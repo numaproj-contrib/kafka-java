@@ -153,9 +153,9 @@ public class ConsumerConfigTest {
   }
 
   @Test
-  public void wrapWithDecryption_noDecryptor_returnsDelegate() {
-    Deserializer<String> delegate = new StringDeserializer();
-    assertSame(delegate, ConsumerConfig.wrapWithDecryption(delegate, null));
+  public void wrapWithDecryption_noDecryptor_returnsSameDeserializer() {
+    Deserializer<String> deserializer = new StringDeserializer();
+    assertSame(deserializer, ConsumerConfig.wrapWithDecryption(deserializer, null));
   }
 
   @Test
