@@ -19,7 +19,7 @@ import software.amazon.awssdk.services.kms.model.DecryptResponse;
 import software.amazon.awssdk.services.kms.model.KmsException;
 
 @ExtendWith(MockitoExtension.class)
-class AwsKmsKeyProviderTest {
+class AwsKmsDekUnwrapperTest {
 
   private static final String KEY_ARN = "arn:aws:kms:us-east-1:123456789012:key/abcd-1234";
   private static final byte[] WRAPPED = {1, 2, 3, 4};
@@ -31,9 +31,9 @@ class AwsKmsKeyProviderTest {
   void unwrapsAndPassesConfiguredKeyId() {
     when(kmsClient.decrypt(any(DecryptRequest.class)))
         .thenReturn(DecryptResponse.builder().plaintext(SdkBytes.fromByteArray(DEK)).build());
-    AwsKmsKeyProvider provider = new AwsKmsKeyProvider(kmsClient, KEY_ARN);
+    AwsKmsDekUnwrapper unwrapper = new AwsKmsDekUnwrapper(kmsClient, KEY_ARN);
 
-    assertArrayEquals(DEK, provider.unwrap(WRAPPED));
+    assertArrayEquals(DEK, unwrapper.unwrap(WRAPPED));
 
     ArgumentCaptor<DecryptRequest> captor = ArgumentCaptor.forClass(DecryptRequest.class);
     verify(kmsClient).decrypt(captor.capture());
@@ -45,8 +45,8 @@ class AwsKmsKeyProviderTest {
   void propagatesKmsFailure() {
     when(kmsClient.decrypt(any(DecryptRequest.class)))
         .thenThrow(KmsException.builder().message("access denied").build());
-    AwsKmsKeyProvider provider = new AwsKmsKeyProvider(kmsClient, KEY_ARN);
+    AwsKmsDekUnwrapper unwrapper = new AwsKmsDekUnwrapper(kmsClient, KEY_ARN);
 
-    assertThrows(KmsException.class, () -> provider.unwrap(WRAPPED));
+    assertThrows(KmsException.class, () -> unwrapper.unwrap(WRAPPED));
   }
 }

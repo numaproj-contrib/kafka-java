@@ -6,19 +6,19 @@ import software.amazon.awssdk.services.kms.model.DecryptRequest;
 import software.amazon.awssdk.services.kms.model.DecryptResponse;
 
 /**
- * {@link KeyProvider} backed by AWS KMS. Unwraps the DEK via {@code kms:Decrypt}, passing the
+ * {@link DekUnwrapper} backed by AWS KMS. Unwraps the DEK via {@code kms:Decrypt}, passing the
  * configured key ARN as {@code KeyId} so KMS rejects any ciphertext not wrapped under the expected
- * key (spec §7.2 P1).
+ * key.
  *
- * <p>This provider does no caching — DEK caching is provider-agnostic and applied by
- * {@link CachingKeyProvider}. The plaintext DEK is never logged (spec SR1).
+ * <p>This unwrapper does no caching — DEK caching is backend-agnostic and applied by
+ * {@link CachingDekUnwrapper}. The plaintext DEK is never logged.
  */
-public class AwsKmsKeyProvider implements KeyProvider {
+public class AwsKmsDekUnwrapper implements DekUnwrapper {
 
   private final KmsClient kmsClient;
   private final String keyArn;
 
-  public AwsKmsKeyProvider(KmsClient kmsClient, String keyArn) {
+  public AwsKmsDekUnwrapper(KmsClient kmsClient, String keyArn) {
     this.kmsClient = kmsClient;
     this.keyArn = keyArn;
   }

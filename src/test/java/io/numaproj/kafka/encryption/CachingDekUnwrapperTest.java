@@ -12,21 +12,21 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class CachingKeyProviderTest {
+class CachingDekUnwrapperTest {
 
   private static final byte[] WRAPPED = {1, 2, 3, 4};
   private static final byte[] DEK = new byte[32];
 
-  @Mock private KeyProvider delegate;
+  @Mock private DekUnwrapper delegate;
 
   @Test
   void servesFromCacheWithinTtl() {
     when(delegate.unwrap(any())).thenReturn(DEK);
     AdjustableClock clock = new AdjustableClock(0);
-    CachingKeyProvider provider = new CachingKeyProvider(delegate, new DekCache(1000, clock));
+    CachingDekUnwrapper unwrapper = new CachingDekUnwrapper(delegate, new DekCache(1000, clock));
 
-    assertArrayEquals(DEK, provider.unwrap(WRAPPED));
-    assertArrayEquals(DEK, provider.unwrap(WRAPPED));
+    assertArrayEquals(DEK, unwrapper.unwrap(WRAPPED));
+    assertArrayEquals(DEK, unwrapper.unwrap(WRAPPED));
 
     verify(delegate, times(1)).unwrap(any());
   }
@@ -35,20 +35,20 @@ class CachingKeyProviderTest {
   void refetchesAfterTtlExpiry() {
     when(delegate.unwrap(any())).thenReturn(DEK);
     AdjustableClock clock = new AdjustableClock(0);
-    CachingKeyProvider provider = new CachingKeyProvider(delegate, new DekCache(1000, clock));
+    CachingDekUnwrapper unwrapper = new CachingDekUnwrapper(delegate, new DekCache(1000, clock));
 
-    provider.unwrap(WRAPPED);
+    unwrapper.unwrap(WRAPPED);
     clock.advance(1001); // past TTL
-    provider.unwrap(WRAPPED);
+    unwrapper.unwrap(WRAPPED);
 
     verify(delegate, times(2)).unwrap(any());
   }
 
   @Test
   void closeClosesDelegate() {
-    CachingKeyProvider provider =
-        new CachingKeyProvider(delegate, new DekCache(1000, new AdjustableClock(0)));
-    provider.close();
+    CachingDekUnwrapper unwrapper =
+        new CachingDekUnwrapper(delegate, new DekCache(1000, new AdjustableClock(0)));
+    unwrapper.close();
     verify(delegate).close();
   }
 }

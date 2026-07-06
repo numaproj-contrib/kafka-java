@@ -60,11 +60,11 @@ public final class EnvelopeDecryptionFactory {
     String assumeRoleArn = props.getProperty(ASSUME_ROLE_ARN);
     KmsClient kmsClient = buildKmsClient(region, assumeRoleArn);
     log.info("Payload envelope decryption enabled (aws-kms, region {})", region.id());
-    // Caching is provider-agnostic: wrap the KMS provider with a DEK cache decorator.
-    KeyProvider keyProvider =
-        new CachingKeyProvider(
-            new AwsKmsKeyProvider(kmsClient, keyArn), new DekCache(ttlMillis, Clock.systemUTC()));
-    return new PayloadDecryptor(new JsonEnvelopeCodec(), keyProvider);
+    // Caching is backend-agnostic: wrap the KMS unwrapper with a DEK cache decorator.
+    DekUnwrapper unwrapper =
+        new CachingDekUnwrapper(
+            new AwsKmsDekUnwrapper(kmsClient, keyArn), new DekCache(ttlMillis, Clock.systemUTC()));
+    return new PayloadDecryptor(new JsonEnvelopeCodec(), unwrapper);
   }
 
   static boolean isValidKmsKeyArn(String candidate) {

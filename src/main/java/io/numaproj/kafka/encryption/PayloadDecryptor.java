@@ -6,7 +6,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * Orchestrates decryption: {@code codec.parse → keyProvider.unwrap → AEAD decrypt} (spec §6.3). The
+ * Orchestrates decryption: {@code codec.parse → unwrapper.unwrap → AEAD decrypt}. The
  * AEAD algorithm is selected by the {@code alg} the codec reports; the only supported value is
  * {@code AES-256-GCM}.
  *
@@ -19,11 +19,11 @@ public class PayloadDecryptor {
   private static final int GCM_TAG_BITS = 128;
 
   private final EnvelopeCodec codec;
-  private final KeyProvider keyProvider;
+  private final DekUnwrapper unwrapper;
 
-  public PayloadDecryptor(EnvelopeCodec codec, KeyProvider keyProvider) {
+  public PayloadDecryptor(EnvelopeCodec codec, DekUnwrapper unwrapper) {
     this.codec = codec;
-    this.keyProvider = keyProvider;
+    this.unwrapper = unwrapper;
   }
 
   /**
@@ -37,7 +37,7 @@ public class PayloadDecryptor {
     if (!SUPPORTED_ALG.equals(envelope.alg())) {
       throw new PayloadDecryptionException("Unsupported alg: " + envelope.alg());
     }
-    byte[] dek = keyProvider.unwrap(envelope.wrappedDek());
+    byte[] dek = unwrapper.unwrap(envelope.wrappedDek());
     try {
       Cipher cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION);
       cipher.init(
@@ -52,6 +52,6 @@ public class PayloadDecryptor {
   }
 
   public void close() {
-    keyProvider.close();
+    unwrapper.close();
   }
 }

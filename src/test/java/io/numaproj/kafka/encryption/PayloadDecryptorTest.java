@@ -42,10 +42,10 @@ class PayloadDecryptorTest {
     byte[] ciphertext = encrypt(dek, nonce, plaintext);
 
     EnvelopeCodec codec = (topic, value) -> new Envelope(1, "AES-256-GCM", WRAPPED_DEK, nonce, ciphertext);
-    KeyProvider keyProvider = mock(KeyProvider.class);
-    when(keyProvider.unwrap(any())).thenReturn(dek);
+    DekUnwrapper unwrapper = mock(DekUnwrapper.class);
+    when(unwrapper.unwrap(any())).thenReturn(dek);
 
-    PayloadDecryptor decryptor = new PayloadDecryptor(codec, keyProvider);
+    PayloadDecryptor decryptor = new PayloadDecryptor(codec, unwrapper);
 
     assertArrayEquals(plaintext, decryptor.decrypt("t", new byte[] {0}));
   }
@@ -54,12 +54,12 @@ class PayloadDecryptorTest {
   void rejectsUnsupportedAlgorithmBeforeUnwrapping() {
     EnvelopeCodec codec =
         (topic, value) -> new Envelope(1, "AES-128-GCM", WRAPPED_DEK, new byte[12], new byte[16]);
-    KeyProvider keyProvider = mock(KeyProvider.class);
+    DekUnwrapper unwrapper = mock(DekUnwrapper.class);
 
-    PayloadDecryptor decryptor = new PayloadDecryptor(codec, keyProvider);
+    PayloadDecryptor decryptor = new PayloadDecryptor(codec, unwrapper);
 
     assertThrows(PayloadDecryptionException.class, () -> decryptor.decrypt("t", new byte[] {0}));
-    verifyNoInteractions(keyProvider);
+    verifyNoInteractions(unwrapper);
   }
 
   @Test
@@ -70,10 +70,10 @@ class PayloadDecryptorTest {
     ciphertext[0] ^= 0x01; // tamper
 
     EnvelopeCodec codec = (topic, value) -> new Envelope(1, "AES-256-GCM", WRAPPED_DEK, nonce, ciphertext);
-    KeyProvider keyProvider = mock(KeyProvider.class);
-    when(keyProvider.unwrap(any())).thenReturn(dek);
+    DekUnwrapper unwrapper = mock(DekUnwrapper.class);
+    when(unwrapper.unwrap(any())).thenReturn(dek);
 
-    PayloadDecryptor decryptor = new PayloadDecryptor(codec, keyProvider);
+    PayloadDecryptor decryptor = new PayloadDecryptor(codec, unwrapper);
 
     PayloadDecryptionException ex =
         assertThrows(PayloadDecryptionException.class, () -> decryptor.decrypt("t", new byte[] {0}));

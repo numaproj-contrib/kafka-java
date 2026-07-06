@@ -1,19 +1,19 @@
 package io.numaproj.kafka.encryption;
 
 /**
- * A {@link KeyProvider} decorator that caches recovered plaintext DEKs (keyed by the wrapped-DEK
+ * A {@link DekUnwrapper} decorator that caches recovered plaintext DEKs (keyed by the wrapped-DEK
  * bytes) in front of a delegate, so repeated messages under the same wrapped DEK avoid a backend
  * unwrap call.
  *
- * <p>Caching is provider-agnostic: any {@link KeyProvider} gets it without implementing caching
- * itself. Cached plaintext DEKs are never logged (spec SR1).
+ * <p>Caching is backend-agnostic: any {@link DekUnwrapper} gets it without implementing caching
+ * itself. Cached plaintext DEKs are never logged.
  */
-public class CachingKeyProvider implements KeyProvider {
+public class CachingDekUnwrapper implements DekUnwrapper {
 
-  private final KeyProvider delegate;
+  private final DekUnwrapper delegate;
   private final DekCache cache;
 
-  public CachingKeyProvider(KeyProvider delegate, DekCache cache) {
+  public CachingDekUnwrapper(DekUnwrapper delegate, DekCache cache) {
     this.delegate = delegate;
     this.cache = cache;
   }
