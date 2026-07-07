@@ -1,5 +1,6 @@
 package io.numaproj.kafka.encryption;
 
+import java.time.Duration;
 import java.util.Properties;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.arns.Arn;
@@ -23,14 +24,18 @@ public final class EnvelopeDecryptionFactory {
   public static final String KEY_ARN =
       "payload.envelope.encryption.provider.aws-kms.key.arn";
 
-  /** Plaintext-DEK cache TTL in milliseconds. Provider-agnostic (caching is applied by the core). */
+  /** Plaintext-DEK cache TTL in milliseconds. */
   public static final String DEK_CACHE_TTL_MS =
       "payload.envelope.encryption.dek.cache.ttl.ms";
 
   /** Existing key reused for KMS as well as Glue. */
   public static final String ASSUME_ROLE_ARN = "assumeRoleArn";
 
-  static final long DEFAULT_TTL_MS = 3_600_000L;
+  // Default DEK cache TTL. One hour trades off KMS unwrap cost/latency (a cache hit avoids a
+  // Decrypt call per message) against how long a plaintext DEK lives in memory: long enough to keep
+  // hit rates high given infrequent DEK rotation, short enough to bound staleness. Operators can
+  // override via DEK_CACHE_TTL_MS.
+  static final long DEFAULT_TTL_MS = Duration.ofHours(1).toMillis();
 
   private static final String SESSION_NAME = "kafka-java-kms";
 
