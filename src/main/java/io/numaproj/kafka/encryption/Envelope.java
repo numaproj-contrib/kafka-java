@@ -6,7 +6,7 @@ package io.numaproj.kafka.encryption;
  *
  * @param version the envelope format version (e.g. {@code enc_ver})
  * @param alg the AEAD algorithm name (e.g. {@code AES-256-GCM})
- * @param wrappedDek the KMS-wrapped data encryption key
+ * @param wrappedDek the wrapped data encryption key (unwrapped by the key-management backend)
  * @param nonce the AEAD nonce / IV
  * @param ciphertext the AEAD ciphertext (authentication tag appended)
  */
