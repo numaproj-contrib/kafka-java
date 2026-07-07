@@ -25,7 +25,7 @@ class DecryptingDeserializerTest {
   void decryptsThenDelegates() {
     byte[] data = {1, 2, 3};
     byte[] plaintext = {4, 5, 6};
-    when(decryptor.decrypt("t", data)).thenReturn(plaintext);
+    when(decryptor.decrypt(data)).thenReturn(plaintext);
     when(delegate.deserialize("t", plaintext)).thenReturn("decoded");
 
     DecryptingDeserializer<String> d = new DecryptingDeserializer<>(delegate, decryptor);
@@ -46,7 +46,7 @@ class DecryptingDeserializerTest {
 
   @Test
   void propagatesDecryptFailure() {
-    when(decryptor.decrypt(any(), any())).thenThrow(new PayloadDecryptionException("boom"));
+    when(decryptor.decrypt(any())).thenThrow(new PayloadDecryptionException("boom"));
     DecryptingDeserializer<String> d = new DecryptingDeserializer<>(delegate, decryptor);
 
     assertThrows(PayloadDecryptionException.class, () -> d.deserialize("t", new byte[] {1}));

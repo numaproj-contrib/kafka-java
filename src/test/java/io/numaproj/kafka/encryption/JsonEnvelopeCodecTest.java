@@ -31,7 +31,7 @@ class JsonEnvelopeCodecTest {
     byte[] dek = {1, 2, 3};
     byte[] nonce = new byte[12];
     byte[] ct = {9, 8, 7, 6};
-    Envelope e = codec.parse("t", bytes(envelope(1, "AES-256-GCM", dek, nonce, ct)));
+    Envelope e = codec.parse(bytes(envelope(1, "AES-256-GCM", dek, nonce, ct)));
 
     assertEquals(1, e.version());
     assertEquals("AES-256-GCM", e.alg());
@@ -45,14 +45,14 @@ class JsonEnvelopeCodecTest {
     byte[] any = {1};
     assertThrows(
         PayloadDecryptionException.class,
-        () -> codec.parse("t", bytes(envelope(2, "AES-256-GCM", any, any, any))));
+        () -> codec.parse(bytes(envelope(2, "AES-256-GCM", any, any, any))));
   }
 
   @Test
   void rejectsMissingField() {
     // No ciphertext_dek.
     String json = "{\"enc_ver\":1,\"alg\":\"AES-256-GCM\",\"nonce\":\"AAAA\",\"ciphertext\":\"AAAA\"}";
-    assertThrows(PayloadDecryptionException.class, () -> codec.parse("t", bytes(json)));
+    assertThrows(PayloadDecryptionException.class, () -> codec.parse(bytes(json)));
   }
 
   @Test
@@ -60,20 +60,20 @@ class JsonEnvelopeCodecTest {
     byte[] any = {1};
     assertThrows(
         PayloadDecryptionException.class,
-        () -> codec.parse("t", bytes(envelope(1, "", any, any, any))));
+        () -> codec.parse(bytes(envelope(1, "", any, any, any))));
   }
 
   @Test
   void rejectsBadBase64() {
     String json =
         "{\"enc_ver\":1,\"alg\":\"AES-256-GCM\",\"ciphertext_dek\":\"AAAA\",\"nonce\":\"not*base64!\",\"ciphertext\":\"AAAA\"}";
-    assertThrows(PayloadDecryptionException.class, () -> codec.parse("t", bytes(json)));
+    assertThrows(PayloadDecryptionException.class, () -> codec.parse(bytes(json)));
   }
 
   @Test
   void rejectsNonJson() {
     assertThrows(
         PayloadDecryptionException.class,
-        () -> codec.parse("t", "not json".getBytes(StandardCharsets.UTF_8)));
+        () -> codec.parse("not json".getBytes(StandardCharsets.UTF_8)));
   }
 }

@@ -13,8 +13,8 @@ import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 
 /**
  * Builds a {@link PayloadDecryptor} from consumer properties, or returns {@code null} when
- * decryption is disabled. Presence of the AWS KMS key ARN is the enable switch (spec RD6); a
- * malformed ARN fails fast at startup (spec §8).
+ * decryption is disabled. Presence of the AWS KMS key ARN is the enable switch; a malformed ARN
+ * fails fast at startup.
  */
 @Slf4j
 public final class EnvelopeDecryptionFactory {
@@ -27,7 +27,7 @@ public final class EnvelopeDecryptionFactory {
   public static final String DEK_CACHE_TTL_MS =
       "payload.envelope.encryption.dek.cache.ttl.ms";
 
-  /** Existing key reused for KMS as well as Glue (spec RD3). */
+  /** Existing key reused for KMS as well as Glue. */
   public static final String ASSUME_ROLE_ARN = "assumeRoleArn";
 
   static final long DEFAULT_TTL_MS = 3_600_000L;

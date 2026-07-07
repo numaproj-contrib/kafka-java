@@ -41,24 +41,24 @@ class PayloadDecryptorTest {
     byte[] plaintext = "hello world".getBytes(StandardCharsets.UTF_8);
     byte[] ciphertext = encrypt(dek, nonce, plaintext);
 
-    EnvelopeCodec codec = (topic, value) -> new Envelope(1, "AES-256-GCM", WRAPPED_DEK, nonce, ciphertext);
+    EnvelopeCodec codec = value -> new Envelope(1, "AES-256-GCM", WRAPPED_DEK, nonce, ciphertext);
     DekUnwrapper unwrapper = mock(DekUnwrapper.class);
     when(unwrapper.unwrap(any())).thenReturn(dek);
 
     PayloadDecryptor decryptor = new PayloadDecryptor(codec, unwrapper);
 
-    assertArrayEquals(plaintext, decryptor.decrypt("t", new byte[] {0}));
+    assertArrayEquals(plaintext, decryptor.decrypt(new byte[] {0}));
   }
 
   @Test
   void rejectsUnsupportedAlgorithmBeforeUnwrapping() {
     EnvelopeCodec codec =
-        (topic, value) -> new Envelope(1, "AES-128-GCM", WRAPPED_DEK, new byte[12], new byte[16]);
+        value -> new Envelope(1, "AES-128-GCM", WRAPPED_DEK, new byte[12], new byte[16]);
     DekUnwrapper unwrapper = mock(DekUnwrapper.class);
 
     PayloadDecryptor decryptor = new PayloadDecryptor(codec, unwrapper);
 
-    assertThrows(PayloadDecryptionException.class, () -> decryptor.decrypt("t", new byte[] {0}));
+    assertThrows(PayloadDecryptionException.class, () -> decryptor.decrypt(new byte[] {0}));
     verifyNoInteractions(unwrapper);
   }
 
@@ -69,14 +69,14 @@ class PayloadDecryptorTest {
     byte[] ciphertext = encrypt(dek, nonce, "secret".getBytes(StandardCharsets.UTF_8));
     ciphertext[0] ^= 0x01; // tamper
 
-    EnvelopeCodec codec = (topic, value) -> new Envelope(1, "AES-256-GCM", WRAPPED_DEK, nonce, ciphertext);
+    EnvelopeCodec codec = value -> new Envelope(1, "AES-256-GCM", WRAPPED_DEK, nonce, ciphertext);
     DekUnwrapper unwrapper = mock(DekUnwrapper.class);
     when(unwrapper.unwrap(any())).thenReturn(dek);
 
     PayloadDecryptor decryptor = new PayloadDecryptor(codec, unwrapper);
 
     PayloadDecryptionException ex =
-        assertThrows(PayloadDecryptionException.class, () -> decryptor.decrypt("t", new byte[] {0}));
+        assertThrows(PayloadDecryptionException.class, () -> decryptor.decrypt(new byte[] {0}));
     assertInstanceOf(AEADBadTagException.class, ex.getCause());
   }
 }

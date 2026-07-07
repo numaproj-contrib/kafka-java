@@ -3,11 +3,8 @@ package io.numaproj.kafka.encryption;
 /**
  * Parses the encryption envelope wire format into structured fields. A codec owns the wire layout
  * only (field names/positions, encoding, its own version field); it performs no key-unwrap calls and
- * no decryption (spec EC1).
- *
- * <p>Internal seam, not a public extension point (spec RD1).
+ * no decryption.
  */
-@FunctionalInterface
 public interface EnvelopeCodec {
 
   /**
@@ -15,5 +12,5 @@ public interface EnvelopeCodec {
    *
    * @throws PayloadDecryptionException if the value is not a well-formed envelope
    */
-  Envelope parse(String topic, byte[] value);
+  Envelope parse(byte[] value);
 }

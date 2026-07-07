@@ -26,7 +26,7 @@ public class DecryptingDeserializer<T> implements Deserializer<T> {
     if (data == null || data.length == 0) {
       return delegate.deserialize(topic, data);
     }
-    return delegate.deserialize(topic, decryptor.decrypt(topic, data));
+    return delegate.deserialize(topic, decryptor.decrypt(data));
   }
 
   @Override
@@ -34,7 +34,7 @@ public class DecryptingDeserializer<T> implements Deserializer<T> {
     if (data == null || data.length == 0) {
       return delegate.deserialize(topic, headers, data);
     }
-    return delegate.deserialize(topic, headers, decryptor.decrypt(topic, data));
+    return delegate.deserialize(topic, headers, decryptor.decrypt(data));
   }
 
   @Override

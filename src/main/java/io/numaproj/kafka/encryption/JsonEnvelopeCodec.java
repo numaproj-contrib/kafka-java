@@ -18,7 +18,7 @@ import java.util.Base64;
  * </pre>
  *
  * <p>The version lives in {@code enc_ver} (the only supported value is {@code 1}); it is not encoded
- * in the codec name (spec §7.1).
+ * in the codec name.
  */
 public class JsonEnvelopeCodec implements EnvelopeCodec {
 
@@ -33,7 +33,7 @@ public class JsonEnvelopeCodec implements EnvelopeCodec {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   @Override
-  public Envelope parse(String topic, byte[] value) {
+  public Envelope parse(byte[] value) {
     JsonNode node;
     try {
       node = MAPPER.readTree(value);

@@ -10,7 +10,7 @@ import javax.crypto.spec.SecretKeySpec;
  * AEAD algorithm is selected by the {@code alg} the codec reports; the only supported value is
  * {@code AES-256-GCM}.
  *
- * <p>Neither the plaintext DEK nor the decrypted payload is logged (spec SR1/SR2).
+ * <p>Neither the plaintext DEK nor the decrypted payload is logged.
  */
 public class PayloadDecryptor {
 
@@ -32,8 +32,8 @@ public class PayloadDecryptor {
    * @throws PayloadDecryptionException on any unrecoverable error (malformed envelope, unsupported
    *     algorithm, key-unwrap failure, or AEAD authentication failure)
    */
-  public byte[] decrypt(String topic, byte[] value) {
-    Envelope envelope = codec.parse(topic, value);
+  public byte[] decrypt(byte[] value) {
+    Envelope envelope = codec.parse(value);
     if (!SUPPORTED_ALG.equals(envelope.alg())) {
       throw new PayloadDecryptionException("Unsupported alg: " + envelope.alg());
     }
