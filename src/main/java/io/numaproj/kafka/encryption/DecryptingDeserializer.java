@@ -6,11 +6,10 @@ import org.apache.kafka.common.serialization.Deserializer;
 /**
  * A Kafka {@link Deserializer} that decrypts the value, then delegates to the deserializer the source
  * would otherwise use (Glue Avro, Confluent Avro, or ByteArray). Because it delegates, it works for
- * every serialization path (spec §5, G3). Inserted at the deserialization boundary so the source's
- * read/ack/offset logic is untouched (spec G5).
+ * every serialization path.
  *
- * <p>The delegate is configured by the caller ({@code ConsumerConfig}); this wrapper is constructed
- * with an already-configured delegate, so {@link #configure} is a no-op.
+ * <p>The delegate is configured by the caller ({@code ConsumerConfig}) before being wrapped, so this
+ * wrapper does not override {@link #configure}; Kafka's inherited no-op is sufficient.
  */
 public class DecryptingDeserializer<T> implements Deserializer<T> {
 
