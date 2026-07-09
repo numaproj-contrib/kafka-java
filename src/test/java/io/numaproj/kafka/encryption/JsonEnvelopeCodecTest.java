@@ -41,6 +41,16 @@ class JsonEnvelopeCodecTest {
   }
 
   @Test
+  void ignoresUnknownFields() {
+    // Forward compatibility: a producer adding a field must not break decoding.
+    String json =
+        "{\"enc_ver\":1,\"alg\":\"AES-256-GCM\",\"ciphertext_dek\":\"AAAA\",\"nonce\":\"AAAA\","
+            + "\"ciphertext\":\"AAAA\",\"future_field\":\"ignored\"}";
+    Envelope e = codec.parse(bytes(json));
+    assertEquals("AES-256-GCM", e.alg());
+  }
+
+  @Test
   void rejectsUnsupportedEncVer() {
     byte[] any = {1};
     assertThrows(

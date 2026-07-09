@@ -1,6 +1,7 @@
 package io.numaproj.kafka.encryption;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Base64;
 
@@ -24,54 +25,49 @@ public class JsonEnvelopeCodec implements EnvelopeCodec {
 
   static final int SUPPORTED_ENC_VER = 1;
 
-  private static final String F_ENC_VER = "enc_ver";
-  private static final String F_ALG = "alg";
-  private static final String F_CIPHERTEXT_DEK = "ciphertext_dek";
-  private static final String F_NONCE = "nonce";
-  private static final String F_CIPHERTEXT = "ciphertext";
+  // Ignore unknown properties so a producer adding envelope fields later does not break decoding.
+  private static final ObjectMapper MAPPER =
+      new ObjectMapper().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 
-  private static final ObjectMapper MAPPER = new ObjectMapper();
+  /** Structural binding of the envelope. Base64 fields stay strings and are decoded explicitly. */
+  private record EnvelopeJson(
+      @JsonProperty("enc_ver") Integer encVer,
+      @JsonProperty("alg") String alg,
+      @JsonProperty("ciphertext_dek") String ciphertextDek,
+      @JsonProperty("nonce") String nonce,
+      @JsonProperty("ciphertext") String ciphertext) {}
 
   @Override
   public Envelope parse(byte[] value) {
-    JsonNode node;
+    EnvelopeJson e;
     try {
-      node = MAPPER.readTree(value);
-    } catch (Exception e) {
-      throw new PayloadDecryptionException("Value is not a JSON envelope", e);
+      e = MAPPER.readValue(value, EnvelopeJson.class);
+    } catch (Exception ex) {
+      throw new PayloadDecryptionException("Value is not a JSON envelope", ex);
     }
-    if (node == null || !node.isObject()) {
+    if (e == null) {
       throw new PayloadDecryptionException("Value is not a JSON envelope object");
     }
-    int encVer = requireInt(node, F_ENC_VER);
-    if (encVer != SUPPORTED_ENC_VER) {
-      throw new PayloadDecryptionException("Unsupported enc_ver: " + encVer);
+    if (e.encVer() == null || e.encVer() != SUPPORTED_ENC_VER) {
+      throw new PayloadDecryptionException("Unsupported enc_ver: " + e.encVer());
     }
-    String alg = requireText(node, F_ALG);
-    byte[] wrappedDek = requireBase64(node, F_CIPHERTEXT_DEK);
-    byte[] nonce = requireBase64(node, F_NONCE);
-    byte[] ciphertext = requireBase64(node, F_CIPHERTEXT);
-    return new Envelope(encVer, alg, wrappedDek, nonce, ciphertext);
+    return new Envelope(
+        e.encVer(),
+        requireText("alg", e.alg()),
+        requireBase64("ciphertext_dek", e.ciphertextDek()),
+        requireBase64("nonce", e.nonce()),
+        requireBase64("ciphertext", e.ciphertext()));
   }
 
-  private static int requireInt(JsonNode node, String field) {
-    JsonNode n = node.get(field);
-    if (n == null || n.isNull() || !n.isIntegralNumber()) {
-      throw new PayloadDecryptionException("Missing or non-integer field: " + field);
-    }
-    return n.intValue();
-  }
-
-  private static String requireText(JsonNode node, String field) {
-    JsonNode n = node.get(field);
-    if (n == null || n.isNull() || !n.isTextual() || n.asText().isBlank()) {
+  private static String requireText(String field, String value) {
+    if (value == null || value.isBlank()) {
       throw new PayloadDecryptionException("Missing or blank field: " + field);
     }
-    return n.asText();
+    return value;
   }
 
-  private static byte[] requireBase64(JsonNode node, String field) {
-    String text = requireText(node, field);
+  private static byte[] requireBase64(String field, String value) {
+    String text = requireText(field, value);
     try {
       return Base64.getDecoder().decode(text);
     } catch (IllegalArgumentException e) {
