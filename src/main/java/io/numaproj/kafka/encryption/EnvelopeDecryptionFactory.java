@@ -1,32 +1,27 @@
 package io.numaproj.kafka.encryption;
 
+import io.numaproj.kafka.encryption.aws.KmsDekUnwrapper;
 import java.time.Duration;
 import java.util.Properties;
 import lombok.extern.slf4j.Slf4j;
-import software.amazon.awssdk.arns.Arn;
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.kms.KmsClient;
-import software.amazon.awssdk.services.sts.StsClient;
-import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
-import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 
 /**
  * Builds a {@link PayloadDecryptor} from consumer properties, or returns {@code null} when
  * decryption is disabled. Presence of the AWS KMS key ARN is the enable switch; a malformed ARN
  * fails fast at startup.
+ *
+ * <p>This factory is backend-agnostic orchestration: it reads the config surface, owns the core
+ * DEK-cache concern, and wires codec + caching + unwrapper. AWS-specific knowledge (ARN validity,
+ * region, client lifecycle) lives in {@link KmsDekUnwrapper}.
  */
 @Slf4j
 public final class EnvelopeDecryptionFactory {
 
   /** Presence enables decryption; must be a full KMS key ARN. */
-  public static final String KEY_ARN =
-      "payload.envelope.encryption.provider.aws-kms.key.arn";
+  public static final String KEY_ARN = "payload.envelope.encryption.provider.aws-kms.key.arn";
 
   /** Plaintext-DEK cache TTL in milliseconds. */
-  public static final String DEK_CACHE_TTL_MS =
-      "payload.envelope.encryption.dek.cache.ttl.ms";
+  public static final String DEK_CACHE_TTL_MS = "payload.envelope.encryption.dek.cache.ttl.ms";
 
   /** Existing key reused for KMS as well as Glue. */
   public static final String ASSUME_ROLE_ARN = "assumeRoleArn";
@@ -36,8 +31,6 @@ public final class EnvelopeDecryptionFactory {
   // hit rates high given infrequent DEK rotation, short enough to bound staleness. Operators can
   // override via DEK_CACHE_TTL_MS.
   static final long DEFAULT_TTL_MS = Duration.ofHours(1).toMillis();
-
-  private static final String SESSION_NAME = "kafka-java-kms";
 
   private EnvelopeDecryptionFactory() {}
 
@@ -51,35 +44,14 @@ public final class EnvelopeDecryptionFactory {
     if (keyArn == null || keyArn.isBlank()) {
       return null;
     }
-    keyArn = keyArn.trim();
-    if (!isValidKmsKeyArn(keyArn)) {
-      throw new IllegalArgumentException(
-          "Invalid KMS key ARN for "
-              + KEY_ARN
-              + " (expected arn:aws:kms:<region>:<account>:key/<id>): "
-              + keyArn);
-    }
+    // Parse the TTL before creating any AWS clients, so a bad TTL fails without allocating them.
     long ttlMillis = parseTtl(props.getProperty(DEK_CACHE_TTL_MS));
-    Region region = Region.of(Arn.fromString(keyArn).region().orElseThrow());
     String assumeRoleArn = props.getProperty(ASSUME_ROLE_ARN);
-    KmsClient kmsClient = buildKmsClient(region, assumeRoleArn);
-    log.info("Payload envelope decryption enabled (aws-kms, region {})", region.id());
+    KmsDekUnwrapper kmsUnwrapper = KmsDekUnwrapper.create(keyArn.trim(), assumeRoleArn);
+    log.info("Payload envelope decryption enabled (aws-kms)");
     // Caching is backend-agnostic: wrap the KMS unwrapper with a DEK cache decorator.
-    DekUnwrapper unwrapper =
-        new CachingDekUnwrapper(
-            new AwsKmsDekUnwrapper(kmsClient, keyArn), new DekCache(ttlMillis));
+    DekUnwrapper unwrapper = new CachingDekUnwrapper(kmsUnwrapper, new DekCache(ttlMillis));
     return new PayloadDecryptor(new JsonEnvelopeCodec(), unwrapper);
-  }
-
-  static boolean isValidKmsKeyArn(String candidate) {
-    try {
-      Arn arn = Arn.fromString(candidate);
-      return "kms".equals(arn.service())
-          && arn.region().filter(r -> !r.isBlank()).isPresent()
-          && arn.resourceAsString().startsWith("key/");
-    } catch (RuntimeException e) {
-      return false;
-    }
   }
 
   private static long parseTtl(String value) {
@@ -95,28 +67,5 @@ public final class EnvelopeDecryptionFactory {
     } catch (NumberFormatException e) {
       throw new IllegalArgumentException(DEK_CACHE_TTL_MS + " must be a long: " + value, e);
     }
-  }
-
-  private static KmsClient buildKmsClient(Region region, String assumeRoleArn) {
-    // Pin the sync HTTP client explicitly: the AWS SDK pulls in more than one sync implementation
-    // (apache-client, url-connection-client), and leaving it unset throws "Multiple HTTP
-    // implementations were found on the classpath".
-    var builder = KmsClient.builder().region(region).httpClient(UrlConnectionHttpClient.create());
-    if (assumeRoleArn != null && !assumeRoleArn.isBlank()) {
-      StsClient stsClient =
-          StsClient.builder().region(region).httpClient(UrlConnectionHttpClient.create()).build();
-      AwsCredentialsProvider credentials =
-          StsAssumeRoleCredentialsProvider.builder()
-              .stsClient(stsClient)
-              .refreshRequest(
-                  AssumeRoleRequest.builder()
-                      .roleArn(assumeRoleArn.trim())
-                      .roleSessionName(SESSION_NAME)
-                      .build())
-              .build();
-      builder.credentialsProvider(credentials);
-    }
-    // Otherwise the KMS client uses the default credentials provider chain (IRSA / env / etc.).
-    return builder.build();
   }
 }

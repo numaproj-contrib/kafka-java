@@ -1,10 +1,8 @@
 package io.numaproj.kafka.encryption;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -61,17 +59,4 @@ class EnvelopeDecryptionFactoryTest {
     decryptor.close(); // releases the KMS client
   }
 
-  @Test
-  void arnValidation() {
-    assertTrue(EnvelopeDecryptionFactory.isValidKmsKeyArn(VALID_ARN));
-    assertFalse(
-        EnvelopeDecryptionFactory.isValidKmsKeyArn(
-            "arn:aws:kms:us-east-1:123456789012:alias/my-key"));
-    assertFalse(
-        EnvelopeDecryptionFactory.isValidKmsKeyArn("arn:aws:s3:::my-bucket")); // wrong service
-    assertFalse(EnvelopeDecryptionFactory.isValidKmsKeyArn("garbage"));
-    assertFalse(
-        EnvelopeDecryptionFactory.isValidKmsKeyArn(
-            "arn:aws:kms::123456789012:key/abcd")); // no region
-  }
 }
