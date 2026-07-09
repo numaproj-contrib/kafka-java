@@ -20,13 +20,7 @@ public class CachingDekUnwrapper implements DekUnwrapper {
 
   @Override
   public byte[] unwrap(byte[] wrappedDek) {
-    byte[] cached = cache.get(wrappedDek);
-    if (cached != null) {
-      return cached;
-    }
-    byte[] dek = delegate.unwrap(wrappedDek);
-    cache.put(wrappedDek, dek);
-    return dek;
+    return cache.getOrLoad(wrappedDek, () -> delegate.unwrap(wrappedDek));
   }
 
   @Override
