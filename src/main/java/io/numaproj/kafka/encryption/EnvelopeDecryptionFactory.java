@@ -1,5 +1,6 @@
 package io.numaproj.kafka.encryption;
 
+import com.google.common.base.Ticker;
 import io.numaproj.kafka.encryption.aws.KmsDekUnwrapper;
 import java.time.Duration;
 import java.util.Properties;
@@ -50,7 +51,8 @@ public final class EnvelopeDecryptionFactory {
     KmsDekUnwrapper kmsUnwrapper = KmsDekUnwrapper.create(keyArn.trim(), assumeRoleArn);
     log.info("Payload envelope decryption enabled (aws-kms)");
     // Caching is backend-agnostic: wrap the KMS unwrapper with a DEK cache decorator.
-    DekUnwrapper unwrapper = new CachingDekUnwrapper(kmsUnwrapper, new DekCache(ttlMillis));
+    DekUnwrapper unwrapper =
+        new CachingDekUnwrapper(kmsUnwrapper, new DekCache(ttlMillis, Ticker.systemTicker()));
     return new PayloadDecryptor(new JsonEnvelopeCodec(), unwrapper);
   }
 

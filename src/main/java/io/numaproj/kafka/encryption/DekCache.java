@@ -1,6 +1,5 @@
 package io.numaproj.kafka.encryption;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -25,12 +24,6 @@ class DekCache {
 
   private final Cache<String, byte[]> cache;
 
-  DekCache(long ttlMillis) {
-    this(ttlMillis, Ticker.systemTicker());
-  }
-
-  /** Test seam: inject a {@link Ticker} to drive TTL expiry deterministically. */
-  @VisibleForTesting
   DekCache(long ttlMillis, Ticker ticker) {
     this.cache =
         CacheBuilder.newBuilder()
