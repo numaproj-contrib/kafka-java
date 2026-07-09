@@ -94,3 +94,11 @@ unsupported `alg`, a KMS `Decrypt` failure (including ciphertext wrapped under a
 authentication-tag failure (tampering / wrong key). A poison or tampered message will therefore
 crash-loop the vertex until its offset is advanced or the message is removed. Plaintext keys and
 decrypted payloads are never logged.
+
+> **Producer responsibility — nonce uniqueness.** AES-256-GCM is only secure if the producer never
+> reuses a nonce under the same DEK. Reuse is catastrophic: it exposes the XOR of the affected
+> plaintexts (a two-time pad) and can even let an attacker forge valid authentication tags. The
+> consumer **cannot detect or prevent this** — the tag check verifies the integrity of *this*
+> message, not that its nonce is unique across all messages under the DEK, and a nonce-reused
+> message still decrypts with a valid tag. Guaranteeing per-DEK nonce uniqueness is entirely the
+> producer's responsibility.
