@@ -22,11 +22,11 @@ jobs:
       - name: Build image
         run: mvn package -DskipTests
 
-      - name: Set up k3d
-        uses: AbsaOSS/k3d-action@v2
-        with:
-          cluster-name: test-cluster
-          args: --agents 1
+      - name: Install k3d
+        run: curl -sfL https://raw.githubusercontent.com/rancher/k3d/main/install.sh | bash
+
+      - name: Create k3d cluster
+        run: k3d cluster create test-cluster --agents 1
 
       - name: Load image into k3d
         run: k3d image import quay.io/numaio/numaflow-java/kafka-java:$(mvn help:evaluate -Dexpression=image.tag -q -DforceStdout | tr -d '\n') -c test-cluster
@@ -52,6 +52,15 @@ jobs:
               version: latest
           EOF
           kubectl wait --for=jsonpath='{.status.phase}'=Running interstepbufferservice/default -n default --timeout=120s
+          for i in $(seq 1 60); do
+            COUNT=$(kubectl get pod -l numaflow.numaproj.io/isbsvc-name=default -n default --no-headers 2>/dev/null | wc -l)
+            if [ "$COUNT" -gt "0" ]; then
+              echo "ISB pods found, waiting for Ready..."
+              break
+            fi
+            echo "Waiting for ISB pods to be scheduled... attempt $i/60"
+            sleep 2
+          done
           kubectl wait --for=condition=Ready pod -l numaflow.numaproj.io/isbsvc-name=default -n default --timeout=120s
 
       - name: Deploy Kafka

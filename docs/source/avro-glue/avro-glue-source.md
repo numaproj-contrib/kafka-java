@@ -114,7 +114,7 @@ Payload -  {"Name":"John","Age":30}
 If the pod's base credentials do not have direct Glue access, add `assumeRoleArn` to `consumer.properties`:
 
 ```properties
-assumeRoleArn=arn:aws:iam::123456789012:role/my-glue-role
+assumeRoleArn=arn:aws:iam::123456789012:role/my-consumer-role
 ```
 
 The Glue SDK calls AWS STS `AssumeRole` using the pod's existing credentials and handles credential

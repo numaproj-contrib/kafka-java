@@ -75,6 +75,13 @@
             <artifactId>kafka-clients</artifactId>
             <version>4.0.0</version>
         </dependency>
+        <!-- AWS KMS for payload envelope decryption; version aligned with the AWS SDK v2 pulled by
+             schema-registry-serde (sts + arns are already transitive). -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>kms</artifactId>
+            <version>2.32.25</version>
+        </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
@@ -159,6 +166,12 @@
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
             <version>5.14.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava-testlib</artifactId>
+            <version>32.0.1-jre</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

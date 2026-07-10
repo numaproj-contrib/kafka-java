@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: avro-glue-consumer-config
+  name: encrypted-consumer-config
 data:
   consumer.properties: |
     # Required connection configs for Kafka consumer and admin
@@ -19,21 +19,20 @@ data:
     # group.id is required for consumer clients
     group.id=group1
 
-    # Use AWS Glue Schema Registry instead of Confluent Schema Registry
+    # Use AWS Glue Schema Registry for the (decrypted) Avro payload
     schema.registry.type=glue
-    # AWS region where the Glue registry is hosted
     region=us-east-1
-    # Name of the Glue registry (defaults to "default-registry" if omitted)
     registry.name=[placeholder]
-    # Disable auto-registration; schemas must already exist in Glue
     schemaAutoRegistrationEnabled=false
 
-    # Optional: assume an IAM role before connecting to Glue
-    # assumeRoleArn=arn:aws:iam::123456789012:role/my-consumer-role
+    # Enable payload envelope decryption: set the KMS key ARN (its presence turns decryption on).
+    payload.envelope.encryption.provider.aws-kms.key.arn=arn:aws:kms:us-east-1:123456789012:key/[placeholder]
+    # Optional: plaintext-DEK cache TTL in ms (default 3600000 = 1h)
+    # payload.envelope.encryption.dek.cache.ttl.ms=3600000
 
-    # Optional: tune the in-process schema cache
-    # cacheSize=200
-    # timeToLiveMillis=86400000
+    # Optional: assume a single IAM role before connecting to KMS and Glue
+    # (the role must carry both kms:Decrypt and any glue:* permissions your schemaType needs)
+    # assumeRoleArn=arn:aws:iam::123456789012:role/my-consumer-role
   user.configuration: |
     topicName: [placeholder]
     schemaType: avro
