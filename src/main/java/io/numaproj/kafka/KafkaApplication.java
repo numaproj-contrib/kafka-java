@@ -7,17 +7,19 @@ import io.numaproj.kafka.config.ConsumerConfig;
 import io.numaproj.kafka.config.ProducerConfig;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.consumer.Admin;
-import io.numaproj.kafka.consumer.AvroSourcer;
-import io.numaproj.kafka.consumer.ByteArraySourcer;
-import io.numaproj.kafka.producer.KafkaAvroSinker;
-import io.numaproj.kafka.producer.KafkaByteArraySinker;
-import io.numaproj.kafka.producer.KafkaJsonSinker;
+import io.numaproj.kafka.consumer.KafkaSourcer;
+import io.numaproj.kafka.format.AvroFormat;
+import io.numaproj.kafka.format.ByteArrayFormat;
+import io.numaproj.kafka.format.JsonFormat;
+import io.numaproj.kafka.producer.KafkaSinker;
 import io.numaproj.kafka.schema.Registry;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericRecord;
 
 @Slf4j
 public class KafkaApplication {
@@ -84,14 +86,15 @@ public class KafkaApplication {
     var adminClient = consumerConfig.kafkaAdminClient();
     Admin admin = new Admin(userConfig, groupId, adminClient);
 
-    String schemaType = userConfig.getSchemaType();
-    if (SCHEMA_TYPE_AVRO.equals(schemaType)) {
-      AvroSourcer sourcer = new AvroSourcer(consumerConfig, userConfig, admin);
-      sourcer.startConsumer();
+    if (SCHEMA_TYPE_AVRO.equals(userConfig.getSchemaType())) {
+      new KafkaSourcer<GenericRecord>(
+              userConfig, admin, AvroFormat.forSource(), consumerConfig::kafkaAvroConsumer)
+          .startConsumer();
     } else {
-      // json or raw
-      ByteArraySourcer sourcer = new ByteArraySourcer(consumerConfig, userConfig, admin);
-      sourcer.startConsumer();
+      // json or raw: values are forwarded downstream as-is
+      new KafkaSourcer<byte[]>(
+              userConfig, admin, new ByteArrayFormat(), consumerConfig::kafkaByteArrayConsumer)
+          .startConsumer();
     }
   }
 
@@ -107,20 +110,54 @@ public class KafkaApplication {
     String schemaType = userConfig.getSchemaType();
 
     if (SCHEMA_TYPE_AVRO.equals(schemaType)) {
-      var kafkaProducer = producerConfig.kafkaAvroProducer();
-      var schemaRegistryClient = producerConfig.schemaRegistryClient();
-      Registry registry = producerConfig.schemaRegistry(schemaRegistryClient);
-      new KafkaAvroSinker(userConfig, kafkaProducer, registry).startSinker();
+      Registry registry = producerConfig.schemaRegistry(producerConfig.schemaRegistryClient());
+      Schema schema = fetchAvroSchema(registry, userConfig);
+      new KafkaSinker<>(
+              userConfig, producerConfig.kafkaAvroProducer(), AvroFormat.forSink(schema), registry)
+          .startSinker();
     } else if (SCHEMA_TYPE_JSON.equals(schemaType)) {
-      var kafkaProducer = producerConfig.kafkaByteArrayProducer();
-      var schemaRegistryClient = producerConfig.schemaRegistryClient();
-      Registry registry = producerConfig.schemaRegistry(schemaRegistryClient);
-      new KafkaJsonSinker(userConfig, kafkaProducer, registry).startSinker();
+      Registry registry = producerConfig.schemaRegistry(producerConfig.schemaRegistryClient());
+      String jsonSchema = fetchJsonSchema(registry, userConfig);
+      new KafkaSinker<>(
+              userConfig,
+              producerConfig.kafkaByteArrayProducer(),
+              new JsonFormat(jsonSchema),
+              registry)
+          .startSinker();
     } else {
       // raw
-      var kafkaProducer = producerConfig.kafkaByteArrayProducer();
-      new KafkaByteArraySinker(userConfig, kafkaProducer).startSinker();
+      new KafkaSinker<>(
+              userConfig, producerConfig.kafkaByteArrayProducer(), new ByteArrayFormat(), null)
+          .startSinker();
     }
+  }
+
+  private static Schema fetchAvroSchema(Registry registry, UserConfig userConfig) {
+    Schema schema =
+        registry.getAvroSchema(userConfig.getSchemaSubject(), userConfig.getSchemaVersion());
+    if (schema == null) {
+      throw new RuntimeException(
+          "Failed to retrieve the Avro schema for subject "
+              + userConfig.getSchemaSubject()
+              + ", version "
+              + userConfig.getSchemaVersion());
+    }
+    log.info("Successfully retrieved the Avro schema {}", schema.getFullName());
+    return schema;
+  }
+
+  private static String fetchJsonSchema(Registry registry, UserConfig userConfig) {
+    String jsonSchema =
+        registry.getJsonSchemaString(userConfig.getSchemaSubject(), userConfig.getSchemaVersion());
+    if (jsonSchema == null || jsonSchema.isEmpty()) {
+      throw new RuntimeException(
+          "Failed to retrieve the JSON schema for subject "
+              + userConfig.getSchemaSubject()
+              + ", version "
+              + userConfig.getSchemaVersion());
+    }
+    log.info("Successfully retrieved the JSON schema for topic {}", userConfig.getTopicName());
+    return jsonSchema;
   }
 
   private static UserConfig buildUserConfig(Map<String, String> argMap) {
