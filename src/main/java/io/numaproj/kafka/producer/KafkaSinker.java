@@ -4,9 +4,7 @@ import io.numaproj.kafka.common.CommonUtils;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.format.FormatException;
 import io.numaproj.kafka.format.KafkaFormat;
-import io.numaproj.kafka.schema.Registry;
 import io.numaproj.numaflow.sinker.*;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -29,24 +27,21 @@ public class KafkaSinker<V> extends Sinker {
   private final UserConfig userConfig;
   private final KafkaProducer<String, V> producer;
   private final KafkaFormat<V> format;
-  // Optional schema registry, present only for schema-backed formats; closed on shutdown.
-  private final Registry schemaRegistry;
 
   public KafkaSinker(
-      UserConfig userConfig,
-      KafkaProducer<String, V> producer,
-      KafkaFormat<V> format,
-      Registry schemaRegistry) {
+      UserConfig userConfig, KafkaProducer<String, V> producer, KafkaFormat<V> format) {
     this.userConfig = userConfig;
     this.producer = producer;
     this.format = format;
-    this.schemaRegistry = schemaRegistry;
     log.info("KafkaSinker initialized with user configurations: {}", userConfig);
   }
 
+  /** Starts the sinker server and blocks until it terminates. */
   public void startSinker() throws Exception {
     log.info("Initializing Kafka sinker server...");
-    new Server(this).start();
+    Server server = new Server(this);
+    server.start();
+    server.awaitTermination();
   }
 
   @Override
@@ -108,12 +103,9 @@ public class KafkaSinker<V> extends Sinker {
     return responseListBuilder.build();
   }
 
-  public void close() throws IOException {
+  public void close() {
     log.info("Closing Kafka producer...");
     producer.close();
-    if (schemaRegistry != null) {
-      schemaRegistry.close();
-    }
     log.info("Kafka producer closed.");
   }
 }

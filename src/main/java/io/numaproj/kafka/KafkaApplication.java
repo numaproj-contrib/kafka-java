@@ -110,24 +110,36 @@ public class KafkaApplication {
     String schemaType = userConfig.getSchemaType();
 
     if (SCHEMA_TYPE_AVRO.equals(schemaType)) {
+      // The application creates the registry, so it owns closing it once the sinker terminates.
       Registry registry = producerConfig.schemaRegistry(producerConfig.schemaRegistryClient());
-      Schema schema = fetchAvroSchema(registry, userConfig);
-      new KafkaSinker<>(
-              userConfig, producerConfig.kafkaAvroProducer(), AvroFormat.forSink(schema), registry)
-          .startSinker();
+      try {
+        Schema schema = fetchAvroSchema(registry, userConfig);
+        new KafkaSinker<>(userConfig, producerConfig.kafkaAvroProducer(), AvroFormat.forSink(schema))
+            .startSinker();
+      } finally {
+        try {
+          registry.close();
+        } catch (IOException e) {
+          log.error("Failed to close the schema registry", e);
+        }
+      }
     } else if (SCHEMA_TYPE_JSON.equals(schemaType)) {
       Registry registry = producerConfig.schemaRegistry(producerConfig.schemaRegistryClient());
-      String jsonSchema = fetchJsonSchema(registry, userConfig);
-      new KafkaSinker<>(
-              userConfig,
-              producerConfig.kafkaByteArrayProducer(),
-              new JsonFormat(jsonSchema),
-              registry)
-          .startSinker();
+      try {
+        String jsonSchema = fetchJsonSchema(registry, userConfig);
+        new KafkaSinker<>(
+                userConfig, producerConfig.kafkaByteArrayProducer(), new JsonFormat(jsonSchema))
+            .startSinker();
+      } finally {
+        try {
+          registry.close();
+        } catch (IOException e) {
+          log.error("Failed to close the schema registry", e);
+        }
+      }
     } else {
-      // raw
-      new KafkaSinker<>(
-              userConfig, producerConfig.kafkaByteArrayProducer(), new ByteArrayFormat(), null)
+      // raw: no schema registry involved
+      new KafkaSinker<>(userConfig, producerConfig.kafkaByteArrayProducer(), new ByteArrayFormat())
           .startSinker();
     }
   }

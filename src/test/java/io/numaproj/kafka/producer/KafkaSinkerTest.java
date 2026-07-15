@@ -40,7 +40,7 @@ class KafkaSinkerTest {
     UserConfig userConfig = mock(UserConfig.class);
     when(userConfig.getTopicName()).thenReturn(TOPIC);
     Schema schema = new Schema.Parser().parse(SCHEMA_JSON);
-    underTest = new KafkaSinker<>(userConfig, producer, AvroFormat.forSink(schema), null);
+    underTest = new KafkaSinker<>(userConfig, producer, AvroFormat.forSink(schema));
   }
 
   /** Builds a datum iterator from id -> json-value pairs. */
