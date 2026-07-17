@@ -75,6 +75,12 @@
             <artifactId>kafka-clients</artifactId>
             <version>4.0.0</version>
         </dependency>
+        <!-- Required for MSK IAM authentication (sasl.client.callback.handler.class=IAMClientCallbackHandler) -->
+        <dependency>
+            <groupId>software.amazon.msk</groupId>
+            <artifactId>aws-msk-iam-auth</artifactId>
+            <version>2.2.0</version>
+        </dependency>
         <!-- AWS KMS for payload envelope decryption; version aligned with the AWS SDK v2 pulled by
              schema-registry-serde (sts + arns are already transitive). -->
         <dependency>
