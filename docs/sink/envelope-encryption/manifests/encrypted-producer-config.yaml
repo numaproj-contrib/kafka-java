@@ -1,0 +1,48 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: encrypted-producer-config
+data:
+  producer.properties: |
+    # Required connection configs for Kafka producer
+    bootstrap.servers=[placeholder]
+    security.protocol=[placeholder]
+    sasl.jaas.config=[placeholder]
+    sasl.mechanism=[placeholder]
+    # Required for correctness in Apache Kafka clients prior to 2.6
+    client.dns.lookup=use_all_dns_ips
+    # Best practice for higher availability in Apache Kafka clients prior to 3.0
+    session.timeout.ms=45000
+    # Best practice for Kafka producer to prevent data loss
+    acks=all
+    # Other configurations
+    retries=0
+
+    # Kafka-level compression must stay off: the only compression is the in-frame zlib below.
+    compression.type=none
+
+    # Use AWS Glue Schema Registry, and frame the record as zlib-compressed Avro
+    schema.registry.type=glue
+    region=us-east-1
+    registry.name=[placeholder]
+    # compression=ZLIB and schemaAutoRegistrationEnabled=false are the defaults kafka-java applies
+    # for the glue registry type; set them explicitly only to document intent.
+    # compression=ZLIB
+    # schemaAutoRegistrationEnabled=false
+
+    # Enable payload envelope encryption: set the KMS key ARN (its presence turns encryption on).
+    # A full key ARN is required; a bare alias is rejected, because the region is derived from the key.
+    payload.envelope.encryption.provider.aws-kms.key.arn=arn:aws:kms:us-east-1:123456789012:key/[placeholder]
+    # Optional: how long one generated DEK is reused, in ms (default 3600000 = 1h)
+    # payload.envelope.encryption.dek.ttl.ms=3600000
+
+    # Optional: assume a single IAM role before connecting to KMS and Glue
+    # (the role must carry kms:GenerateDataKey plus the glue: permissions below)
+    # assumeRoleArn=arn:aws:iam::123456789012:role/my-producer-role
+  user.configuration: |
+    topicName: [placeholder]
+    schemaType: avro
+    # schemaSubject is the Glue schema name; schemaVersion is its version number.
+    schemaSubject: [placeholder]
+    schemaVersion: 1
