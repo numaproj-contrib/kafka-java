@@ -5,6 +5,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.numaproj.kafka.common.EnvVarInterpolator;
 import io.numaproj.kafka.encryption.DecryptingDeserializer;
+import io.numaproj.kafka.encryption.EncryptionProps;
 import io.numaproj.kafka.encryption.EnvelopeDecryptionFactory;
 import io.numaproj.kafka.encryption.PayloadDecryptor;
 import java.io.FileInputStream;
@@ -35,9 +36,9 @@ public class ConsumerConfig {
   private static final String SCHEMA_REGISTRY_TYPE_CONFLUENT = "confluent";
   private static final String SCHEMA_REGISTRY_TYPE_GLUE = "glue";
 
-  // Prefix for kafka-java-managed payload-envelope-decryption keys; consumed internally and stripped
+  // Prefix for kafka-java-managed payload-envelope-encryption keys; consumed internally and stripped
   // before the props are handed to KafkaConsumer.
-  private static final String ENCRYPTION_PROP_PREFIX = "payload.envelope.encryption.";
+  private static final String ENCRYPTION_PROP_PREFIX = EncryptionProps.PREFIX;
 
   private final String consumerPropertiesFilePath;
 

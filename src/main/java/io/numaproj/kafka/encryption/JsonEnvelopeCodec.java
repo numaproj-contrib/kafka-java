@@ -59,6 +59,26 @@ public class JsonEnvelopeCodec implements EnvelopeCodec {
         requireBase64("ciphertext", e.ciphertext()));
   }
 
+  @Override
+  public byte[] serialize(Envelope envelope) {
+    // Standard base64 with padding, as the wire contract requires — not the URL-safe encoder.
+    Base64.Encoder encoder = Base64.getEncoder();
+    EnvelopeJson json =
+        new EnvelopeJson(
+            envelope.version(),
+            envelope.alg(),
+            encoder.encodeToString(envelope.wrappedDek()),
+            encoder.encodeToString(envelope.nonce()),
+            encoder.encodeToString(envelope.ciphertext()));
+    try {
+      // UTF-8 JSON in the message value; Jackson writes UTF-8 by default.
+      return MAPPER.writeValueAsBytes(json);
+    } catch (Exception e) {
+      // Never include the payload or key material in the message.
+      throw new PayloadEncryptionException("Failed to write the JSON envelope", e);
+    }
+  }
+
   private static String requireText(String field, String value) {
     if (value == null || value.isBlank()) {
       throw new PayloadDecryptionException("Missing or blank field: " + field);

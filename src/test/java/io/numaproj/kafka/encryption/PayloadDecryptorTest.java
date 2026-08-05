@@ -34,6 +34,21 @@ class PayloadDecryptorTest {
     return cipher.doFinal(plaintext);
   }
 
+  /** A codec that parses to a fixed envelope; only the read direction is exercised here. */
+  private static EnvelopeCodec codecReturning(Envelope envelope) {
+    return new EnvelopeCodec() {
+      @Override
+      public Envelope parse(byte[] value) {
+        return envelope;
+      }
+
+      @Override
+      public byte[] serialize(Envelope e) {
+        throw new UnsupportedOperationException("not used by the decrypt path");
+      }
+    };
+  }
+
   @Test
   void decryptsRoundTrip() throws Exception {
     byte[] dek = randomBytes(32);
@@ -41,7 +56,7 @@ class PayloadDecryptorTest {
     byte[] plaintext = "hello world".getBytes(StandardCharsets.UTF_8);
     byte[] ciphertext = encrypt(dek, nonce, plaintext);
 
-    EnvelopeCodec codec = value -> new Envelope(1, "AES-256-GCM", WRAPPED_DEK, nonce, ciphertext);
+    EnvelopeCodec codec = codecReturning(new Envelope(1, "AES-256-GCM", WRAPPED_DEK, nonce, ciphertext));
     DekUnwrapper unwrapper = mock(DekUnwrapper.class);
     when(unwrapper.unwrap(any())).thenReturn(dek);
 
@@ -53,7 +68,7 @@ class PayloadDecryptorTest {
   @Test
   void rejectsUnsupportedAlgorithmBeforeUnwrapping() {
     EnvelopeCodec codec =
-        value -> new Envelope(1, "AES-128-GCM", WRAPPED_DEK, new byte[12], new byte[16]);
+        codecReturning(new Envelope(1, "AES-128-GCM", WRAPPED_DEK, new byte[12], new byte[16]));
     DekUnwrapper unwrapper = mock(DekUnwrapper.class);
 
     PayloadDecryptor decryptor = new PayloadDecryptor(codec, unwrapper);
@@ -69,7 +84,7 @@ class PayloadDecryptorTest {
     byte[] ciphertext = encrypt(dek, nonce, "secret".getBytes(StandardCharsets.UTF_8));
     ciphertext[0] ^= 0x01; // tamper
 
-    EnvelopeCodec codec = value -> new Envelope(1, "AES-256-GCM", WRAPPED_DEK, nonce, ciphertext);
+    EnvelopeCodec codec = codecReturning(new Envelope(1, "AES-256-GCM", WRAPPED_DEK, nonce, ciphertext));
     DekUnwrapper unwrapper = mock(DekUnwrapper.class);
     when(unwrapper.unwrap(any())).thenReturn(dek);
 

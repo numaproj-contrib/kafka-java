@@ -1,10 +1,15 @@
 package io.numaproj.kafka.config;
 
 import com.amazonaws.services.schemaregistry.serializers.GlueSchemaRegistryKafkaSerializer;
+import com.google.common.annotations.VisibleForTesting;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.numaproj.kafka.common.EnvVarInterpolator;
+import io.numaproj.kafka.encryption.EncryptingSerializer;
+import io.numaproj.kafka.encryption.EncryptionProps;
+import io.numaproj.kafka.encryption.EnvelopeEncryptionFactory;
+import io.numaproj.kafka.encryption.PayloadEncryptor;
 import io.numaproj.kafka.schema.ConfluentRegistry;
 import io.numaproj.kafka.schema.GlueRegistry;
 import io.numaproj.kafka.schema.Registry;
@@ -69,6 +74,9 @@ public class ProducerConfig {
     // never register schemas on behalf of the user
     props.put("auto.register.schemas", "false");
 
+    // Build the (optional) payload encryptor, then build and configure the value serializer instance
+    // and wrap it when encryption is enabled.
+    PayloadEncryptor encryptor = EnvelopeEncryptionFactory.fromProps(props);
     Map<String, Object> configs = toSerializerConfigs(props);
     ByteArraySerializer valueSerializer = new ByteArraySerializer();
     valueSerializer.configure(configs, false);
@@ -77,7 +85,8 @@ public class ProducerConfig {
 
     // strip kafka-java-managed keys as the last step before instantiating the client
     stripManagedProps(props);
-    return new KafkaProducer<>(props, keySerializer, valueSerializer);
+    return new KafkaProducer<>(
+        props, keySerializer, wrapWithEncryption(valueSerializer, encryptor));
   }
 
   // Kafka producer client for Avro
@@ -104,6 +113,7 @@ public class ProducerConfig {
     props.put("auto.register.schemas", "false");
     props.putIfAbsent("schemaAutoRegistrationEnabled", "false");
 
+    PayloadEncryptor encryptor = EnvelopeEncryptionFactory.fromProps(props);
     Map<String, Object> configs = toSerializerConfigs(props);
 
     Serializer<Object> avroSerializer =
@@ -118,7 +128,8 @@ public class ProducerConfig {
 
     // strip kafka-java-managed keys as the last step before instantiating the client
     stripManagedProps(props);
-    return new KafkaProducer<>(props, keySerializer, valueSerializer);
+    return new KafkaProducer<>(
+        props, keySerializer, wrapWithEncryption(valueSerializer, encryptor));
   }
 
   // Schema registry client
@@ -168,10 +179,21 @@ public class ProducerConfig {
 
   /**
    * Remove kafka-java-managed keys (consumed internally, not real Kafka client configs) so they are
-   * not passed to Kafka clients: {@code schema.registry.type}.
+   * not passed to Kafka clients: {@code schema.registry.type} and the {@code
+   * payload.envelope.encryption.*} family.
    */
   private static void stripManagedProps(Properties props) {
     props.remove(SCHEMA_REGISTRY_TYPE_KEY);
+    props.keySet().removeIf(k -> k instanceof String s && s.startsWith(EncryptionProps.PREFIX));
+  }
+
+  /**
+   * Wraps the given value serializer with envelope encryption when an encryptor is present; otherwise
+   * returns it unchanged. The wrapper goes on the outside, so encryption is the final step.
+   */
+  @VisibleForTesting
+  static <T> Serializer<T> wrapWithEncryption(Serializer<T> serializer, PayloadEncryptor encryptor) {
+    return encryptor == null ? serializer : new EncryptingSerializer<>(serializer, encryptor);
   }
 
   private static Map<String, Object> toSerializerConfigs(Properties props) {

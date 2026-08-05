@@ -19,13 +19,13 @@ import lombok.extern.slf4j.Slf4j;
 public final class EnvelopeDecryptionFactory {
 
   /** Presence enables decryption; must be a full KMS key ARN. */
-  public static final String KEY_ARN = "payload.envelope.encryption.provider.aws-kms.key.arn";
+  public static final String KEY_ARN = EncryptionProps.KEY_ARN;
 
   /** Plaintext-DEK cache TTL in milliseconds. */
-  public static final String DEK_CACHE_TTL_MS = "payload.envelope.encryption.dek.cache.ttl.ms";
+  public static final String DEK_CACHE_TTL_MS = EncryptionProps.DEK_CACHE_TTL_MS;
 
   /** Existing key reused for KMS as well as Glue. */
-  public static final String ASSUME_ROLE_ARN = "assumeRoleArn";
+  public static final String ASSUME_ROLE_ARN = EncryptionProps.ASSUME_ROLE_ARN;
 
   // Default DEK cache TTL. One hour trades off KMS unwrap cost/latency (a cache hit avoids a
   // Decrypt call per message) against how long a plaintext DEK lives in memory: long enough to keep
