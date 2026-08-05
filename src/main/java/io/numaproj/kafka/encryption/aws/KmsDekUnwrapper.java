@@ -1,8 +1,8 @@
 package io.numaproj.kafka.encryption.aws;
 
+import io.numaproj.kafka.common.aws.AwsCredentials;
 import io.numaproj.kafka.encryption.DekUnwrapper;
 import lombok.extern.slf4j.Slf4j;
-import software.amazon.awssdk.arns.Arn;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
@@ -15,19 +15,19 @@ import software.amazon.awssdk.services.kms.model.DecryptResponse;
  * configured key ARN pinned as {@code KeyId}, so KMS rejects any ciphertext not wrapped under the
  * expected key.
  *
- * <p>Owns the KMS client and its {@link DekCredentialsProvider}; {@link #close()} releases both. The
+ * <p>Owns the KMS client and its {@link AwsCredentials}; {@link #close()} releases both. The
  * credentials are a separate concern ({@code assumeRoleArn} vs. the SDK default chain) delegated to
- * {@link DekCredentialsProvider}. Does no caching — that is backend-agnostic and applied by the core
+ * {@link AwsCredentials}. Does no caching — that is backend-agnostic and applied by the core
  * {@code CachingDekUnwrapper}. The plaintext DEK is never logged.
  */
 @Slf4j
 public class KmsDekUnwrapper implements DekUnwrapper {
 
   private final KmsClient kms;
-  private final DekCredentialsProvider credentials;
+  private final AwsCredentials credentials;
   private final String keyArn;
 
-  KmsDekUnwrapper(KmsClient kms, DekCredentialsProvider credentials, String keyArn) {
+  KmsDekUnwrapper(KmsClient kms, AwsCredentials credentials, String keyArn) {
     this.kms = kms;
     this.credentials = credentials;
     this.keyArn = keyArn;
@@ -42,15 +42,8 @@ public class KmsDekUnwrapper implements DekUnwrapper {
    *     startup)
    */
   public static KmsDekUnwrapper create(String keyArn, String assumeRoleArn) {
-    if (!isValidKmsKeyArn(keyArn)) {
-      throw new IllegalArgumentException(
-          "Invalid KMS key ARN (expected arn:aws:kms:<region>:<account>:key/<id>): " + keyArn);
-    }
-    Region region = Region.of(Arn.fromString(keyArn).region().orElseThrow());
-    DekCredentialsProvider credentials =
-        (assumeRoleArn == null || assumeRoleArn.isBlank())
-            ? DekCredentialsProvider.defaultChain()
-            : DekCredentialsProvider.assumeRole(region, assumeRoleArn);
+    Region region = KmsKeys.validateAndGetRegion(keyArn);
+    AwsCredentials credentials = AwsCredentials.resolve(region, assumeRoleArn);
     try {
       // Pin the sync HTTP client explicitly (the AWS SDK errors when it finds more than one on the
       // classpath — apache-client + url-connection-client are both present).
@@ -63,17 +56,6 @@ public class KmsDekUnwrapper implements DekUnwrapper {
     } catch (RuntimeException e) {
       credentials.close();
       throw e;
-    }
-  }
-
-  static boolean isValidKmsKeyArn(String candidate) {
-    try {
-      Arn arn = Arn.fromString(candidate);
-      return "kms".equals(arn.service())
-          && arn.region().filter(r -> !r.isBlank()).isPresent()
-          && arn.resourceAsString().startsWith("key/");
-    } catch (RuntimeException e) {
-      return false;
     }
   }
 

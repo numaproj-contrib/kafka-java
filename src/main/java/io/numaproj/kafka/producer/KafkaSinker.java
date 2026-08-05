@@ -74,7 +74,15 @@ public class KafkaSinker<V> extends Sinker {
 
       ProducerRecord<String, V> record =
           new ProducerRecord<>(userConfig.getTopicName(), resolveKey(datum), value);
-      inflightTasks.put(datum.getId(), producer.send(record));
+      try {
+        inflightTasks.put(datum.getId(), producer.send(record));
+      } catch (Exception e) {
+        // The value serializer runs inside send(), so serialization failures (schema resolution,
+        // envelope encryption) surface synchronously here. Fail just this message rather than
+        // letting the exception escape and abandon the rest of the batch.
+        log.error("Failed to send message with id: {}", datum.getId(), e);
+        responseListBuilder.addResponse(Response.responseFailure(datum.getId(), e.getMessage()));
+      }
     }
 
     producer.flush();

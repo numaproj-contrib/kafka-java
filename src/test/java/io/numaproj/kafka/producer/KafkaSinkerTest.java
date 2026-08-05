@@ -18,6 +18,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.SerializationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -93,6 +94,29 @@ class KafkaSinkerTest {
     ResponseList result = underTest.processMessages(iterator(Map.of("1", "{\"name\":\"Michael\"}")));
 
     assertEquals(Map.of("1", false), successById(result));
+  }
+
+  @Test
+  void processMessages_whenSendThrowsSynchronously_thenOnlyThatMessageFails() {
+    // The value serializer runs inside send(), so a schema-resolution or encryption failure surfaces
+    // synchronously. It must fail one message, not abandon the batch.
+    Future<RecordMetadata> ok =
+        CompletableFuture.completedFuture(
+            new RecordMetadata(new TopicPartition(TOPIC, 1), 1, 1, 1, 1, 1));
+    doThrow(new SerializationException("boom"))
+        .doReturn(ok)
+        .when(producer)
+        .send(any(ProducerRecord.class));
+
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(
+        SinkerTestKit.TestDatum.builder().id("1").value("{\"name\":\"Michael\"}".getBytes()).build());
+    iterator.addDatum(
+        SinkerTestKit.TestDatum.builder().id("2").value("{\"name\":\"Kobe\"}".getBytes()).build());
+
+    ResponseList result = underTest.processMessages(iterator);
+
+    assertEquals(Map.of("1", false, "2", true), successById(result));
   }
 
   @Test
