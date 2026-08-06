@@ -5,9 +5,8 @@ package io.numaproj.kafka.encryption;
  * the produce side: the backend generates a DEK and returns it both in plaintext and wrapped under a
  * key the backend holds.
  *
- * <p>An implementation owns key generation only. How long a DEK is reused before a new one is
- * generated is a backend-agnostic concern, applied by {@link RotatingDekGenerator} in front of any
- * generator.
+ * <p>An implementation owns key generation only. DEK reuse is a backend-agnostic concern, applied
+ * by {@link ProcessLifetimeDekGenerator} in front of any generator.
  */
 public interface DekGenerator {
 

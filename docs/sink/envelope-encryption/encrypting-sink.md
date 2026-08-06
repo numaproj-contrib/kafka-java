@@ -56,7 +56,6 @@ the Kafka client):
 | Property | Required | Default | Description |
 |---|---|---|---|
 | `payload.envelope.encryption.provider.aws-kms.key.arn` | Yes, to enable encryption | — | Full KMS key ARN. Its presence enables encryption, and the region is derived from it. A bare alias is **not** accepted — resolve it to a key ARN first. |
-| `payload.envelope.encryption.dek.ttl.ms` | No | `3600000` (1 h) | How long one generated DEK is reused before a fresh `GenerateDataKey` call. See *DEK rotation* below. |
 
 The existing `assumeRoleArn` property (if set) is reused for KMS as well as Glue — a **single assumed
 role** covers both, so it must carry `kms:GenerateDataKey` plus any `glue:*` permissions your
@@ -67,11 +66,8 @@ configured exactly as for a non-encrypted sink.
 
 ### DEK rotation
 
-One DEK is generated on first use and reused until its TTL elapses **or** it has encrypted 2²²
-(~4 million) messages, whichever comes first; then a fresh one is generated. The message cap keeps the
-number of encryptions per key far below the 2³² bound NIST SP 800-38D sets for random 96-bit nonces,
-even on a topic whose throughput would exceed it within one TTL window. The DEK is also new on every
-process restart, so a redeploy rotates it.
+One DEK is generated on first use and reused for the lifetime of the process. Rotation happens by
+process restart, so a redeploy rotates it; to rotate without a deployment, restart the producer pod.
 
 Consumers need no coordination for this: every message carries its own `ciphertext_dek`, so a rotation
 is transparent.
@@ -89,13 +85,10 @@ How it is met:
   `SecureRandom`, including when the DEK is reused across messages.
 * Nonces are never derived from message content, and never from a counter that could restart at zero
   after a crash or a rescale.
-* The DEK reuse window (above) is bounded in both time and message count, so the number of
-  encryptions under one key — and with it the collision probability inherent to random nonces —
-  stays bounded regardless of throughput.
-
-If you lower `payload.envelope.encryption.dek.ttl.ms`, you get more frequent rotation and therefore
-fewer messages per key; raising it does the opposite. The default of one hour is a deliberate middle
-ground.
+A producer process is assumed not to encrypt more than ~2³² messages under one DEK — the bound NIST
+SP 800-38D sets for random 96-bit nonces. With one DEK per process lifetime, that is the total number
+of messages the pod produces between restarts; restart the producer to rotate the key well before it
+could be approached.
 
 ### Failure behavior
 
@@ -106,9 +99,8 @@ serialize. An unencrypted message is never produced as a fallback.
 A malformed key ARN is a **startup** failure: the sink does not start, so it cannot silently produce
 plaintext.
 
-Plaintext keys and payloads are never logged. A rotated-out DEK's plaintext is erased from memory
-(best-effort, zero-filled) as soon as no in-flight encryption still holds it, so a heap dump exposes
-at most the current key rather than every key since startup.
+Plaintext keys and payloads are never logged. The DEK's plaintext is erased from memory
+(best-effort, zero-filled) when the sink shuts down.
 
 ### Example
 

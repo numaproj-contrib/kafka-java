@@ -38,28 +38,6 @@ class EnvelopeEncryptionFactoryTest {
   }
 
   @Test
-  void failsFastOnNonPositiveTtl() {
-    Properties props = new Properties();
-    props.setProperty(EncryptionProps.KEY_ARN, VALID_ARN);
-    props.setProperty(EncryptionProps.DEK_TTL_MS, "0");
-
-    IllegalArgumentException e =
-        assertThrows(IllegalArgumentException.class, () -> EnvelopeEncryptionFactory.fromProps(props));
-    assertTrue(e.getMessage().contains("must be a positive long"));
-  }
-
-  @Test
-  void failsFastOnNonNumericTtl() {
-    Properties props = new Properties();
-    props.setProperty(EncryptionProps.KEY_ARN, VALID_ARN);
-    props.setProperty(EncryptionProps.DEK_TTL_MS, "an-hour-ish");
-
-    IllegalArgumentException e =
-        assertThrows(IllegalArgumentException.class, () -> EnvelopeEncryptionFactory.fromProps(props));
-    assertTrue(e.getMessage().contains("must be a long"));
-  }
-
-  @Test
   void buildsEncryptorWhenKeyArnIsSet() {
     Properties props = new Properties();
     props.setProperty(EncryptionProps.KEY_ARN, VALID_ARN);
