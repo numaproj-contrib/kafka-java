@@ -81,4 +81,15 @@ class RotatingDekGeneratorTest {
     underTest.close();
     verify(delegate).close();
   }
+
+  @Test
+  void closeZeroizesTheHeldPlaintextDek() {
+    byte[] plaintext = {1, 2, 3, 4};
+    when(delegate.generate()).thenReturn(new Dek(plaintext, new byte[] {9}));
+    underTest.generate();
+
+    underTest.close();
+
+    org.junit.jupiter.api.Assertions.assertArrayEquals(new byte[4], plaintext);
+  }
 }

@@ -85,6 +85,6 @@ class KmsDekGeneratorTest {
     // The contract's alias form carries no region, so a full ARN is required.
     assertThrows(
         IllegalArgumentException.class,
-        () -> KmsDekGenerator.create("alias/interim/autotask/kafka/swm1/prod", null));
+        () -> KmsDekGenerator.create("alias/my-key", null));
   }
 }

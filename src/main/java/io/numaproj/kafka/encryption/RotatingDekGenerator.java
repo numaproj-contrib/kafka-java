@@ -1,6 +1,7 @@
 package io.numaproj.kafka.encryption;
 
 import com.google.common.base.Ticker;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -41,7 +42,14 @@ class RotatingDekGenerator implements DekGenerator {
   }
 
   @Override
-  public void close() {
+  public synchronized void close() {
+    // Best-effort erasure of the key material rather than leaving it for GC (heap dumps). Only on
+    // close: a rotated-out DEK is not zeroed, because a caller may still hold it mid-encrypt and
+    // zeroing under it would silently encrypt with an all-zero key.
+    if (current != null) {
+      Arrays.fill(current.plaintext(), (byte) 0);
+      current = null;
+    }
     delegate.close();
   }
 }

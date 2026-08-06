@@ -95,11 +95,7 @@ public class GlueRegistry implements Registry {
         return new Schema.Parser().parse(response.schemaDefinition());
       }
     } catch (RuntimeException e) {
-      log.error(
-          "Failed to retrieve the Avro schema for schema {}, version {}. {}",
-          subject,
-          version,
-          e.getMessage());
+      log.error("Failed to retrieve the Avro schema for schema {}, version {}", subject, version, e);
     }
     return null;
   }

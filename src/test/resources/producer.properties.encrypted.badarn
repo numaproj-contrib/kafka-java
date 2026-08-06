@@ -4,4 +4,4 @@ retries=0
 schema.registry.type=glue
 region=us-east-1
 # A bare alias is not accepted: the region is derived from the key ARN itself
-payload.envelope.encryption.provider.aws-kms.key.arn=alias/interim/autotask/kafka/swm1/prod
+payload.envelope.encryption.provider.aws-kms.key.arn=alias/my-key

@@ -42,18 +42,26 @@ public class ProducerConfig {
 
   private final String producerPropertiesFilePath;
 
+  // Loaded once; loadProps() hands out copies because callers mutate what they get.
+  private Properties cachedProps;
+
   public ProducerConfig(String producerPropertiesFilePath) {
     this.producerPropertiesFilePath = producerPropertiesFilePath;
   }
 
-  private Properties loadProps() throws IOException {
-    Properties props = new Properties();
-    try (InputStream is = new FileInputStream(this.producerPropertiesFilePath)) {
-      props.load(is);
+  private synchronized Properties loadProps() throws IOException {
+    if (cachedProps == null) {
+      Properties props = new Properties();
+      try (InputStream is = new FileInputStream(this.producerPropertiesFilePath)) {
+        props.load(is);
+      }
+      EnvVarInterpolator.interpolate(props);
+      loadCredentialProperties(props);
+      cachedProps = props;
     }
-    EnvVarInterpolator.interpolate(props);
-    loadCredentialProperties(props);
-    return props;
+    Properties copy = new Properties();
+    copy.putAll(cachedProps);
+    return copy;
   }
 
   /**
@@ -178,13 +186,22 @@ public class ProducerConfig {
   }
 
   /**
-   * Remove kafka-java-managed keys (consumed internally, not real Kafka client configs) so they are
-   * not passed to Kafka clients: {@code schema.registry.type} and the {@code
-   * payload.envelope.encryption.*} family.
+   * Remove keys that are not Kafka client configs so they are not passed to Kafka clients:
+   * kafka-java-managed keys ({@code schema.registry.type}, the {@code payload.envelope.encryption.*}
+   * family) and the Glue/AWS keys, which the serializer instance has already been configured with —
+   * leaving them in would only make the producer log "supplied but isn't a known config" warnings.
    */
   private static void stripManagedProps(Properties props) {
     props.remove(SCHEMA_REGISTRY_TYPE_KEY);
     props.keySet().removeIf(k -> k instanceof String s && s.startsWith(EncryptionProps.PREFIX));
+    props.remove(REGION_KEY);
+    props.remove(REGISTRY_NAME_KEY);
+    props.remove(ASSUME_ROLE_ARN_KEY);
+    props.remove("dataFormat");
+    props.remove("compression");
+    props.remove("avroRecordType");
+    props.remove("schemaAutoRegistrationEnabled");
+    props.remove("auto.register.schemas");
   }
 
   /**

@@ -81,7 +81,8 @@ public class KafkaSinker<V> extends Sinker {
         // envelope encryption) surface synchronously here. Fail just this message rather than
         // letting the exception escape and abandon the rest of the batch.
         log.error("Failed to send message with id: {}", datum.getId(), e);
-        responseListBuilder.addResponse(Response.responseFailure(datum.getId(), e.getMessage()));
+        // toString, not getMessage: some exceptions carry a null message.
+        responseListBuilder.addResponse(Response.responseFailure(datum.getId(), e.toString()));
       }
     }
 

@@ -20,7 +20,7 @@ class KmsKeysTest {
   @Test
   void rejectsAliasesAndMalformedArns() {
     // A bare alias carries no region, so it cannot be used to derive one.
-    assertFalse(KmsKeys.isValidKmsKeyArn("alias/interim/autotask/kafka/swm1/prod"));
+    assertFalse(KmsKeys.isValidKmsKeyArn("alias/my-key"));
     assertFalse(
         KmsKeys.isValidKmsKeyArn("arn:aws:kms:us-east-1:123456789012:alias/my-key")); // alias arn
     assertFalse(KmsKeys.isValidKmsKeyArn("arn:aws:s3:::my-bucket")); // wrong service

@@ -33,7 +33,7 @@ class EnvelopeEncryptionFactoryTest {
   @Test
   void failsFastOnBareAlias() {
     Properties props = new Properties();
-    props.setProperty(EncryptionProps.KEY_ARN, "alias/interim/autotask/kafka/swm1/prod");
+    props.setProperty(EncryptionProps.KEY_ARN, "alias/my-key");
     assertThrows(IllegalArgumentException.class, () -> EnvelopeEncryptionFactory.fromProps(props));
   }
 
