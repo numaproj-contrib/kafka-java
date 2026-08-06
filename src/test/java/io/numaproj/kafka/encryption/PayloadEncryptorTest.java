@@ -29,9 +29,8 @@ class PayloadEncryptorTest {
   }
 
   private static PayloadEncryptor encryptorWith(byte[] plaintextDek) {
-    DekGenerator generator = mock(DekGenerator.class);
-    when(generator.generate()).thenReturn(new Dek(plaintextDek, WRAPPED_DEK));
-    return new PayloadEncryptor(new JsonEnvelopeCodec(), generator);
+    return new PayloadEncryptor(
+        new JsonEnvelopeCodec(), new FixedDekSource(plaintextDek, WRAPPED_DEK));
   }
 
   /**

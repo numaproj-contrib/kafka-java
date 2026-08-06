@@ -106,7 +106,9 @@ serialize. An unencrypted message is never produced as a fallback.
 A malformed key ARN is a **startup** failure: the sink does not start, so it cannot silently produce
 plaintext.
 
-Plaintext keys and payloads are never logged.
+Plaintext keys and payloads are never logged. A rotated-out DEK's plaintext is erased from memory
+(best-effort, zero-filled) as soon as no in-flight encryption still holds it, so a heap dump exposes
+at most the current key rather than every key since startup.
 
 ### Example
 

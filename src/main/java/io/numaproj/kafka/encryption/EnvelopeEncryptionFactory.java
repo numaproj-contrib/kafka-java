@@ -40,10 +40,9 @@ public final class EnvelopeEncryptionFactory {
     String assumeRoleArn = props.getProperty(EncryptionProps.ASSUME_ROLE_ARN);
     KmsDekGenerator kmsGenerator = KmsDekGenerator.create(keyArn.trim(), assumeRoleArn);
     log.info("Payload envelope encryption enabled (aws-kms)");
-    // DEK reuse is backend-agnostic: wrap the KMS generator with a rotating decorator.
-    DekGenerator generator =
-        new RotatingDekGenerator(kmsGenerator, ttlMillis, Ticker.systemTicker());
-    return new PayloadEncryptor(new JsonEnvelopeCodec(), generator);
+    // DEK reuse is backend-agnostic: wrap the KMS generator with a rotating, leasing source.
+    DekSource dekSource = new RotatingDekGenerator(kmsGenerator, ttlMillis, Ticker.systemTicker());
+    return new PayloadEncryptor(new JsonEnvelopeCodec(), dekSource);
   }
 
   private static long parseTtl(String value) {

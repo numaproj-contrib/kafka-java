@@ -12,9 +12,8 @@ import com.amazonaws.services.schemaregistry.serializers.GlueSchemaRegistryKafka
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.numaproj.kafka.config.UserConfig;
-import io.numaproj.kafka.encryption.Dek;
-import io.numaproj.kafka.encryption.DekGenerator;
 import io.numaproj.kafka.encryption.EncryptingSerializer;
+import io.numaproj.kafka.encryption.FixedDekSource;
 import io.numaproj.kafka.encryption.JsonEnvelopeCodec;
 import io.numaproj.kafka.encryption.PayloadEncryptor;
 import io.numaproj.kafka.format.AvroFormat;
@@ -98,9 +97,8 @@ class SinkPayloadTest {
   }
 
   private static PayloadEncryptor encryptor() {
-    DekGenerator generator = mock(DekGenerator.class);
-    when(generator.generate()).thenReturn(new Dek(PLAINTEXT_DEK, WRAPPED_DEK));
-    return new PayloadEncryptor(new JsonEnvelopeCodec(), generator);
+    return new PayloadEncryptor(
+        new JsonEnvelopeCodec(), new FixedDekSource(PLAINTEXT_DEK, WRAPPED_DEK));
   }
 
   @Test

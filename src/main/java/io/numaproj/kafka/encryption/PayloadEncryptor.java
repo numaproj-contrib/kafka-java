@@ -7,7 +7,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * Orchestrates encryption: {@code generator.generate → AEAD encrypt → codec.serialize}. The inverse
+ * Orchestrates encryption: {@code dekSource.acquire → AEAD encrypt → codec.serialize}. The inverse
  * of {@link PayloadDecryptor}; the only supported algorithm is {@code AES-256-GCM}.
  *
  * <p>A fresh 12-byte nonce is drawn for every message from a single long-lived {@link SecureRandom}.
@@ -26,12 +26,12 @@ public class PayloadEncryptor {
   private static final int NONCE_BYTES = 12;
 
   private final EnvelopeCodec codec;
-  private final DekGenerator generator;
+  private final DekSource dekSource;
   private final SecureRandom random = new SecureRandom();
 
-  public PayloadEncryptor(EnvelopeCodec codec, DekGenerator generator) {
+  public PayloadEncryptor(EnvelopeCodec codec, DekSource dekSource) {
     this.codec = codec;
-    this.generator = generator;
+    this.dekSource = dekSource;
   }
 
   /**
@@ -43,26 +43,30 @@ public class PayloadEncryptor {
    *     be written
    */
   public byte[] encrypt(byte[] payload) {
-    Dek dek = generator.generate();
     byte[] nonce = new byte[NONCE_BYTES];
     random.nextBytes(nonce);
-    byte[] ciphertext;
-    try {
-      Cipher cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION);
-      cipher.init(
-          Cipher.ENCRYPT_MODE,
-          new SecretKeySpec(dek.plaintext(), "AES"),
-          new GCMParameterSpec(GCM_TAG_BITS, nonce));
-      // JCE appends the 16-byte authentication tag to the ciphertext, which is the wire layout.
-      ciphertext = cipher.doFinal(payload);
-    } catch (GeneralSecurityException e) {
-      // Do not include the plaintext payload or the DEK in the message.
-      throw new PayloadEncryptionException("AEAD encryption failed", e);
+    // The lease guarantees the key bytes stay live for the duration of the encryption, even if the
+    // DEK is rotated out concurrently; a retired DEK is erased once its last lease closes.
+    try (DekLease lease = dekSource.acquire()) {
+      Dek dek = lease.dek();
+      byte[] ciphertext;
+      try {
+        Cipher cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION);
+        cipher.init(
+            Cipher.ENCRYPT_MODE,
+            new SecretKeySpec(dek.plaintext(), "AES"),
+            new GCMParameterSpec(GCM_TAG_BITS, nonce));
+        // JCE appends the 16-byte authentication tag to the ciphertext, which is the wire layout.
+        ciphertext = cipher.doFinal(payload);
+      } catch (GeneralSecurityException e) {
+        // Do not include the plaintext payload or the DEK in the message.
+        throw new PayloadEncryptionException("AEAD encryption failed", e);
+      }
+      return codec.serialize(new Envelope(ENVELOPE_VERSION, ALG, dek.wrapped(), nonce, ciphertext));
     }
-    return codec.serialize(new Envelope(ENVELOPE_VERSION, ALG, dek.wrapped(), nonce, ciphertext));
   }
 
   public void close() {
-    generator.close();
+    dekSource.close();
   }
 }
