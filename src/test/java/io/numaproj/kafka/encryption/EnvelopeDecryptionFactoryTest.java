@@ -19,14 +19,14 @@ class EnvelopeDecryptionFactoryTest {
   @Test
   void disabledWhenKeyArnBlank() {
     Properties props = new Properties();
-    props.setProperty(EnvelopeDecryptionFactory.KEY_ARN, "   ");
+    props.setProperty(EncryptionProps.KEY_ARN, "   ");
     assertNull(EnvelopeDecryptionFactory.fromProps(props));
   }
 
   @Test
   void failsFastOnMalformedArn() {
     Properties props = new Properties();
-    props.setProperty(EnvelopeDecryptionFactory.KEY_ARN, "not-an-arn");
+    props.setProperty(EncryptionProps.KEY_ARN, "not-an-arn");
     assertThrows(
         IllegalArgumentException.class, () -> EnvelopeDecryptionFactory.fromProps(props));
   }
@@ -35,7 +35,7 @@ class EnvelopeDecryptionFactoryTest {
   void failsFastOnAliasArn() {
     Properties props = new Properties();
     props.setProperty(
-        EnvelopeDecryptionFactory.KEY_ARN,
+        EncryptionProps.KEY_ARN,
         "arn:aws:kms:us-east-1:123456789012:alias/my-key");
     assertThrows(
         IllegalArgumentException.class, () -> EnvelopeDecryptionFactory.fromProps(props));
@@ -44,8 +44,8 @@ class EnvelopeDecryptionFactoryTest {
   @Test
   void failsFastOnNonPositiveTtl() {
     Properties props = new Properties();
-    props.setProperty(EnvelopeDecryptionFactory.KEY_ARN, VALID_ARN);
-    props.setProperty(EnvelopeDecryptionFactory.DEK_CACHE_TTL_MS, "0");
+    props.setProperty(EncryptionProps.KEY_ARN, VALID_ARN);
+    props.setProperty(EncryptionProps.DEK_CACHE_TTL_MS, "0");
     assertThrows(
         IllegalArgumentException.class, () -> EnvelopeDecryptionFactory.fromProps(props));
   }
@@ -53,7 +53,7 @@ class EnvelopeDecryptionFactoryTest {
   @Test
   void buildsDecryptorForValidArn() {
     Properties props = new Properties();
-    props.setProperty(EnvelopeDecryptionFactory.KEY_ARN, VALID_ARN);
+    props.setProperty(EncryptionProps.KEY_ARN, VALID_ARN);
     PayloadDecryptor decryptor = EnvelopeDecryptionFactory.fromProps(props);
     assertNotNull(decryptor);
     decryptor.close(); // releases the KMS client

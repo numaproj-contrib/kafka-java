@@ -36,10 +36,6 @@ public class ConsumerConfig {
   private static final String SCHEMA_REGISTRY_TYPE_CONFLUENT = "confluent";
   private static final String SCHEMA_REGISTRY_TYPE_GLUE = "glue";
 
-  // Prefix for kafka-java-managed payload-envelope-encryption keys; consumed internally and stripped
-  // before the props are handed to KafkaConsumer.
-  private static final String ENCRYPTION_PROP_PREFIX = EncryptionProps.PREFIX;
-
   private final String consumerPropertiesFilePath;
 
   public ConsumerConfig(String consumerPropertiesFilePath) {
@@ -209,7 +205,7 @@ public class ConsumerConfig {
    */
   private static void stripManagedProps(Properties props) {
     props.remove(SCHEMA_REGISTRY_TYPE_KEY);
-    props.keySet().removeIf(k -> k instanceof String s && s.startsWith(ENCRYPTION_PROP_PREFIX));
+    props.keySet().removeIf(k -> k instanceof String s && s.startsWith(EncryptionProps.PREFIX));
   }
 
   private static Map<String, Object> toDeserializerConfigs(Properties props) {

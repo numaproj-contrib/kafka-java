@@ -2,6 +2,7 @@ package io.numaproj.kafka.encryption.aws;
 
 import software.amazon.awssdk.arns.Arn;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.kms.KmsClient;
 
 /**
  * KMS key ARN handling, shared by the DEK unwrapper (source) and generator (sink).
@@ -30,7 +31,7 @@ final class KmsKeys {
   static boolean isValidKmsKeyArn(String candidate) {
     try {
       Arn arn = Arn.fromString(candidate);
-      return "kms".equals(arn.service())
+      return KmsClient.SERVICE_NAME.equals(arn.service())
           && arn.region().filter(r -> !r.isBlank()).isPresent()
           && arn.resourceAsString().startsWith("key/");
     } catch (RuntimeException e) {
