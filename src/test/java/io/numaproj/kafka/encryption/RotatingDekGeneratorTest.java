@@ -57,6 +57,22 @@ class RotatingDekGeneratorTest {
   }
 
   @Test
+  void generatesAgainOnceTheMessageCapIsReached() {
+    // Even within the TTL, a DEK must not be used for more than MAX_MESSAGES_PER_DEK encryptions
+    // (random-nonce collision bound).
+    Dek first = dek((byte) 1);
+    Dek second = dek((byte) 2);
+    when(delegate.generate()).thenReturn(first, second);
+
+    for (long i = 0; i < RotatingDekGenerator.MAX_MESSAGES_PER_DEK; i++) {
+      assertSame(first, underTest.generate());
+    }
+    assertSame(second, underTest.generate());
+
+    verify(delegate, times(2)).generate();
+  }
+
+  @Test
   void propagatesBackendFailure() {
     when(delegate.generate()).thenThrow(KmsException.builder().message("access denied").build());
 

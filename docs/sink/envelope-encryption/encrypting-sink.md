@@ -67,11 +67,14 @@ configured exactly as for a non-encrypted sink.
 
 ### DEK rotation
 
-One DEK is generated on first use and reused until its TTL elapses, then a fresh one is generated. The
-DEK is also new on every process restart, so a redeploy rotates it.
+One DEK is generated on first use and reused until its TTL elapses **or** it has encrypted 2²²
+(~4 million) messages, whichever comes first; then a fresh one is generated. The message cap keeps the
+number of encryptions per key far below the 2³² bound NIST SP 800-38D sets for random 96-bit nonces,
+even on a topic whose throughput would exceed it within one TTL window. The DEK is also new on every
+process restart, so a redeploy rotates it.
 
 Consumers need no coordination for this: every message carries its own `ciphertext_dek`, so a rotation
-is transparent. Bounding the reuse window also bounds how many messages share a single key.
+is transparent.
 
 ### Nonce uniqueness — what this sink guarantees
 
@@ -86,8 +89,9 @@ How it is met:
   `SecureRandom`, including when the DEK is reused across messages.
 * Nonces are never derived from message content, and never from a counter that could restart at zero
   after a crash or a rescale.
-* The DEK reuse window (above) bounds how many messages are encrypted under one key, which bounds the
-  collision probability inherent to random nonces.
+* The DEK reuse window (above) is bounded in both time and message count, so the number of
+  encryptions under one key — and with it the collision probability inherent to random nonces —
+  stays bounded regardless of throughput.
 
 If you lower `payload.envelope.encryption.dek.ttl.ms`, you get more frequent rotation and therefore
 fewer messages per key; raising it does the opposite. The default of one hour is a deliberate middle
