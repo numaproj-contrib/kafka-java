@@ -18,6 +18,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.AccessDeniedException;
 import software.amazon.awssdk.services.glue.model.DataFormat;
 import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
 import software.amazon.awssdk.services.glue.model.GetSchemaVersionRequest;
@@ -76,6 +77,33 @@ class GlueRegistryTest {
   void getAvroSchema_returnsNullWhenSchemaNotFound() {
     when(glue.getSchemaVersion(any(GetSchemaVersionRequest.class)))
         .thenThrow(EntityNotFoundException.builder().message("not found").build());
+
+    assertNull(underTest().getAvroSchema(SCHEMA_NAME, 1));
+  }
+
+  @Test
+  void getAvroSchema_returnsNullWhenStoredDefinitionIsNotValidAvro() {
+    // Glue reports AVRO but hands back a definition the Avro parser rejects — a registry-content
+    // mismatch. The registry returns null and the application fails startup rather than sinking.
+    when(glue.getSchemaVersion(any(GetSchemaVersionRequest.class)))
+        .thenReturn(
+            GetSchemaVersionResponse.builder()
+                .dataFormat(DataFormat.AVRO)
+                .schemaDefinition("{\"type\":\"record\",\"name\":\"Broken\"}")
+                .build());
+
+    assertNull(underTest().getAvroSchema(SCHEMA_NAME, 1));
+  }
+
+  @Test
+  void getAvroSchema_returnsNullWhenGlueAccessIsDenied() {
+    // The IAM role lacks glue:GetSchemaVersion. Same startup outcome as a missing schema: null,
+    // which fetchAvroSchema turns into a fail-fast RuntimeException.
+    when(glue.getSchemaVersion(any(GetSchemaVersionRequest.class)))
+        .thenThrow(
+            AccessDeniedException.builder()
+                .message("User is not authorized to perform: glue:GetSchemaVersion")
+                .build());
 
     assertNull(underTest().getAvroSchema(SCHEMA_NAME, 1));
   }

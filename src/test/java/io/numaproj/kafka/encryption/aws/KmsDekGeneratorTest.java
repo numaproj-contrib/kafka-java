@@ -16,6 +16,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.kms.KmsClient;
 import software.amazon.awssdk.services.kms.model.DataKeySpec;
@@ -59,11 +60,26 @@ class KmsDekGeneratorTest {
   }
 
   @Test
-  void propagatesKmsFailure() {
+  void propagatesKmsAccessDenied() {
+    // The IAM role lacks kms:GenerateDataKey on the configured key (or the key policy does not
+    // grant it). KMS reports this as AccessDeniedException; it must propagate so the sink fails the
+    // message rather than producing it unencrypted.
     when(kms.generateDataKey(any(GenerateDataKeyRequest.class)))
-        .thenThrow(KmsException.builder().message("access denied").build());
+        .thenThrow(
+            (KmsException)
+                KmsException.builder()
+                    .statusCode(400)
+                    .awsErrorDetails(
+                        AwsErrorDetails.builder()
+                            .errorCode("AccessDeniedException")
+                            .errorMessage(
+                                "User is not authorized to perform: kms:GenerateDataKey")
+                            .build())
+                    .message("User is not authorized to perform: kms:GenerateDataKey")
+                    .build());
 
-    assertThrows(KmsException.class, () -> generator().generate());
+    KmsException thrown = assertThrows(KmsException.class, () -> generator().generate());
+    assertEquals("AccessDeniedException", thrown.awsErrorDetails().errorCode());
   }
 
   @Test

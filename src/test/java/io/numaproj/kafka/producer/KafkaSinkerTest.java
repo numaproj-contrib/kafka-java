@@ -120,6 +120,48 @@ class KafkaSinkerTest {
   }
 
   @Test
+  void processMessages_whenGlueSchemaResolutionFails_thenMessageIsNotAckedAndErrorIsSurfaced() {
+    // With auto-registration off, the Glue serializer throws when the record's schema definition is
+    // not registered (or does not byte-exactly match a registered version). That surfaces here as a
+    // synchronous AWSSchemaRegistryException from send(). A failure response means Numaflow does NOT
+    // ack the message — it is retried — so no record may be reported OK.
+    doThrow(
+            new com.amazonaws.services.schemaregistry.exception.AWSSchemaRegistryException(
+                "Schema version is not found."))
+        .when(producer)
+        .send(any(ProducerRecord.class));
+
+    ResponseList result = underTest.processMessages(iterator(Map.of("1", "{\"name\":\"Michael\"}")));
+
+    Response response = result.getResponses().getFirst();
+    assertFalse(response.getSuccess(), "a schema-resolution failure must not be acked");
+    assertTrue(
+        response.getErr().contains("Schema version is not found"),
+        "the Glue error must be surfaced so the operator can see why: " + response.getErr());
+  }
+
+  @Test
+  void processMessages_whenEncryptionFailsForKmsAccessDenied_thenMessageIsNotAcked() {
+    // The IAM role lacks kms:GenerateDataKey on the configured key. The EncryptingSerializer runs
+    // inside send(), so the KMS denial surfaces synchronously; the message must fail (no ack) and no
+    // unencrypted record may be produced as a fallback.
+    doThrow(
+            software.amazon.awssdk.services.kms.model.KmsException.builder()
+                .message(
+                    "User is not authorized to perform: kms:GenerateDataKey on the resource")
+                .build())
+        .when(producer)
+        .send(any(ProducerRecord.class));
+
+    ResponseList result = underTest.processMessages(iterator(Map.of("1", "{\"name\":\"Michael\"}")));
+
+    Response response = result.getResponses().getFirst();
+    assertFalse(response.getSuccess(), "a KMS access-denied failure must not be acked");
+    assertTrue(response.getErr().contains("kms:GenerateDataKey"));
+    verify(producer).send(any(ProducerRecord.class)); // attempted once, never retried unencrypted
+  }
+
+  @Test
   void processMessages_usesKafkaKeyPrefix() {
     producerSucceeds();
     SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();

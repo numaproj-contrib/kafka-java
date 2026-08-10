@@ -3,9 +3,11 @@ package io.numaproj.kafka.encryption;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -16,6 +18,7 @@ import java.util.Base64;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.kms.model.KmsException;
 
 class PayloadEncryptorTest {
 
@@ -32,6 +35,26 @@ class PayloadEncryptorTest {
     DekGenerator generator = mock(DekGenerator.class);
     when(generator.generate()).thenReturn(new Dek(plaintextDek, WRAPPED_DEK));
     return new PayloadEncryptor(new JsonEnvelopeCodec(), generator);
+  }
+
+  /**
+   * A KMS permission failure (the role cannot call kms:GenerateDataKey) surfaces before any
+   * cryptography runs: the exception propagates as-is, no envelope is written, and the codec is
+   * never asked to serialize — so there is no partially-built or unencrypted output to produce.
+   */
+  @Test
+  void kmsAccessDeniedProducesNoEnvelope() {
+    DekGenerator generator = mock(DekGenerator.class);
+    when(generator.generate())
+        .thenThrow(
+            KmsException.builder()
+                .message("User is not authorized to perform: kms:GenerateDataKey")
+                .build());
+    EnvelopeCodec codec = mock(EnvelopeCodec.class);
+    PayloadEncryptor underTest = new PayloadEncryptor(codec, generator);
+
+    assertThrows(KmsException.class, () -> underTest.encrypt("payload".getBytes()));
+    verifyNoInteractions(codec);
   }
 
   /**
