@@ -72,6 +72,11 @@ public class ProducerConfig {
     return loadProps().getProperty(SCHEMA_REGISTRY_TYPE_KEY, SCHEMA_REGISTRY_TYPE_CONFLUENT);
   }
 
+  /** Returns true when the configured schema registry type is Glue. */
+  public boolean isGlueSchemaRegistry() throws IOException {
+    return SCHEMA_REGISTRY_TYPE_GLUE.equalsIgnoreCase(schemaRegistryType());
+  }
+
   // Kafka producer client to publish raw data in byte array format to Kafka
   // It is used when the destination topic has no schema or json schema
   public KafkaProducer<String, byte[]> kafkaByteArrayProducer() throws IOException {
@@ -81,20 +86,7 @@ public class ProducerConfig {
     Properties props = loadProps();
     // never register schemas on behalf of the user
     props.put("auto.register.schemas", "false");
-
-    // Build the (optional) payload encryptor, then build and configure the value serializer instance
-    // and wrap it when encryption is enabled.
-    PayloadEncryptor encryptor = EnvelopeEncryptionFactory.fromProps(props);
-    Map<String, Object> configs = toSerializerConfigs(props);
-    ByteArraySerializer valueSerializer = new ByteArraySerializer();
-    valueSerializer.configure(configs, false);
-    StringSerializer keySerializer = new StringSerializer();
-    keySerializer.configure(configs, true);
-
-    // strip kafka-java-managed keys as the last step before instantiating the client
-    stripManagedProps(props);
-    return new KafkaProducer<>(
-        props, keySerializer, wrapWithEncryption(valueSerializer, encryptor));
+    return buildProducer(props, new ByteArraySerializer());
   }
 
   // Kafka producer client for Avro
@@ -121,23 +113,22 @@ public class ProducerConfig {
     props.put("auto.register.schemas", "false");
     props.putIfAbsent("schemaAutoRegistrationEnabled", "false");
 
-    PayloadEncryptor encryptor = EnvelopeEncryptionFactory.fromProps(props);
-    Map<String, Object> configs = toSerializerConfigs(props);
-
     Serializer<Object> avroSerializer =
         useGlueSchemaRegistry ? new GlueSchemaRegistryKafkaSerializer() : new KafkaAvroSerializer();
-    avroSerializer.configure(configs, false);
-    StringSerializer keySerializer = new StringSerializer();
-    keySerializer.configure(configs, true);
-
     @SuppressWarnings("unchecked")
     Serializer<GenericRecord> valueSerializer =
         (Serializer<GenericRecord>) (Serializer<?>) avroSerializer;
+    return buildProducer(props, valueSerializer);
+  }
 
-    // strip kafka-java-managed keys as the last step before instantiating the client
+  private <T> KafkaProducer<String, T> buildProducer(Properties props, Serializer<T> rawValueSerializer) {
+    PayloadEncryptor encryptor = EnvelopeEncryptionFactory.fromProps(props);
+    Map<String, Object> configs = toSerializerConfigs(props);
+    rawValueSerializer.configure(configs, false);
+    StringSerializer keySerializer = new StringSerializer();
+    keySerializer.configure(configs, true);
     stripManagedProps(props);
-    return new KafkaProducer<>(
-        props, keySerializer, wrapWithEncryption(valueSerializer, encryptor));
+    return new KafkaProducer<>(props, keySerializer, wrapWithEncryption(rawValueSerializer, encryptor));
   }
 
   // Schema registry client

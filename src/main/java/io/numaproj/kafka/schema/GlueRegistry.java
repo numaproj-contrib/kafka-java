@@ -71,33 +71,38 @@ public class GlueRegistry implements Registry {
 
   @Override
   public Schema getAvroSchema(String subject, int version) {
+    if (subject == null || subject.isEmpty()) {
+      throw new IllegalArgumentException("schemaSubject is required for schema.registry.type=glue");
+    }
+    if (version <= 0) {
+      throw new IllegalArgumentException(
+          "schemaVersion must be a positive integer for schema.registry.type=glue; got: " + version);
+    }
     try {
-      if (!subject.isEmpty() && version != 0) {
-        GetSchemaVersionResponse response =
-            this.glue.getSchemaVersion(
-                GetSchemaVersionRequest.builder()
-                    .schemaId(
-                        SchemaId.builder()
-                            .registryName(this.registryName)
-                            .schemaName(subject)
-                            .build())
-                    .schemaVersionNumber(
-                        SchemaVersionNumber.builder().versionNumber((long) version).build())
-                    .build());
-        if (response.dataFormat() != DataFormat.AVRO) {
-          log.error(
-              "Schema data format is not AVRO for schema {}, version {}. Found {}.",
-              subject,
-              version,
-              response.dataFormatAsString());
-          return null;
-        }
-        return new Schema.Parser().parse(response.schemaDefinition());
+      GetSchemaVersionResponse response =
+          this.glue.getSchemaVersion(
+              GetSchemaVersionRequest.builder()
+                  .schemaId(
+                      SchemaId.builder()
+                          .registryName(this.registryName)
+                          .schemaName(subject)
+                          .build())
+                  .schemaVersionNumber(
+                      SchemaVersionNumber.builder().versionNumber((long) version).build())
+                  .build());
+      if (response.dataFormat() != DataFormat.AVRO) {
+        log.error(
+            "Schema data format is not AVRO for schema {}, version {}. Found {}.",
+            subject,
+            version,
+            response.dataFormatAsString());
+        return null;
       }
+      return new Schema.Parser().parse(response.schemaDefinition());
     } catch (RuntimeException e) {
       log.error("Failed to retrieve the Avro schema for schema {}, version {}", subject, version, e);
+      return null;
     }
-    return null;
   }
 
   @Override
@@ -112,18 +117,7 @@ public class GlueRegistry implements Registry {
 
   @Override
   public void close() {
-    closeQuietly(this.credentials);
-    closeQuietly(this.glue);
-  }
-
-  private static void closeQuietly(AutoCloseable resource) {
-    if (resource == null) {
-      return;
-    }
-    try {
-      resource.close();
-    } catch (Exception e) {
-      log.warn("Failed to close {} while releasing the Glue registry", resource.getClass(), e);
-    }
+    AwsCredentials.closeQuietly(this.credentials, log, "the Glue registry");
+    AwsCredentials.closeQuietly(this.glue, log, "the Glue registry");
   }
 }

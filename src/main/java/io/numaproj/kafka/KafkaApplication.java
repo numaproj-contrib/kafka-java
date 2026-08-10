@@ -39,7 +39,6 @@ public class KafkaApplication {
   private static final String HANDLER_PRODUCER = "producer";
   private static final String SCHEMA_TYPE_AVRO = "avro";
   private static final String SCHEMA_TYPE_JSON = "json";
-  private static final String SCHEMA_REGISTRY_TYPE_GLUE = "glue";
 
   private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
 
@@ -124,7 +123,7 @@ public class KafkaApplication {
     } else if (SCHEMA_TYPE_JSON.equals(schemaType)) {
       // The Glue-framed contract covers Avro only, and schemaRegistryClient() would fail obscurely
       // on the absent schema.registry.url; fail with a clear message instead.
-      if (SCHEMA_REGISTRY_TYPE_GLUE.equalsIgnoreCase(producerConfig.schemaRegistryType())) {
+      if (producerConfig.isGlueSchemaRegistry()) {
         throw new IllegalArgumentException(
             "schemaType=json is not supported with schema.registry.type=glue; use schemaType=avro");
       }

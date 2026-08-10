@@ -8,7 +8,7 @@ package io.numaproj.kafka.encryption;
  * <p>An implementation owns key generation only. DEK reuse is a backend-agnostic concern, applied
  * by {@link ProcessLifetimeDekGenerator} in front of any generator.
  */
-public interface DekGenerator {
+public interface DekGenerator extends AutoCloseable {
 
   /**
    * Generate a new data encryption key.

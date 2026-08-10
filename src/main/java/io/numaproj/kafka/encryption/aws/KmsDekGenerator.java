@@ -72,18 +72,7 @@ public class KmsDekGenerator implements DekGenerator {
 
   @Override
   public void close() {
-    closeQuietly(this.credentials);
-    closeQuietly(this.kms);
-  }
-
-  private static void closeQuietly(AutoCloseable resource) {
-    if (resource == null) {
-      return;
-    }
-    try {
-      resource.close();
-    } catch (Exception e) {
-      log.warn("Failed to close {} while releasing the KMS generator", resource.getClass(), e);
-    }
+    AwsCredentials.closeQuietly(this.credentials, log, "the KMS generator");
+    AwsCredentials.closeQuietly(this.kms, log, "the KMS generator");
   }
 }

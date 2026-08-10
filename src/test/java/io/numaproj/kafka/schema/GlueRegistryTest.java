@@ -109,9 +109,9 @@ class GlueRegistryTest {
   }
 
   @Test
-  void getAvroSchema_returnsNullWithoutCallingGlueWhenSubjectOrVersionMissing() {
-    assertNull(underTest().getAvroSchema("", 1));
-    assertNull(underTest().getAvroSchema(SCHEMA_NAME, 0));
+  void getAvroSchema_throwsWhenSubjectOrVersionMissing() {
+    assertThrows(IllegalArgumentException.class, () -> underTest().getAvroSchema("", 1));
+    assertThrows(IllegalArgumentException.class, () -> underTest().getAvroSchema(SCHEMA_NAME, 0));
     verifyNoInteractions(glue);
   }
 

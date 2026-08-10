@@ -1,6 +1,7 @@
 package io.numaproj.kafka.common.aws;
 
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
@@ -72,8 +73,8 @@ public class AwsCredentials implements AutoCloseable {
               .build();
       return new AwsCredentials(provider, provider, sts);
     } catch (RuntimeException e) {
-      closeQuietly(sts);
-      closeQuietly(provider);
+      closeQuietly(sts, log, "AWS credentials");
+      closeQuietly(provider, log, "AWS credentials");
       throw e;
     }
   }
@@ -85,18 +86,18 @@ public class AwsCredentials implements AutoCloseable {
 
   @Override
   public void close() {
-    closeQuietly(this.ownedStsClient);
-    closeQuietly(this.ownedProvider);
+    closeQuietly(this.ownedStsClient, log, "AWS credentials");
+    closeQuietly(this.ownedProvider, log, "AWS credentials");
   }
 
-  private static void closeQuietly(AutoCloseable resource) {
+  public static void closeQuietly(AutoCloseable resource, Logger log, String context) {
     if (resource == null) {
       return;
     }
     try {
       resource.close();
     } catch (Exception e) {
-      log.warn("Failed to close {} while releasing AWS credentials", resource.getClass(), e);
+      log.warn("Failed to close {} while releasing {}", resource.getClass(), context, e);
     }
   }
 }
