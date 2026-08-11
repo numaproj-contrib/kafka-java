@@ -11,8 +11,10 @@ import io.numaproj.kafka.consumer.KafkaSourcer;
 import io.numaproj.kafka.format.AvroFormat;
 import io.numaproj.kafka.format.ByteArrayFormat;
 import io.numaproj.kafka.format.JsonFormat;
+import io.numaproj.kafka.metrics.MetricsServer;
 import io.numaproj.kafka.producer.KafkaSinker;
 import io.numaproj.kafka.schema.Registry;
+import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
@@ -63,6 +65,11 @@ public class KafkaApplication {
 
     UserConfig userConfig = buildUserConfig(argMap);
     log.info("UserConfig: {}", userConfig);
+
+    MetricsServer metricsServer = MetricsServer.start(PrometheusRegistry.defaultRegistry);
+    if (metricsServer != null) {
+      Runtime.getRuntime().addShutdownHook(new Thread(metricsServer::stop));
+    }
 
     switch (handler.toLowerCase()) {
       case HANDLER_CONSUMER -> startConsumer(argMap, userConfig);
