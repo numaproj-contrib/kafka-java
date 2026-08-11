@@ -5,6 +5,7 @@ import io.numaproj.kafka.common.CommonUtils;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.format.FormatException;
 import io.numaproj.kafka.format.KafkaFormat;
+import io.numaproj.kafka.metrics.SourceMetrics;
 import io.numaproj.numaflow.sourcer.*;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -37,6 +38,8 @@ public class KafkaSourcer<V> extends Sourcer {
   private final Admin admin;
   private final KafkaFormat<V> format;
   private final ConsumerFactory<V> consumerFactory;
+  private final SourceMetrics metrics;
+  private final BadRecordPolicy policy;
 
   // The worker and its thread are lazily initialized on the first read() call because the Numaflow
   // batch size (used to set max.poll.records) is not known until the first ReadRequest arrives.
@@ -52,10 +55,25 @@ public class KafkaSourcer<V> extends Sourcer {
       Admin admin,
       KafkaFormat<V> format,
       ConsumerFactory<V> consumerFactory) {
+    this(userConfig, admin, format, consumerFactory, SourceMetrics.NOOP);
+  }
+
+  public KafkaSourcer(
+      UserConfig userConfig,
+      Admin admin,
+      KafkaFormat<V> format,
+      ConsumerFactory<V> consumerFactory,
+      SourceMetrics metrics) {
     this.userConfig = userConfig;
     this.admin = admin;
     this.format = format;
     this.consumerFactory = consumerFactory;
+    this.metrics = metrics;
+    // Built once here (not per record) and shared by the worker (decode failures) and this class
+    // (convert failures), so onError is applied and counted identically at both read-path stages.
+    this.policy =
+        new BadRecordPolicy(
+            userConfig == null ? null : userConfig.getOnError(), metrics, new LoggingBadRecordSink());
   }
 
   public void startConsumer() throws Exception {
@@ -72,7 +90,7 @@ public class KafkaSourcer<V> extends Sourcer {
         "Initializing consumer worker with batchSize={} timeoutMs={}",
         batchSize,
         request.getTimeout().toMillis());
-    worker = new KafkaWorker<>(userConfig, consumerFactory.create(batchSize));
+    worker = new KafkaWorker<>(userConfig, consumerFactory.create(batchSize), policy, metrics);
     workerThread = new Thread(worker, "consumerWorkerThread");
     workerThread.start();
   }
@@ -108,13 +126,23 @@ public class KafkaSourcer<V> extends Sourcer {
     }
 
     int sent = 0;
-    for (ConsumerRecord<String, V> consumerRecord : consumerRecordList) {
-      if (consumerRecord == null) {
-        continue;
+    try {
+      for (ConsumerRecord<String, V> consumerRecord : consumerRecordList) {
+        if (consumerRecord == null) {
+          continue;
+        }
+        if (!forward(consumerRecord, observer)) {
+          // Dropped: deliberately NOT tracked. readTopicPartitionOffsetMap is the read/ack
+          // cross-check, and Numaflow can only ack what it received; the consumer position (what
+          // actually gets committed) is already past this record.
+          continue;
+        }
+        trackReadOffset(consumerRecord);
+        sent++;
       }
-      observer.send(toMessage(consumerRecord));
-      trackReadOffset(consumerRecord);
-      sent++;
+    } catch (RuntimeException e) {
+      kill(e);
+      return;
     }
     log.debug(
         "BatchRead summary: requested:{} sent:{} partitions:{} readTopicPartitionOffsetMap:{}",
@@ -124,28 +152,37 @@ public class KafkaSourcer<V> extends Sourcer {
         readTopicPartitionOffsetMap);
   }
 
-  private Message toMessage(ConsumerRecord<String, V> consumerRecord) {
+  /**
+   * Converts and sends a single record.
+   *
+   * @return {@code true} if the record was sent; {@code false} if it was dropped under {@code
+   *     onError: skip}
+   * @throws RuntimeException if conversion failed and the policy says to propagate it
+   */
+  private boolean forward(ConsumerRecord<String, V> consumerRecord, OutputObserver observer) {
+    byte[] payload;
+    try {
+      payload = format.toPayload(consumerRecord.value());
+    } catch (FormatException e) {
+      RecordLocation where = RecordLocation.of(consumerRecord);
+      // rawValue is never evaluated by the current (logging-only) sink; deliberately not wired to
+      // the decrypted value here, since a future dead-letter sink would otherwise write plaintext.
+      if (!policy.shouldSkip(where, Stage.CONVERT, e, () -> null)) {
+        throw new RuntimeException("Failed to convert the record to a payload: " + where, e);
+      }
+      return false;
+    }
+    observer.send(toMessage(consumerRecord, payload));
+    return true;
+  }
+
+  private static <V> Message toMessage(ConsumerRecord<String, V> consumerRecord, byte[] payload) {
     Map<String, String> kafkaHeaders = new HashMap<>();
     for (Header header : consumerRecord.headers()) {
       kafkaHeaders.put(header.key(), new String(header.value(), StandardCharsets.UTF_8));
     }
     // TODO - Do we need to add cluster ID to the offset value? For now this is good enough.
     String offsetValue = consumerRecord.topic() + ":" + consumerRecord.offset();
-    byte[] payload;
-    try {
-      payload = format.toPayload(consumerRecord.value());
-    } catch (FormatException e) {
-      // Identify the record by coordinates only - never render the record itself (its value may be
-      // a decrypted GenericRecord whose toString() is the plaintext payload).
-      throw new RuntimeException(
-          "Failed to convert the record to a payload: topic:"
-              + consumerRecord.topic()
-              + " partition:"
-              + consumerRecord.partition()
-              + " offset:"
-              + consumerRecord.offset(),
-          e);
-    }
     return new Message(
         payload,
         new Offset(offsetValue.getBytes(StandardCharsets.UTF_8), consumerRecord.partition()),

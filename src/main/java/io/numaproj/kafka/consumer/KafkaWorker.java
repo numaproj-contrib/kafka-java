@@ -1,6 +1,9 @@
 package io.numaproj.kafka.consumer;
 
 import io.numaproj.kafka.config.UserConfig;
+import io.numaproj.kafka.metrics.SourceMetrics;
+import io.numaproj.kafka.metrics.SourceMetrics.DropReason;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -9,12 +12,14 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.RecordDeserializationException;
 
 /**
  * Consumes messages from a Kafka topic and commits offsets on demand. All Kafka client access
@@ -31,6 +36,8 @@ public class KafkaWorker<V> implements Runnable {
 
   private final UserConfig userConfig;
   private final KafkaConsumer<String, V> consumer;
+  private final BadRecordPolicy policy;
+  private final SourceMetrics metrics;
 
   // A blocking queue used to hand tasks to the consumer thread. It ensures only one of the
   // tasks (POLL/COMMIT/SHUTDOWN) is performed at a time.
@@ -40,9 +47,15 @@ public class KafkaWorker<V> implements Runnable {
   // Records polled from Kafka; volatile to ensure visibility across threads.
   private volatile List<ConsumerRecord<String, V>> consumerRecordList;
 
-  public KafkaWorker(UserConfig userConfig, KafkaConsumer<String, V> consumer) {
+  public KafkaWorker(
+      UserConfig userConfig,
+      KafkaConsumer<String, V> consumer,
+      BadRecordPolicy policy,
+      SourceMetrics metrics) {
     this.userConfig = userConfig;
     this.consumer = consumer;
+    this.policy = policy;
+    this.metrics = metrics;
   }
 
   @Override
@@ -76,11 +89,46 @@ public class KafkaWorker<V> implements Runnable {
     }
   }
 
+  /**
+   * Polls until the deadline is reached, skipping past any poison record when {@code onError: skip}
+   * permits it.
+   *
+   * <p>Kafka 4.0's {@code CompletedFetch} caches a poison record's exception and does not advance
+   * {@code nextFetchOffset}, so re-polling (or seeking back to the same offset) rethrows the cached
+   * exception without re-invoking the deserializer - only a {@code seek} past the record clears it.
+   * The good records preceding a poison record in the same fetch are returned by an earlier poll, so
+   * only the offending record is dropped.
+   */
   private void pollRecords(long timeoutMs) {
+    long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
+    while (true) {
+      try {
+        consumerRecordList =
+            collect(consumer.poll(Duration.ofMillis(remainingMillis(deadlineNanos))));
+        return;
+      } catch (RecordDeserializationException e) {
+        if (!policy.shouldSkip(
+            RecordLocation.of(e), Stage.DECODE, e.getCause(), () -> bufferBytes(e.valueBuffer()))) {
+          throw e;
+        }
+        // Advance exactly one past the bad record; this also discards the buffered fetch whose
+        // cached exception would otherwise be rethrown by every later poll.
+        consumer.seek(e.topicPartition(), e.offset() + 1);
+        if (remainingMillis(deadlineNanos) == 0) {
+          // Read deadline spent; the next read cycle resumes past the drops.
+          consumerRecordList = List.of();
+          return;
+        }
+      }
+    }
+  }
+
+  private List<ConsumerRecord<String, V>> collect(ConsumerRecords<String, V> consumerRecords) {
     List<ConsumerRecord<String, V>> polled = new ArrayList<>();
-    ConsumerRecords<String, V> consumerRecords = consumer.poll(Duration.ofMillis(timeoutMs));
     for (ConsumerRecord<String, V> consumerRecord : consumerRecords) {
       if (consumerRecord.value() == null) {
+        // A Kafka tombstone. Previously silent; now at least visible in metrics.
+        metrics.recordDropped(DropReason.NULL_VALUE);
         continue;
       }
       log.debug(
@@ -91,7 +139,22 @@ public class KafkaWorker<V> implements Runnable {
       polled.add(consumerRecord);
     }
     log.debug("number of messages polled: {}", polled.size());
-    consumerRecordList = polled;
+    return polled;
+  }
+
+  private static long remainingMillis(long deadlineNanos) {
+    return Math.max(0L, TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime()));
+  }
+
+  /** Copies a buffer's bytes without disturbing its position, for the (lazy) bad-record sink. */
+  private static byte[] bufferBytes(ByteBuffer buffer) {
+    if (buffer == null) {
+      return new byte[0];
+    }
+    ByteBuffer duplicate = buffer.duplicate();
+    byte[] bytes = new byte[duplicate.remaining()];
+    duplicate.get(bytes);
+    return bytes;
   }
 
   private void commitAsync() {

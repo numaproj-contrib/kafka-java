@@ -3,6 +3,8 @@ package io.numaproj.kafka.consumer;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import io.numaproj.kafka.config.OnError;
+import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.format.ByteArrayFormat;
 import io.numaproj.kafka.format.FormatException;
 import io.numaproj.kafka.format.KafkaFormat;
@@ -14,6 +16,7 @@ import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 class KafkaSourcerTest {
@@ -29,11 +32,28 @@ class KafkaSourcerTest {
 
   @BeforeEach
   void setUp() {
-    underTest =
-        Mockito.spy(new KafkaSourcer<>(null, admin, new ByteArrayFormat(), batchSize -> null));
+    underTest = sourcer(new ByteArrayFormat(), OnError.FAIL, worker);
+  }
+
+  /**
+   * A mocked UserConfig, per the plan: {@code null} is not tolerated (the constructor calls {@code
+   * userConfig.getOnError()}), but a Mockito mock returning {@code null} for an unstubbed {@code
+   * getOnError()} is, since every call site is null-tolerant (compares {@code == OnError.SKIP}).
+   */
+  private static UserConfig userConfig(OnError onError) {
+    UserConfig userConfig = mock(UserConfig.class);
+    when(userConfig.getOnError()).thenReturn(onError);
+    return userConfig;
+  }
+
+  private KafkaSourcer<byte[]> sourcer(
+      KafkaFormat<byte[]> format, OnError onError, KafkaWorker<byte[]> worker) {
+    KafkaSourcer<byte[]> sourcer =
+        Mockito.spy(new KafkaSourcer<>(userConfig(onError), admin, format, batchSize -> null));
     Thread aliveThread = mock(Thread.class);
     when(aliveThread.isAlive()).thenReturn(true);
-    underTest.setWorker(worker, aliveThread);
+    sourcer.setWorker(worker, aliveThread);
+    return sourcer;
   }
 
   private static ReadRequest readRequest(long count) {
@@ -86,25 +106,38 @@ class KafkaSourcerTest {
   }
 
   @Test
-  void read_whenFormatFails_thenFailureMessageIdentifiesRecordByCoordinatesOnly()
+  void read_whenFormatFailsAndOnErrorFail_thenKillsWithFailureIdentifyingRecordByCoordinatesOnly()
       throws Exception {
-    KafkaSourcer<byte[]> sourcer =
-        Mockito.spy(new KafkaSourcer<>(null, admin, failingFormat(), batchSize -> null));
-    Thread aliveThread = mock(Thread.class);
-    when(aliveThread.isAlive()).thenReturn(true);
-    sourcer.setWorker(worker, aliveThread);
+    KafkaSourcer<byte[]> sourcer = sourcer(failingFormat(), OnError.FAIL, worker);
     ConsumerRecord<String, byte[]> sensitiveRecord =
         new ConsumerRecord<>(TOPIC, 1, 42L, "key", "super-secret-value".getBytes());
     when(worker.poll(anyLong())).thenReturn(List.of(sensitiveRecord));
+    doNothing().when(sourcer).kill(any());
 
-    RuntimeException thrown =
-        assertThrows(RuntimeException.class, () -> sourcer.read(readRequest(1), observer));
+    sourcer.read(readRequest(1), observer);
 
-    assertTrue(thrown.getMessage().contains("offset:42"));
-    assertFalse(thrown.getMessage().contains("ConsumerRecord"));
-    assertFalse(thrown.getMessage().contains("super-secret-value"));
+    verify(observer, never()).send(any());
+    ArgumentCaptor<Exception> captor = ArgumentCaptor.forClass(Exception.class);
+    verify(sourcer).kill(captor.capture());
+    String message = captor.getValue().getMessage();
+    assertTrue(message.contains("offset:42"));
+    assertFalse(message.contains("ConsumerRecord"));
+    assertFalse(message.contains("super-secret-value"));
   }
 
+  @Test
+  void read_whenFormatFailsAndOnErrorSkip_thenDropsWithoutSendingOrKilling() throws Exception {
+    KafkaSourcer<byte[]> sourcer = sourcer(failingFormat(), OnError.SKIP, worker);
+    when(worker.poll(anyLong())).thenReturn(List.of(record(7)));
+    doNothing().when(sourcer).kill(any());
+
+    sourcer.read(readRequest(1), observer);
+
+    verify(observer, never()).send(any());
+    verify(sourcer, never()).kill(any());
+  }
+
+  @SuppressWarnings("unchecked")
   private static KafkaFormat<byte[]> failingFormat() {
     KafkaFormat<byte[]> format = mock(KafkaFormat.class);
     try {

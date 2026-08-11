@@ -22,4 +22,8 @@ public class UserConfig {
   // optional schema subject and version if user wants to use a specific schema
   private String schemaSubject;
   private int schemaVersion;
+
+  // Source-only: how the source reacts to a record that fails to be read. UserConfig is shared with
+  // the sink, so a producer deployment setting this key is silently ignored.
+  @Builder.Default private OnError onError = OnError.FAIL;
 }
