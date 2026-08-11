@@ -56,7 +56,10 @@ public class AvroFormat implements KafkaFormat<GenericRecord> {
       writer.write(value, encoder);
       encoder.flush();
       return out.toByteArray();
-    } catch (IOException e) {
+    } catch (IOException | RuntimeException e) {
+      // The realistic malformed-Avro failure (e.g. AvroTypeException) is a RuntimeException, not
+      // an IOException - without this, it would bypass FormatException entirely, kill the pod
+      // regardless of onError, and make stage=convert unreachable.
       throw new FormatException("Failed to convert the Avro record to JSON format", e);
     }
   }
