@@ -51,6 +51,19 @@ class KafkaWorkerTest {
   }
 
   @Test
+  void poll_whenConsumerThrows_thenPropagatesOriginalCauseAndLeavesInterruptFlagClear()
+      throws Exception {
+    RuntimeException boom = new RuntimeException("boom");
+    when(consumer.poll(any())).thenThrow(boom);
+    thread.start();
+
+    RuntimeException thrown = assertThrows(RuntimeException.class, () -> worker.poll(1000));
+
+    assertSame(boom, thrown);
+    assertFalse(Thread.currentThread().isInterrupted());
+  }
+
+  @Test
   void commit_delegatesToConsumer() throws Exception {
     thread.start();
     worker.commit();

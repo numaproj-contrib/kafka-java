@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -151,15 +152,21 @@ public class KafkaWorker<V> implements Runnable {
     return partitions;
   }
 
-  /** Enqueues a request and blocks until the worker thread finishes processing it. */
+  /**
+   * Enqueues a request and blocks until the worker thread finishes processing it.
+   *
+   * @throws InterruptedException if the calling thread is genuinely interrupted while waiting
+   */
   private void await(OperationRequest request) throws InterruptedException {
     operationCompletion = new CompletableFuture<>();
     taskQueue.add(request);
     try {
       operationCompletion.get();
-    } catch (Exception e) {
-      Thread.currentThread().interrupt();
-      throw new InterruptedException(e.getMessage());
+    } catch (ExecutionException e) {
+      Throwable cause = e.getCause();
+      throw cause instanceof RuntimeException runtime
+          ? runtime
+          : new RuntimeException("Kafka " + request.type() + " operation failed", cause);
     }
   }
 

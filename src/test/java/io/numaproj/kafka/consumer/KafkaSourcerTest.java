@@ -84,6 +84,14 @@ class KafkaSourcerTest {
   }
 
   @Test
+  void read_whenPollThrowsRuntimeException_thenKills() throws Exception {
+    when(worker.poll(anyLong())).thenThrow(new RuntimeException("boom"));
+    doNothing().when(underTest).kill(any());
+    underTest.read(readRequest(1), observer);
+    verify(underTest).kill(any(RuntimeException.class));
+  }
+
+  @Test
   void read_whenWorkerThreadDead_thenKills() {
     Thread deadThread = mock(Thread.class);
     when(deadThread.isAlive()).thenReturn(false);

@@ -96,7 +96,11 @@ public class KafkaSourcer<V> extends Sourcer {
     try {
       consumerRecordList = worker.poll(request.getTimeout().toMillis());
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       kill(new RuntimeException(e));
+      return;
+    } catch (RuntimeException e) {
+      kill(e);
       return;
     }
     if (consumerRecordList == null) {
@@ -175,7 +179,10 @@ public class KafkaSourcer<V> extends Sourcer {
     try {
       worker.commit();
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       kill(new RuntimeException(e));
+    } catch (RuntimeException e) {
+      kill(e);
     }
   }
 
