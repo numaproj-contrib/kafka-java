@@ -1,19 +1,25 @@
 package io.numaproj.kafka.config;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
+import com.amazonaws.services.schemaregistry.exception.AWSSchemaRegistryException;
+import com.amazonaws.services.schemaregistry.exception.GlueSchemaRegistryIncompatibleDataException;
+import io.numaproj.kafka.common.BadRecordException;
 import io.numaproj.kafka.encryption.DecryptingDeserializer;
 import io.numaproj.kafka.encryption.EnvelopeDecryptionFactory;
 import io.numaproj.kafka.encryption.PayloadDecryptor;
 import java.util.Objects;
 import java.util.Properties;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.services.kms.model.KmsInternalException;
 
 @Slf4j
 @ExtendWith(MockitoExtension.class)
@@ -170,5 +176,52 @@ public class ConsumerConfigTest {
         ConsumerConfig.wrapWithDecryption(new StringDeserializer(), decryptor);
     assertInstanceOf(DecryptingDeserializer.class, wrapped);
     wrapped.close(); // releases the KMS client held by the decryptor
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Deserializer<Object> mockDeserializer() {
+    return mock(Deserializer.class);
+  }
+
+  @Test
+  public void wrapWithBadRecordTranslation_glueIncompatibleData_translatesToBadRecordException() {
+    Deserializer<Object> delegate = mockDeserializer();
+    when(delegate.deserialize(any(), any()))
+        .thenThrow(new GlueSchemaRegistryIncompatibleDataException("bad header byte"));
+    Deserializer<Object> wrapped = ConsumerConfig.wrapWithBadRecordTranslation(delegate);
+
+    assertThrows(BadRecordException.class, () -> wrapped.deserialize("topic", new byte[0]));
+  }
+
+  @Test
+  public void wrapWithBadRecordTranslation_glueApiFailure_propagatesUntranslated() {
+    Deserializer<Object> delegate = mockDeserializer();
+    when(delegate.deserialize(any(), any()))
+        .thenThrow(
+            new AWSSchemaRegistryException(
+                "registry unreachable",
+                KmsInternalException.builder().message("slow").build()));
+    Deserializer<Object> wrapped = ConsumerConfig.wrapWithBadRecordTranslation(delegate);
+
+    assertThrows(AWSSchemaRegistryException.class, () -> wrapped.deserialize("topic", new byte[0]));
+  }
+
+  @Test
+  public void wrapWithBadRecordTranslation_glueExceptionWithNoSdkCause_translatesToBadRecordException() {
+    Deserializer<Object> delegate = mockDeserializer();
+    when(delegate.deserialize(any(), any()))
+        .thenThrow(new AWSSchemaRegistryException("some other schema registry failure"));
+    Deserializer<Object> wrapped = ConsumerConfig.wrapWithBadRecordTranslation(delegate);
+
+    assertThrows(BadRecordException.class, () -> wrapped.deserialize("topic", new byte[0]));
+  }
+
+  @Test
+  public void wrapWithBadRecordTranslation_serializationException_translatesToBadRecordException() {
+    Deserializer<Object> delegate = mockDeserializer();
+    when(delegate.deserialize(any(), any())).thenThrow(new SerializationException("malformed"));
+    Deserializer<Object> wrapped = ConsumerConfig.wrapWithBadRecordTranslation(delegate);
+
+    assertThrows(BadRecordException.class, () -> wrapped.deserialize("topic", new byte[0]));
   }
 }

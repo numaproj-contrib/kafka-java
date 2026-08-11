@@ -1,6 +1,7 @@
 package io.numaproj.kafka.encryption.aws;
 
 import io.numaproj.kafka.encryption.DekUnwrapper;
+import io.numaproj.kafka.encryption.PayloadDecryptionException;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.arns.Arn;
 import software.amazon.awssdk.core.SdkBytes;
@@ -9,6 +10,8 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.kms.KmsClient;
 import software.amazon.awssdk.services.kms.model.DecryptRequest;
 import software.amazon.awssdk.services.kms.model.DecryptResponse;
+import software.amazon.awssdk.services.kms.model.IncorrectKeyException;
+import software.amazon.awssdk.services.kms.model.InvalidCiphertextException;
 
 /**
  * {@link DekUnwrapper} backed by AWS KMS. Unwraps the DEK via {@code kms:Decrypt} with the
@@ -79,13 +82,21 @@ public class KmsDekUnwrapper implements DekUnwrapper {
 
   @Override
   public byte[] unwrap(byte[] wrappedDek) {
-    DecryptResponse response =
-        this.kms.decrypt(
-            DecryptRequest.builder()
-                .keyId(this.keyArn)
-                .ciphertextBlob(SdkBytes.fromByteArray(wrappedDek))
-                .build());
-    return response.plaintext().asByteArray();
+    try {
+      DecryptResponse response =
+          this.kms.decrypt(
+              DecryptRequest.builder()
+                  .keyId(this.keyArn)
+                  .ciphertextBlob(SdkBytes.fromByteArray(wrappedDek))
+                  .build());
+      return response.plaintext().asByteArray();
+    } catch (InvalidCiphertextException | IncorrectKeyException e) {
+      // Record-attributable: the wrapped DEK is corrupt, or was wrapped under a different key.
+      // Deliberately not translating ThrottlingException, AccessDeniedException,
+      // ExpiredTokenException, KmsInternalException or SdkClientException - those are environment
+      // failures, not the record's fault, and must classify as UNKNOWN.
+      throw new PayloadDecryptionException("Failed to unwrap the DEK via AWS KMS", e);
+    }
   }
 
   @Override
