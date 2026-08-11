@@ -88,12 +88,47 @@ built-in log sink.
 
 ### Failure behavior
 
-The source **fails fast** (logs a clear error and exits, so the pod restarts) on any unrecoverable
-condition: a malformed key ARN at startup; or, per message, a value that is not a valid envelope, an
-unsupported `alg`, a KMS `Decrypt` failure (including ciphertext wrapped under a different key), or an
-authentication-tag failure (tampering / wrong key). A poison or tampered message will therefore
-crash-loop the vertex until its offset is advanced or the message is removed. Plaintext keys and
-decrypted payloads are never logged.
+By default, the source **fails fast** (logs a clear error and exits, so the pod restarts) on any
+unrecoverable condition: a malformed key ARN at startup; or, per message, a value that is not a valid
+envelope, an unsupported `alg`, a KMS `Decrypt` failure (including ciphertext wrapped under a different
+key), or an authentication-tag failure (tampering / wrong key). A poison or tampered message will
+therefore crash-loop the vertex until its offset is advanced or the message is removed. Plaintext keys
+and decrypted payloads are never logged.
+
+#### `onError: skip`
+
+Setting `onError: skip` in `user.configuration` (source-only - the sink ignores it) changes this: a
+record that fails to be read is dropped and counted instead of crashing the vertex. A `WARN` log
+identifies the dropped record by `topic`/`partition`/`offset` only - never the record itself - and
+`kafka_java_source_read_errors_total{stage="decode", ..., action="skipped"}` is incremented. See
+[source metrics](../../metrics/source-metrics.md) for the full metric and an alerting query.
+
+The record is **lost** - there is no dead-letter queue yet (`BadRecordSink` is the seam a future one
+will use).
+
+Today, `skip` drops **every** decode failure, including one **not** attributable to the record's own
+bytes - for example a KMS throttle, an expired credential, or a Glue/Confluent schema-registry outage.
+This is deliberate for now: reliably distinguishing "this record's bytes are corrupt" from "the
+environment is unavailable" cannot be done cheaply across AWS SDK and schema-registry exception
+taxonomies (see the design notes in the source code). The failure is still classified as a metric
+label - `reason="bad_data"` vs. `reason="unknown"` - so the risk is measurable even though it is not
+yet gated:
+
+```promql
+increase(kafka_java_source_read_errors_total{reason="unknown"}[5m]) > 0
+```
+
+An alert firing on this query means records were dropped for a reason not attributable to their own
+bytes - most likely an incident (KMS or schema-registry outage, expired credentials) discarding good
+records rather than bad ones. A follow-up will retry or circuit-break such failures instead of skipping
+them.
+
+**Startup failures always fail fast**, regardless of `onError`: a malformed key ARN, for instance, is
+a configuration error, not a per-record one, and `onError` never applies to it.
+
+**Kafka authentication failures are not per-record either.** A `SaslAuthenticationException` (e.g. from
+MSK IAM auth) fails the consumer as a whole, not a single record, and correctly kills the vertex under
+any `onError` setting rather than being skipped.
 
 > **Producer responsibility — nonce uniqueness.** AES-256-GCM is only secure if the producer never
 > reuses a nonce under the same DEK. Reuse is catastrophic: it exposes the XOR of the affected

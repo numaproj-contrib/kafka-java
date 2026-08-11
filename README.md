@@ -32,6 +32,11 @@ example [here](docs/sink/json/json-sink.md).
 
 Use Case 6: Write data to Kafka with no schema. See an example [here](docs/sink/no-schema/no-schema-sink.md).
 
+### Metrics
+
+The source exposes Prometheus metrics over HTTP. See [source metrics](docs/metrics/source-metrics.md)
+for the metric list, scrape configuration, and recommended alerts.
+
 ## Upgrading from a Spring Boot version?
 
 If you are upgrading from a Spring Boot-based release, update the **image tag** and make the following changes to your

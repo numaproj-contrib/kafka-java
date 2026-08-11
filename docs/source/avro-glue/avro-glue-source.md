@@ -109,6 +109,15 @@ Once the pipeline is running you should see JSON-encoded Avro records in the sin
 Payload -  {"Name":"John","Age":30}
 ```
 
+### Handling records that fail to be read
+
+By default, a record that fails to be read (a malformed schema-registry frame, an undecodable Avro
+payload, ...) crashes the vertex. Setting `onError: skip` in `user.configuration` - a
+`user.configuration` key, not a `consumer.properties` one, and **source-only** (the sink ignores it) -
+drops such a record and counts it instead. See
+[failure behavior](../envelope-encryption/decrypting-source.md#failure-behavior) for the full
+semantics and the recommended alert.
+
 ### Assuming an IAM role
 
 If the pod's base credentials do not have direct Glue access, add `assumeRoleArn` to `consumer.properties`:

@@ -26,3 +26,6 @@ data:
   user.configuration: |
     topicName: numagen-avro
     schemaType: avro
+    # Optional: onError: fail (default) crashes the vertex on a record that fails to be read;
+    # skip drops it and counts it (kafka_java_source_read_errors_total). Source-only.
+    # onError: fail
