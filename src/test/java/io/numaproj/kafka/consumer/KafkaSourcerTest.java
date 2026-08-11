@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import io.numaproj.kafka.format.ByteArrayFormat;
+import io.numaproj.kafka.format.FormatException;
+import io.numaproj.kafka.format.KafkaFormat;
 import io.numaproj.numaflow.sourcer.*;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -81,6 +83,36 @@ class KafkaSourcerTest {
     doNothing().when(underTest).kill(any());
     underTest.read(readRequest(1), observer);
     verify(underTest).kill(any(RuntimeException.class));
+  }
+
+  @Test
+  void read_whenFormatFails_thenFailureMessageIdentifiesRecordByCoordinatesOnly()
+      throws Exception {
+    KafkaSourcer<byte[]> sourcer =
+        Mockito.spy(new KafkaSourcer<>(null, admin, failingFormat(), batchSize -> null));
+    Thread aliveThread = mock(Thread.class);
+    when(aliveThread.isAlive()).thenReturn(true);
+    sourcer.setWorker(worker, aliveThread);
+    ConsumerRecord<String, byte[]> sensitiveRecord =
+        new ConsumerRecord<>(TOPIC, 1, 42L, "key", "super-secret-value".getBytes());
+    when(worker.poll(anyLong())).thenReturn(List.of(sensitiveRecord));
+
+    RuntimeException thrown =
+        assertThrows(RuntimeException.class, () -> sourcer.read(readRequest(1), observer));
+
+    assertTrue(thrown.getMessage().contains("offset:42"));
+    assertFalse(thrown.getMessage().contains("ConsumerRecord"));
+    assertFalse(thrown.getMessage().contains("super-secret-value"));
+  }
+
+  private static KafkaFormat<byte[]> failingFormat() {
+    KafkaFormat<byte[]> format = mock(KafkaFormat.class);
+    try {
+      when(format.toPayload(any())).thenThrow(new FormatException("boom"));
+    } catch (FormatException e) {
+      throw new RuntimeException(e);
+    }
+    return format;
   }
 
   @Test

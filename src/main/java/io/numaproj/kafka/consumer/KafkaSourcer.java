@@ -135,9 +135,16 @@ public class KafkaSourcer<V> extends Sourcer {
     try {
       payload = format.toPayload(consumerRecord.value());
     } catch (FormatException e) {
-      String errMsg = "Failed to convert the record to a payload: " + consumerRecord;
-      log.error(errMsg, e);
-      throw new RuntimeException(errMsg, e);
+      // Identify the record by coordinates only - never render the record itself (its value may be
+      // a decrypted GenericRecord whose toString() is the plaintext payload).
+      throw new RuntimeException(
+          "Failed to convert the record to a payload: topic:"
+              + consumerRecord.topic()
+              + " partition:"
+              + consumerRecord.partition()
+              + " offset:"
+              + consumerRecord.offset(),
+          e);
     }
     return new Message(
         payload,
