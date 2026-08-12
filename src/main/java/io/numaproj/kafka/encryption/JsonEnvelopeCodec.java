@@ -60,7 +60,7 @@ public class JsonEnvelopeCodec implements EnvelopeCodec {
   }
 
   @Override
-  public byte[] serialize(Envelope envelope) {
+  public byte[] unparse(Envelope envelope) {
     // Standard base64 with padding, as the wire contract requires — not the URL-safe encoder.
     Base64.Encoder encoder = Base64.getEncoder();
     EnvelopeJson json =

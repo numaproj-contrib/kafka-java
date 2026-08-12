@@ -86,6 +86,46 @@ class KafkaSinkerTest {
   }
 
   @Test
+  void processMessages_nullValueIsRefusedAndNotProduced() {
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(null).build());
+
+    ResponseList result = underTest.processMessages(iterator);
+
+    Response response = result.getResponses().getFirst();
+    assertFalse(response.getSuccess());
+    assertTrue(response.getErr().contains("null or empty"));
+    // No tombstone is written on the pipeline's behalf.
+    verify(producer, never()).send(any(ProducerRecord.class));
+  }
+
+  @Test
+  void processMessages_emptyValueIsRefusedAndNotProduced() {
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(new byte[0]).build());
+
+    ResponseList result = underTest.processMessages(iterator);
+
+    Response response = result.getResponses().getFirst();
+    assertFalse(response.getSuccess());
+    assertTrue(response.getErr().contains("null or empty"));
+    verify(producer, never()).send(any(ProducerRecord.class));
+  }
+
+  @Test
+  void processMessages_refusedValueDoesNotAbandonTheRestOfTheBatch() {
+    producerSucceeds();
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(new byte[0]).build());
+    iterator.addDatum(
+        SinkerTestKit.TestDatum.builder().id("2").value("{\"name\":\"Kobe\"}".getBytes()).build());
+
+    ResponseList result = underTest.processMessages(iterator);
+
+    assertEquals(Map.of("1", false, "2", true), successById(result));
+  }
+
+  @Test
   void processMessages_whenSendFutureFails_thenResponseFails() {
     doReturn(CompletableFuture.failedFuture(new Exception("future error")))
         .when(producer)

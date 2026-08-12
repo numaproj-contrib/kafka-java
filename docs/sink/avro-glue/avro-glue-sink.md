@@ -8,9 +8,8 @@ a Confluent registry. Set `schema.registry.type=glue` in `producer.properties` a
 `com.amazonaws.services.schemaregistry.serializers.GlueSchemaRegistryKafkaSerializer` for the value;
 the key still uses `org.apache.kafka.common.serialization.StringSerializer`.
 
-The value is written in the Glue **binary wire format**: an 18-byte header (header version `0x03`,
-compression flag `0x05` for zlib, then the 16-byte schema-version UUID) followed by the Avro body,
-zlib-compressed.
+The value is written in the Glue **binary wire format**: an 18-byte header (header version `0x03`, a
+compression flag, then the 16-byte schema-version UUID) followed by the Avro body.
 
 As with the Confluent path, the incoming payload is expected to be JSON matching the schema; the sink
 decodes it into an Avro `GenericRecord` before the serializer frames it.
@@ -19,20 +18,29 @@ For the source-side equivalent, see [avro-glue-source](../../source/avro-glue/av
 
 ### Compression
 
-Two different compression settings are involved, and they must not be confused:
+**The Avro body is compressed with zlib by default.** You do not need to configure anything, and
+neither does the consumer — the frame records which compression was used.
 
-* **In-frame** `compression=ZLIB` — the Avro body is zlib-compressed (RFC 1950) and the frame's
-  compression flag byte is `0x05`. `kafka-java` applies this by default for the `glue` registry type.
-* **Kafka-level** `compression.type=none` — leave Kafka's own compression off. It is Kafka's default,
-  so nothing needs setting, but do not turn it on: compressing an already-compressed (and possibly
-  encrypted) payload buys nothing.
+To turn it off, set this in `producer.properties`:
+
+```properties
+compression=NONE
+```
+
+`ZLIB` (the default) and `NONE` are the only accepted values.
+
+> If you have used the AWS Glue serializer directly: its own default is *no* compression.
+> `kafka-java` defaults to `ZLIB` instead.
+
+Leave Kafka's own `compression.type` alone — it is `none` by default, and compressing an
+already-compressed (and possibly encrypted) payload buys nothing.
 
 ### Schema registration
 
-Schemas must **already exist** in the registry. `schemaAutoRegistrationEnabled` is set to `false` by
-default for the `glue` registry type, so a schema definition that is not registered fails rather than
-being created implicitly. The sink reads the registered definition at startup and the serializer
-resolves that same definition back to a schema-version id, so the two must match exactly.
+Schemas must **already exist** in the registry. `kafka-java` never registers a schema on your behalf
+— it disables auto-registration on every path, so a schema definition that is not registered fails
+rather than being created implicitly. The sink reads the registered definition at startup and the
+serializer resolves that same definition back to a schema-version id, so the two must match exactly.
 
 ### Configuration
 
@@ -41,13 +49,14 @@ resolves that same definition back to a schema-version id, so the two must match
 | `schema.registry.type` | Yes | `confluent` | Set to `glue` to use the Glue Schema Registry |
 | `region` | Yes | — | AWS region of the Glue registry (e.g. `us-east-1`) |
 | `registry.name` | No | `default-registry` | Name of the Glue registry |
-| `compression` | No | `ZLIB` | In-frame compression; `ZLIB` writes flag `0x05` |
-| `schemaAutoRegistrationEnabled` | No | `false` | Whether to auto-create schemas; leave `false` |
-| `avroRecordType` | No | `GENERIC_RECORD` | The sink hands the serializer a `GenericRecord` |
+| `compression` | No | `ZLIB` | Compression of the Avro body; set `NONE` to turn it off |
 | `assumeRoleArn` | No | — | IAM role ARN to assume before connecting to Glue (and KMS) |
 
 Of these, `schema.registry.type` is managed by kafka-java. All other properties are passed through
 directly to the Glue serializer.
+
+`dataFormat`, `avroRecordType` and `schemaAutoRegistrationEnabled` are **set by kafka-java** and not
+configurable — setting them in `producer.properties` has no effect.
 
 In `user.configuration`:
 

@@ -1,16 +1,20 @@
 package io.numaproj.kafka.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import io.numaproj.kafka.encryption.EncryptingSerializer;
 import io.numaproj.kafka.encryption.PayloadEncryptor;
 import io.numaproj.kafka.schema.ConfluentRegistry;
 import java.util.Objects;
+import java.util.Properties;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.Serializer;
 import lombok.extern.slf4j.Slf4j;
@@ -53,7 +57,7 @@ public class ProducerConfigTest {
 
   @Test
   public void schemaRegistryType_defaultsToConfluent() throws Exception {
-    assertEquals("confluent", underTest().schemaRegistryType());
+    assertFalse(underTest().isGlueSchemaRegistry());
   }
 
   @Test
@@ -67,7 +71,7 @@ public class ProducerConfigTest {
   public void glueRegistryType_avroProducerInitializeSuccess() throws Exception {
     // Constructing the Glue serializer makes no AWS call.
     ProducerConfig glueConfig = configFor("producer.properties.glue");
-    assertEquals("glue", glueConfig.schemaRegistryType());
+    assertTrue(glueConfig.isGlueSchemaRegistry());
     try (var producer = glueConfig.kafkaAvroProducer()) {
       assertNotNull(producer);
     }
@@ -86,6 +90,46 @@ public class ProducerConfigTest {
     ProducerConfig badConfig = configFor("producer.properties.encrypted.badarn");
     assertThrows(IllegalArgumentException.class, badConfig::kafkaAvroProducer);
     assertThrows(IllegalArgumentException.class, badConfig::kafkaByteArrayProducer);
+  }
+
+  @Test
+  public void applySerializerConfigs_overridesTheKeysKafkaJavaOwns() {
+    Properties props = new Properties();
+    // What a user might set, deliberately wrong for this sink.
+    props.setProperty(SerializationProps.AVRO_RECORD_TYPE, "SPECIFIC_RECORD");
+    props.setProperty(SerializationProps.DATA_FORMAT, "JSON");
+    props.setProperty(SerializationProps.GLUE_SCHEMA_AUTO_REGISTRATION, "true");
+    props.setProperty(SerializationProps.CONFLUENT_AUTO_REGISTER_SCHEMAS, "true");
+
+    ProducerConfig.applySerializerConfigs(props, true);
+
+    assertEquals("GENERIC_RECORD", props.getProperty(SerializationProps.AVRO_RECORD_TYPE));
+    assertEquals("AVRO", props.getProperty(SerializationProps.DATA_FORMAT));
+    assertEquals("false", props.getProperty(SerializationProps.GLUE_SCHEMA_AUTO_REGISTRATION));
+    assertEquals("false", props.getProperty(SerializationProps.CONFLUENT_AUTO_REGISTER_SCHEMAS));
+    // Compression is the user's to choose, so it is only defaulted.
+    assertEquals("ZLIB", props.getProperty(SerializationProps.COMPRESSION));
+  }
+
+  @Test
+  public void applySerializerConfigs_keepsTheConfiguredCompression() {
+    Properties props = new Properties();
+    props.setProperty(SerializationProps.COMPRESSION, "NONE");
+
+    ProducerConfig.applySerializerConfigs(props, true);
+
+    assertEquals("NONE", props.getProperty(SerializationProps.COMPRESSION));
+  }
+
+  @Test
+  public void applySerializerConfigs_confluentPathLeavesGlueKeysUnset() {
+    Properties props = new Properties();
+
+    ProducerConfig.applySerializerConfigs(props, false);
+
+    assertNull(props.getProperty(SerializationProps.COMPRESSION));
+    assertNull(props.getProperty(SerializationProps.AVRO_RECORD_TYPE));
+    assertEquals("false", props.getProperty(SerializationProps.CONFLUENT_AUTO_REGISTER_SCHEMAS));
   }
 
   @Test

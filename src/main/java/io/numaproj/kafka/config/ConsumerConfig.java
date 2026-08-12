@@ -32,10 +32,6 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.MAX_POLL_RECORDS_
 @Slf4j
 public class ConsumerConfig {
 
-  private static final String SCHEMA_REGISTRY_TYPE_KEY = "schema.registry.type";
-  private static final String SCHEMA_REGISTRY_TYPE_CONFLUENT = "confluent";
-  private static final String SCHEMA_REGISTRY_TYPE_GLUE = "glue";
-
   private final String consumerPropertiesFilePath;
 
   public ConsumerConfig(String consumerPropertiesFilePath) {
@@ -90,13 +86,19 @@ public class ConsumerConfig {
       throw new IllegalArgumentException("group.id is mandatory for Kafka consumer");
     }
 
-    String registryType =
-        props.getProperty(SCHEMA_REGISTRY_TYPE_KEY, SCHEMA_REGISTRY_TYPE_CONFLUENT);
-    log.info("Schema registry type: {}", registryType);
-    boolean useGlueSchemaRegistry = SCHEMA_REGISTRY_TYPE_GLUE.equalsIgnoreCase(registryType);
+    boolean useGlueSchemaRegistry =
+        SerializationProps.TYPE_GLUE.equalsIgnoreCase(
+            props.getProperty(
+                SerializationProps.SCHEMA_REGISTRY_TYPE, SerializationProps.TYPE_CONFLUENT));
+    log.info("Using the Glue schema registry: {}", useGlueSchemaRegistry);
     if (useGlueSchemaRegistry) {
-      // Glue defaults to SPECIFIC_RECORD; force GENERIC_RECORD unless the user overrides it
-      props.putIfAbsent("avroRecordType", "GENERIC_RECORD");
+      // Required, not merely defaulted: the Glue library supplies no avroRecordType of its own, and
+      // the deserializer needs one to choose a datum reader. GENERIC_RECORD is the only workable
+      // value here — SPECIFIC_RECORD needs generated classes, and the source forwards
+      // GenericRecords. Fixed, not user-configurable.
+      props.put(SerializationProps.AVRO_RECORD_TYPE, SerializationProps.AVRO_RECORD_TYPE_GENERIC);
+      // kafka-java never registers a schema — a consumer least of all.
+      props.put(SerializationProps.GLUE_SCHEMA_AUTO_REGISTRATION, "false");
     }
 
     // align max.poll.records with the Numaflow batch size so the consumer fetches
@@ -204,7 +206,7 @@ public class ConsumerConfig {
    * {@code payload.envelope.encryption.*} family.
    */
   private static void stripManagedProps(Properties props) {
-    props.remove(SCHEMA_REGISTRY_TYPE_KEY);
+    props.remove(SerializationProps.SCHEMA_REGISTRY_TYPE);
     props.keySet().removeIf(k -> k instanceof String s && s.startsWith(EncryptionProps.PREFIX));
   }
 

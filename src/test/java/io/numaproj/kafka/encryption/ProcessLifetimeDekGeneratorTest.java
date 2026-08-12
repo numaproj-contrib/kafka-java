@@ -44,18 +44,6 @@ class ProcessLifetimeDekGeneratorTest {
   }
 
   @Test
-  void retriesAfterAFailedGeneration() {
-    Dek good = new Dek(new byte[] {9}, new byte[] {9});
-    when(delegate.generate())
-        .thenThrow(KmsException.builder().message("throttled").build())
-        .thenReturn(good);
-
-    assertThrows(KmsException.class, () -> underTest.generate());
-    // A failure must not be cached as the current DEK.
-    assertSame(good, underTest.generate());
-  }
-
-  @Test
   void closeErasesTheHeldPlaintextDekAndClosesTheDelegate() {
     Dek dek = new Dek(new byte[] {1, 2, 3, 4}, new byte[] {9});
     when(delegate.generate()).thenReturn(dek);

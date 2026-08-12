@@ -7,10 +7,9 @@ encryption key (DEK) encrypts the payload with AES-256-GCM, and the DEK itself i
 key-management service. This source can transparently **decrypt the value before deserialization**, so
 a Numaflow MonoVertex or Pipeline can consume encrypted topics.
 
-Decryption is **independent of serialization** — it composes with any `schemaType` (`avro` with the
-Confluent or Glue registry, `json`, or `raw`). The decrypted bytes are handed to the normal
-deserializer for that `schemaType`, so the downstream output is identical to the equivalent
-non-encrypted topic.
+Decryption is **independent of serialization** — it works with any `schemaType`. The decrypted bytes
+are handed to the normal deserializer for that `schemaType`, so the downstream output is identical to
+the equivalent non-encrypted topic.
 
 The only key-management backend supported today is **AWS KMS**.
 
@@ -31,8 +30,8 @@ The Kafka message value is a JSON object:
 }
 ```
 
-After decryption, `ciphertext` yields the plaintext the configured `schemaType` expects (for Glue Avro,
-a Glue Schema Registry frame; for `raw`, the record bytes; and so on).
+After decryption, `ciphertext` yields the plaintext the configured `schemaType` expects — for
+`schemaType: raw`, the record bytes, forwarded as they are.
 
 ### Prerequisites
 
@@ -59,22 +58,26 @@ the Kafka client):
 | `payload.envelope.encryption.provider.aws-kms.key.arn` | Yes, to enable decryption | — | Full KMS key ARN. Its presence enables decryption; it is enforced as the `KeyId` on `Decrypt` (KMS rejects ciphertext wrapped under any other key). |
 | `payload.envelope.encryption.dek.cache.ttl.ms` | No | `3600000` (1 h) | How long a recovered plaintext DEK is cached in memory to avoid a `Decrypt` call per message. Provider-agnostic (applies regardless of key backend). |
 
-The existing `assumeRoleArn` property (if set) is reused for KMS as well as Glue — a **single assumed
-role** covers both, so it must carry `kms:Decrypt` (see IAM above) plus any `glue:*` permissions your
-`schemaType` needs. See
+The existing `assumeRoleArn` property, if set, is reused for KMS, so that role must carry
+`kms:Decrypt` (see IAM above). One role covers everything this source talks to, so if your
+`schemaType` also uses a schema registry, the same role needs those permissions as well. See
 [Assuming an IAM role](../avro-glue/avro-glue-source.md#assuming-an-iam-role) for the STS setup.
 
-Everything else — `schemaType`, `schema.registry.type`, Kafka connection, and credentials — is
-configured exactly as for a non-encrypted source.
+Everything else — `schemaType`, Kafka connection, and credentials — is configured exactly as for a
+non-encrypted source.
 
 ### Example
 
-This example reads from a Glue-Avro topic whose values are envelope-encrypted, and writes to the
-built-in log sink.
+This example reads a topic whose values are envelope-encrypted and writes to the built-in log sink.
+It uses `schemaType: raw` — bytes in, bytes out — so that decryption is the only thing it
+demonstrates.
+
+To decrypt Avro instead, add the registry configuration from the [Avro](../avro/avro-source.md) or
+[Glue Avro](../avro-glue/avro-glue-source.md) source docs. Nothing about the decryption setup changes.
 
 1. Create the AWS credentials secret (see
-   [credentials management](../../credentials-management/protecting-credentials.md)) — the same
-   `aws-creds` secret used for Glue works, provided its identity has `kms:Decrypt` on the key.
+   [credentials management](../../credentials-management/protecting-credentials.md)) — its identity
+   needs `kms:Decrypt` on the key.
 
 2. Deploy the ConfigMap and pipeline:
 
@@ -83,8 +86,8 @@ built-in log sink.
    kubectl apply -f manifests/encrypted-consumer-pipeline.yaml
    ```
 
-3. Once running, the sink logs show the decrypted, decoded records — identical to the non-encrypted
-   Glue-Avro example.
+3. Once running, the log sink shows the decrypted values — identical to what the
+   [encrypting sink](../../sink/envelope-encryption/encrypting-sink.md) produced.
 
 ### Failure behavior
 

@@ -26,10 +26,9 @@ data:
     schema.registry.type=glue
     region=us-east-1
     registry.name=[placeholder]
-    # Defaults applied by kafka-java for the glue registry type; shown for clarity.
+    # In-frame compression of the Avro body. ZLIB is what kafka-java applies when this is unset;
+    # set NONE to turn it off.
     # compression=ZLIB
-    # schemaAutoRegistrationEnabled=false
-    # avroRecordType=GENERIC_RECORD
 
     # Optional: assume an IAM role before connecting to Glue
     # assumeRoleArn=arn:aws:iam::123456789012:role/my-producer-role

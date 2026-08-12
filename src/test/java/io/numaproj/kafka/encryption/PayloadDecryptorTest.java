@@ -43,7 +43,7 @@ class PayloadDecryptorTest {
       }
 
       @Override
-      public byte[] serialize(Envelope e) {
+      public byte[] unparse(Envelope e) {
         throw new UnsupportedOperationException("not used by the decrypt path");
       }
     };

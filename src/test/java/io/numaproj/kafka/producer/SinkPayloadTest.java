@@ -74,6 +74,9 @@ class SinkPayloadTest {
   private static final byte[] PLAINTEXT_DEK = new byte[32];
   private static final byte[] WRAPPED_DEK = "wrapped-dek-from-kms".getBytes(StandardCharsets.UTF_8);
 
+  private static final String JSON_PAYLOAD =
+      "{\"Data\":{\"value\":1736439076729944818},\"Createdts\":1736439076729944818}";
+
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   static {
@@ -81,11 +84,11 @@ class SinkPayloadTest {
   }
 
   /** The real Glue serializer, pinned to a fixed schema-version id so it makes no registry call. */
-  private static Serializer<GenericRecord> glueSerializer() {
+  private static Serializer<GenericRecord> glueSerializer(String compression) {
     Map<String, Object> configs = new HashMap<>();
     configs.put("region", "us-east-1");
     configs.put("dataFormat", "AVRO");
-    configs.put("compression", "ZLIB");
+    configs.put("compression", compression);
     configs.put("avroRecordType", "GENERIC_RECORD");
     configs.put("schemaAutoRegistrationEnabled", "false");
 
@@ -97,6 +100,20 @@ class SinkPayloadTest {
     return typed;
   }
 
+  private static Schema schema() {
+    return new Schema.Parser().parse(SCHEMA_JSON);
+  }
+
+  /** The record the pipeline is sinking, and the JSON payload form the sink accepts for it. */
+  private static GenericRecord expectedRecord(Schema schema) {
+    GenericRecord data = new GenericData.Record(schema.getField("Data").schema());
+    data.put("value", 1736439076729944818L);
+    GenericRecord record = new GenericData.Record(schema);
+    record.put("Data", data);
+    record.put("Createdts", 1736439076729944818L);
+    return record;
+  }
+
   private static PayloadEncryptor encryptor() {
     DekGenerator generator = mock(DekGenerator.class);
     when(generator.generate()).thenReturn(new Dek(PLAINTEXT_DEK, WRAPPED_DEK));
@@ -105,15 +122,10 @@ class SinkPayloadTest {
 
   @Test
   void sinkProducesAnEncryptedGlueFramedAvroPayload() throws Exception {
-    Schema schema = new Schema.Parser().parse(SCHEMA_JSON);
+    Schema schema = schema();
 
     // 1. The generic record the pipeline is sinking, and the JSON payload form the sink accepts.
-    GenericRecord data = new GenericData.Record(schema.getField("Data").schema());
-    data.put("value", 1736439076729944818L);
-    GenericRecord record = new GenericData.Record(schema);
-    record.put("Data", data);
-    record.put("Createdts", 1736439076729944818L);
-    String jsonPayload = "{\"Data\":{\"value\":1736439076729944818},\"Createdts\":1736439076729944818}";
+    GenericRecord record = expectedRecord(schema);
 
     // 2. A sink whose value serializer is encrypt(glueFrame(record)).
     UserConfig userConfig = mock(UserConfig.class);
@@ -121,7 +133,7 @@ class SinkPayloadTest {
     @SuppressWarnings("unchecked")
     KafkaProducer<String, GenericRecord> producer = mock(KafkaProducer.class);
     Serializer<GenericRecord> valueSerializer =
-        new EncryptingSerializer<>(glueSerializer(), encryptor());
+        new EncryptingSerializer<>(glueSerializer("ZLIB"), encryptor());
 
     ArgumentCaptor<ProducerRecord<String, GenericRecord>> captor =
         ArgumentCaptor.forClass(ProducerRecord.class);
@@ -135,7 +147,7 @@ class SinkPayloadTest {
 
     SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
     iterator.addDatum(
-        SinkerTestKit.TestDatum.builder().id("1").value(jsonPayload.getBytes(StandardCharsets.UTF_8)).build());
+        SinkerTestKit.TestDatum.builder().id("1").value(JSON_PAYLOAD.getBytes(StandardCharsets.UTF_8)).build());
 
     // 3. Run the sink.
     ResponseList responses = sinker.processMessages(iterator);
@@ -187,6 +199,43 @@ class SinkPayloadTest {
     Files.write(out, wireValue);
     System.out.println("wrote " + out.toAbsolutePath());
     System.out.println("frame head: " + hex(frame, 24));
+
+    valueSerializer.close();
+  }
+
+  /**
+   * {@code compression=NONE} turns in-frame compression off end to end: the frame's compression flag
+   * is {@code 0x00} and the body is plain Avro, not zlib. The counterpart of the {@code ZLIB} case
+   * above — together they pin that in-frame compression is the user's to choose, and that whichever
+   * they choose is recorded in the frame for the consumer to act on.
+   */
+  @Test
+  void compressionNoneProducesAnUncompressedFrame() throws Exception {
+    Schema schema = schema();
+    Serializer<GenericRecord> valueSerializer =
+        new EncryptingSerializer<>(glueSerializer("NONE"), encryptor());
+
+    GenericRecord record =
+        AvroFormat.forSink(schema).toRecord(JSON_PAYLOAD.getBytes(StandardCharsets.UTF_8));
+    byte[] wireValue = valueSerializer.serialize(TOPIC, record);
+
+    JsonNode envelope = MAPPER.readTree(wireValue);
+    byte[] frame =
+        decrypt(
+            PLAINTEXT_DEK,
+            Base64.getDecoder().decode(envelope.get("nonce").asText()),
+            Base64.getDecoder().decode(envelope.get("ciphertext").asText()));
+
+    assertEquals(0x03, frame[0] & 0xFF, "header version byte");
+    assertEquals(0x00, frame[1] & 0xFF, "compression flag must be none");
+
+    // The body is plain Avro: it decodes straight from byte 18 with no inflate step.
+    byte[] avroBody = new byte[frame.length - 18];
+    System.arraycopy(frame, 18, avroBody, 0, avroBody.length);
+    GenericRecord decoded =
+        new GenericDatumReader<GenericRecord>(schema)
+            .read(null, DecoderFactory.get().binaryDecoder(avroBody, null));
+    assertEquals(expectedRecord(schema), decoded, "round-trips back to the original record");
 
     valueSerializer.close();
   }

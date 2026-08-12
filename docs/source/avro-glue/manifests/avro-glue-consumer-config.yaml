@@ -25,8 +25,6 @@ data:
     region=us-east-1
     # Name of the Glue registry (defaults to "default-registry" if omitted)
     registry.name=[placeholder]
-    # Disable auto-registration; schemas must already exist in Glue
-    schemaAutoRegistrationEnabled=false
 
     # Optional: assume an IAM role before connecting to Glue
     # assumeRoleArn=arn:aws:iam::123456789012:role/my-consumer-role

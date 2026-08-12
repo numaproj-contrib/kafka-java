@@ -1,15 +1,11 @@
 package io.numaproj.kafka.encryption;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import org.apache.kafka.common.serialization.Serializer;
@@ -42,22 +38,6 @@ class EncryptingSerializerTest {
     InOrder inOrder = inOrder(delegate, encryptor);
     inOrder.verify(delegate).serialize(TOPIC, "record");
     inOrder.verify(encryptor).encrypt(SERIALIZED);
-  }
-
-  @Test
-  void passesThroughNullSerialization() {
-    when(delegate.serialize(eq(TOPIC), any())).thenReturn(null);
-
-    assertNull(underTest().serialize(TOPIC, "record"));
-    verifyNoInteractions(encryptor);
-  }
-
-  @Test
-  void passesThroughEmptySerialization() {
-    when(delegate.serialize(eq(TOPIC), any())).thenReturn(new byte[0]);
-
-    assertArrayEquals(new byte[0], underTest().serialize(TOPIC, "record"));
-    verifyNoInteractions(encryptor);
   }
 
   @Test

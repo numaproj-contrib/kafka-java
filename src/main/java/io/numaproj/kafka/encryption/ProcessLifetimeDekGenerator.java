@@ -8,8 +8,8 @@ import java.util.Arrays;
  * since every message carries its own wrapped DEK.
  *
  * <p>A decorator over any {@link DekGenerator}, so key reuse is backend-agnostic. Generation is
- * serialized so a burst of concurrent first messages produces one key, not one per thread. A failed
- * generation is not cached; the next message retries.
+ * serialized so a burst of concurrent first messages produces one key, not one per thread. There is
+ * no retry here: a failed generation fails that message, which Numaflow redelivers.
  *
  * <p>The plaintext is erased (zero-filled) on {@link #close()}, which runs only after the sinker has
  * terminated — so no encryption can still be using the key. It must never be logged.

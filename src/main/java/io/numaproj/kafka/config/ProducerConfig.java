@@ -6,6 +6,7 @@ import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.numaproj.kafka.common.EnvVarInterpolator;
+import io.numaproj.kafka.common.aws.AwsCredentials;
 import io.numaproj.kafka.encryption.EncryptingSerializer;
 import io.numaproj.kafka.encryption.EncryptionProps;
 import io.numaproj.kafka.encryption.EnvelopeEncryptionFactory;
@@ -30,15 +31,6 @@ import org.apache.kafka.common.serialization.StringSerializer;
 /** Factory for Kafka producer clients and schema registry */
 @Slf4j
 public class ProducerConfig {
-
-  private static final String SCHEMA_REGISTRY_TYPE_KEY = "schema.registry.type";
-  private static final String SCHEMA_REGISTRY_TYPE_CONFLUENT = "confluent";
-  private static final String SCHEMA_REGISTRY_TYPE_GLUE = "glue";
-
-  private static final String REGION_KEY = "region";
-  private static final String REGISTRY_NAME_KEY = "registry.name";
-  private static final String DEFAULT_REGISTRY_NAME = "default-registry";
-  private static final String ASSUME_ROLE_ARN_KEY = "assumeRoleArn";
 
   private final String producerPropertiesFilePath;
 
@@ -65,16 +57,18 @@ public class ProducerConfig {
   }
 
   /**
-   * The configured schema registry type, {@code confluent} by default. Read by the application so it
-   * can pick the matching {@link Registry} without opening the properties file itself.
+   * Whether the configured {@code schema.registry.type} is Glue ({@code confluent} by default). Read
+   * by the application so it can pick the matching {@link Registry} without opening the properties
+   * file itself.
    */
-  public String schemaRegistryType() throws IOException {
-    return loadProps().getProperty(SCHEMA_REGISTRY_TYPE_KEY, SCHEMA_REGISTRY_TYPE_CONFLUENT);
+  public boolean isGlueSchemaRegistry() throws IOException {
+    return isGlueSchemaRegistry(loadProps());
   }
 
-  /** Returns true when the configured schema registry type is Glue. */
-  public boolean isGlueSchemaRegistry() throws IOException {
-    return SCHEMA_REGISTRY_TYPE_GLUE.equalsIgnoreCase(schemaRegistryType());
+  private static boolean isGlueSchemaRegistry(Properties props) {
+    return SerializationProps.TYPE_GLUE.equalsIgnoreCase(
+        props.getProperty(
+            SerializationProps.SCHEMA_REGISTRY_TYPE, SerializationProps.TYPE_CONFLUENT));
   }
 
   // Kafka producer client to publish raw data in byte array format to Kafka
@@ -84,8 +78,9 @@ public class ProducerConfig {
         "Instantiating the Kafka byte array producer from the producer properties file path: {}",
         this.producerPropertiesFilePath);
     Properties props = loadProps();
-    // never register schemas on behalf of the user
-    props.put("auto.register.schemas", "false");
+    // No Glue framing on this path, whatever schema.registry.type says: json and raw values are
+    // produced as bytes. The call is still made, for the auto-registration guarantee it carries.
+    applySerializerConfigs(props, false);
     return buildProducer(props, new ByteArraySerializer());
   }
 
@@ -96,22 +91,9 @@ public class ProducerConfig {
         this.producerPropertiesFilePath);
     Properties props = loadProps();
 
-    String registryType =
-        props.getProperty(SCHEMA_REGISTRY_TYPE_KEY, SCHEMA_REGISTRY_TYPE_CONFLUENT);
-    log.info("Schema registry type: {}", registryType);
-    boolean useGlueSchemaRegistry = SCHEMA_REGISTRY_TYPE_GLUE.equalsIgnoreCase(registryType);
-    if (useGlueSchemaRegistry) {
-      // The Data Platform wire format is zlib-compressed Avro in a Glue frame; the serializer writes
-      // compression flag 0x05 for ZLIB. Defaults only — an operator can still override them.
-      props.putIfAbsent("dataFormat", "AVRO");
-      props.putIfAbsent("compression", "ZLIB");
-      // Glue defaults to SPECIFIC_RECORD; the sink hands it a GenericRecord.
-      props.putIfAbsent("avroRecordType", "GENERIC_RECORD");
-    }
-    // never register schemas on behalf of the user; a schema that is not already registered must
-    // fail rather than be created implicitly (Confluent and Glue spell this differently)
-    props.put("auto.register.schemas", "false");
-    props.putIfAbsent("schemaAutoRegistrationEnabled", "false");
+    boolean useGlueSchemaRegistry = isGlueSchemaRegistry(props);
+    log.info("Using the Glue schema registry: {}", useGlueSchemaRegistry);
+    applySerializerConfigs(props, useGlueSchemaRegistry);
 
     Serializer<Object> avroSerializer =
         useGlueSchemaRegistry ? new GlueSchemaRegistryKafkaSerializer() : new KafkaAvroSerializer();
@@ -119,6 +101,34 @@ public class ProducerConfig {
     Serializer<GenericRecord> valueSerializer =
         (Serializer<GenericRecord>) (Serializer<?>) avroSerializer;
     return buildProducer(props, valueSerializer);
+  }
+
+  /**
+   * Settle the serializer configs kafka-java owns, on every producer path. {@code put}, not {@code
+   * putIfAbsent}, for everything except {@code compression}: those keys are fixed rather than
+   * defaulted, so a value in the properties file cannot break the contract the sink relies on — the
+   * serializer is handed a {@code GenericRecord}, and no schema is ever registered on the user's
+   * behalf. In-frame compression is the one the user does own; kafka-java only defaults it.
+   *
+   * <p>kafka-java is a connector: it reads schemas, it never creates them. Auto-registration is
+   * therefore disabled unconditionally rather than only for the Avro paths — a schema definition
+   * that is not already in the registry must fail, not be created implicitly.
+   */
+  @VisibleForTesting
+  static void applySerializerConfigs(Properties props, boolean useGlueSchemaRegistry) {
+    if (useGlueSchemaRegistry) {
+      props.put(SerializationProps.DATA_FORMAT, SerializationProps.DATA_FORMAT_AVRO);
+      // The Glue serializer never reads avroRecordType — it picks the datum writer from the object
+      // it is handed, which here is always a GenericRecord. Pinned anyway because the Glue config
+      // object still parses the value with AvroRecordType.valueOf, so a stray or misspelled one
+      // would fail sink startup over a setting the sink does not use.
+      props.put(SerializationProps.AVRO_RECORD_TYPE, SerializationProps.AVRO_RECORD_TYPE_GENERIC);
+      // ZLIB writes frame compression flag 0x05; the Glue serializer's own default is NONE.
+      props.putIfAbsent(SerializationProps.COMPRESSION, SerializationProps.COMPRESSION_ZLIB);
+    }
+    // Confluent and Glue spell auto-registration differently; disable both.
+    props.put(SerializationProps.CONFLUENT_AUTO_REGISTER_SCHEMAS, "false");
+    props.put(SerializationProps.GLUE_SCHEMA_AUTO_REGISTRATION, "false");
   }
 
   private <T> KafkaProducer<String, T> buildProducer(Properties props, Serializer<T> rawValueSerializer) {
@@ -154,13 +164,12 @@ public class ProducerConfig {
    */
   public Registry schemaRegistry() throws IOException {
     Properties props = loadProps();
-    String registryType =
-        props.getProperty(SCHEMA_REGISTRY_TYPE_KEY, SCHEMA_REGISTRY_TYPE_CONFLUENT);
-    if (SCHEMA_REGISTRY_TYPE_GLUE.equalsIgnoreCase(registryType)) {
+    if (isGlueSchemaRegistry(props)) {
       return GlueRegistry.create(
-          props.getProperty(REGION_KEY),
-          props.getProperty(REGISTRY_NAME_KEY, DEFAULT_REGISTRY_NAME),
-          props.getProperty(ASSUME_ROLE_ARN_KEY));
+          props.getProperty(SerializationProps.REGION),
+          props.getProperty(
+              SerializationProps.REGISTRY_NAME, SerializationProps.DEFAULT_REGISTRY_NAME),
+          props.getProperty(AwsCredentials.ASSUME_ROLE_ARN));
     }
     return new ConfluentRegistry(schemaRegistryClient());
   }
@@ -183,16 +192,16 @@ public class ProducerConfig {
    * leaving them in would only make the producer log "supplied but isn't a known config" warnings.
    */
   private static void stripManagedProps(Properties props) {
-    props.remove(SCHEMA_REGISTRY_TYPE_KEY);
+    props.remove(SerializationProps.SCHEMA_REGISTRY_TYPE);
     props.keySet().removeIf(k -> k instanceof String s && s.startsWith(EncryptionProps.PREFIX));
-    props.remove(REGION_KEY);
-    props.remove(REGISTRY_NAME_KEY);
-    props.remove(ASSUME_ROLE_ARN_KEY);
-    props.remove("dataFormat");
-    props.remove("compression");
-    props.remove("avroRecordType");
-    props.remove("schemaAutoRegistrationEnabled");
-    props.remove("auto.register.schemas");
+    props.remove(SerializationProps.REGION);
+    props.remove(SerializationProps.REGISTRY_NAME);
+    props.remove(AwsCredentials.ASSUME_ROLE_ARN);
+    props.remove(SerializationProps.DATA_FORMAT);
+    props.remove(SerializationProps.COMPRESSION);
+    props.remove(SerializationProps.AVRO_RECORD_TYPE);
+    props.remove(SerializationProps.GLUE_SCHEMA_AUTO_REGISTRATION);
+    props.remove(SerializationProps.CONFLUENT_AUTO_REGISTER_SCHEMAS);
   }
 
   /**

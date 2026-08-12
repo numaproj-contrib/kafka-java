@@ -7,7 +7,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * Orchestrates encryption: {@code generator.generate → AEAD encrypt → codec.serialize}. The inverse
+ * Orchestrates encryption: {@code generator.generate → AEAD encrypt → codec.unparse}. The inverse
  * of {@link PayloadDecryptor}; the only supported algorithm is {@code AES-256-GCM}.
  *
  * <p>A fresh 12-byte nonce is drawn for every message from a single long-lived {@link SecureRandom}.
@@ -59,7 +59,7 @@ public class PayloadEncryptor {
       // Do not include the plaintext payload or the DEK in the message.
       throw new PayloadEncryptionException("AEAD encryption failed", e);
     }
-    return codec.serialize(new Envelope(ENVELOPE_VERSION, ALG, dek.wrapped(), nonce, ciphertext));
+    return codec.unparse(new Envelope(ENVELOPE_VERSION, ALG, dek.wrapped(), nonce, ciphertext));
   }
 
   public void close() {

@@ -17,6 +17,9 @@ public interface EnvelopeCodec {
   /**
    * Render an {@link Envelope} as the Kafka message value. The inverse of {@link #parse(byte[])}: what
    * this writes must be readable by a consumer using the same codec.
+   *
+   * <p>Named {@code unparse} rather than {@code serialize} to keep it distinct from the Avro/Kafka
+   * value serialization the envelope wraps — this writes the envelope only.
    */
-  byte[] serialize(Envelope envelope);
+  byte[] unparse(Envelope envelope);
 }

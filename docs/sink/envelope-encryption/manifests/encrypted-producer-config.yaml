@@ -19,29 +19,16 @@ data:
     # Other configurations
     retries=0
 
-    # Kafka-level compression must stay off: the only compression is the in-frame zlib below.
-    compression.type=none
-
-    # Use AWS Glue Schema Registry, and frame the record as zlib-compressed Avro
-    schema.registry.type=glue
-    region=us-east-1
-    registry.name=[placeholder]
-    # compression=ZLIB and schemaAutoRegistrationEnabled=false are the defaults kafka-java applies
-    # for the glue registry type; set them explicitly only to document intent.
-    # compression=ZLIB
-    # schemaAutoRegistrationEnabled=false
-
     # Enable payload envelope encryption: set the KMS key ARN (its presence turns encryption on).
     # A full key ARN is required; a bare alias is rejected, because the region is derived from the key.
     payload.envelope.encryption.provider.aws-kms.key.arn=arn:aws:kms:us-east-1:123456789012:key/[placeholder]
     # One DEK is generated on first use and reused for the process lifetime; restart to rotate.
 
-    # Optional: assume a single IAM role before connecting to KMS and Glue
-    # (the role must carry kms:GenerateDataKey plus the glue: permissions below)
+    # Optional: assume an IAM role before connecting to KMS
+    # (the role must carry kms:GenerateDataKey on the key above)
     # assumeRoleArn=arn:aws:iam::123456789012:role/my-producer-role
   user.configuration: |
     topicName: [placeholder]
-    schemaType: avro
-    # schemaSubject is the Glue schema name; schemaVersion is its version number.
-    schemaSubject: [placeholder]
-    schemaVersion: 1
+    # raw: the sink produces the bytes it receives, with no serialization step. Encryption is
+    # configured the same way for any other schemaType.
+    schemaType: raw

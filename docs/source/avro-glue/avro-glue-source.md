@@ -18,7 +18,7 @@ Current limitations:
 ### Prerequisites
 
 1. An AWS Glue registry and schema already created. The schema must be registered by the producer before
-   the consumer starts — `schemaAutoRegistrationEnabled=false` is the recommended setting for consumers.
+   the consumer starts — kafka-java never registers a schema on your behalf.
 
 2. AWS credentials available to the pod with at least the following IAM permissions:
    ```json
@@ -78,13 +78,15 @@ Glue-specific properties:
 | `schema.registry.type` | Yes | `confluent` | Set to `glue` to enable Glue Schema Registry |
 | `region` | Yes | — | AWS region of the Glue registry (e.g. `us-east-1`) |
 | `registry.name` | No | `default-registry` | Name of the Glue registry |
-| `schemaAutoRegistrationEnabled` | No | `false` | Whether to auto-create schemas; leave `false` for consumers |
 | `assumeRoleArn` | No | — | IAM role ARN to assume before connecting to Glue (see below) |
 | `cacheSize` | No | `200` | Max number of schema versions to cache in memory |
 | `timeToLiveMillis` | No | `86400000` | Schema cache TTL in milliseconds (default 24 h) |
 
 Of these, `schema.registry.type` is managed by kafka-java. All other properties are passed through directly to the
 Glue deserializer.
+
+`avroRecordType` and `schemaAutoRegistrationEnabled` are **set by kafka-java** and not configurable —
+setting them in `consumer.properties` has no effect.
 
 Deploy the ConfigMap:
 

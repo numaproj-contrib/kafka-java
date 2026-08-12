@@ -7,9 +7,9 @@ encryption key (DEK) encrypts the payload with AES-256-GCM, and the DEK itself i
 key-management service. A consumer recovers the DEK from that service and decrypts the payload — the
 [decrypting source](../../source/envelope-encryption/decrypting-source.md) is the counterpart.
 
-Encryption is **independent of serialization** — it composes with any `schemaType` (`avro` with the
-Confluent or Glue registry, `json`, or `raw`). Whatever the value serializer produced is encrypted
-as-is, so encryption is always the **final** step before producing.
+Encryption is **independent of serialization** — it works with any `schemaType`. Whatever the sink
+would otherwise have put on the wire is encrypted as-is, so encryption is always the **final** step
+before producing.
 
 The only key-management backend supported today is **AWS KMS**.
 
@@ -30,9 +30,9 @@ The Kafka message value is a JSON object:
 }
 ```
 
-`ciphertext` is the encryption of whatever the configured `schemaType` produced (for Glue Avro, a Glue
-Schema Registry frame; for `raw`, the record bytes; and so on). Base64 is standard with padding, and
-all fields are in the message value — Kafka headers are not used.
+`ciphertext` is the encryption of whatever the configured `schemaType` produced — for `schemaType:
+raw`, the record bytes exactly as they arrived. Base64 is standard with padding, and all fields are in
+the message value; Kafka headers are not used.
 
 ### Prerequisites
 
@@ -57,12 +57,12 @@ the Kafka client):
 |---|---|---|---|
 | `payload.envelope.encryption.provider.aws-kms.key.arn` | Yes, to enable encryption | — | Full KMS key ARN. Its presence enables encryption, and the region is derived from it. A bare alias is **not** accepted — resolve it to a key ARN first. |
 
-The existing `assumeRoleArn` property (if set) is reused for KMS as well as Glue — a **single assumed
-role** covers both, so it must carry `kms:GenerateDataKey` plus any `glue:*` permissions your
-`schemaType` needs.
+The existing `assumeRoleArn` property, if set, is reused for KMS, so that role must carry
+`kms:GenerateDataKey`. One role covers everything this sink talks to, so if your `schemaType` also
+uses a schema registry, the same role needs those permissions as well.
 
-Everything else — `schemaType`, `schema.registry.type`, Kafka connection, and credentials — is
-configured exactly as for a non-encrypted sink.
+Everything else — `schemaType`, Kafka connection, and credentials — is configured exactly as for a
+non-encrypted sink.
 
 ### DEK rotation
 
@@ -104,11 +104,15 @@ Plaintext keys and payloads are never logged. The DEK's plaintext is erased from
 
 ### Example
 
-This example generates records, frames them as Glue Avro, encrypts them, and produces them to a topic.
+This example generates records, encrypts them, and produces them to a topic. It uses `schemaType:
+raw` — bytes in, bytes out — so that encryption is the only thing it demonstrates.
+
+To encrypt Avro instead, add the registry configuration from the [Avro](../avro/avro-sink.md) or
+[Glue Avro](../avro-glue/avro-glue-sink.md) sink docs. Nothing about the encryption setup changes.
 
 1. Create the AWS credentials secret (see
-   [credentials management](../../credentials-management/protecting-credentials.md)) — the same
-   `aws-creds` secret used for Glue works, provided its identity has `kms:GenerateDataKey` on the key.
+   [credentials management](../../credentials-management/protecting-credentials.md)) — its identity
+   needs `kms:GenerateDataKey` on the key.
 
 2. Deploy the ConfigMap and pipeline:
 
@@ -119,4 +123,4 @@ This example generates records, frames them as Glue Avro, encrypts them, and pro
 
 3. Consume the topic with the
    [decrypting source](../../source/envelope-encryption/decrypting-source.md) configured against the
-   same key, and the records come back out identical to what was sunk.
+   same key and `schemaType: raw`, and the records come back out identical to what was sunk.

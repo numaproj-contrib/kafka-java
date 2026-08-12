@@ -9,6 +9,10 @@ In `kafka-java`, if no schema information is provided, by default, the producer 
 `org.apache.kafka.common.serialization.StringSerializer` to serialize the key. For the value,
 `org.apache.kafka.common.serialization.ByteArraySerializer`.
 
+The sink does not produce null or empty values: a message whose payload is empty is failed rather
+than written, on any `schemaType`. Writing a tombstone is a decision for whoever owns the topic, not
+something this sink does on a pipeline's behalf.
+
 ### Example
 
 In this example, we create a pipeline that reads from the

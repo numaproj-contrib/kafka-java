@@ -18,8 +18,5 @@ public final class EncryptionProps {
   /** Source: how long a recovered plaintext DEK is cached. */
   public static final String DEK_CACHE_TTL_MS = PREFIX + "dek.cache.ttl.ms";
 
-  /** Existing key reused for KMS as well as Glue. */
-  public static final String ASSUME_ROLE_ARN = "assumeRoleArn";
-
   private EncryptionProps() {}
 }
