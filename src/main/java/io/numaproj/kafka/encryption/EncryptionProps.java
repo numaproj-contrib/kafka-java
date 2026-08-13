@@ -18,5 +18,12 @@ public final class EncryptionProps {
   /** Source: how long a recovered plaintext DEK is cached. */
   public static final String DEK_CACHE_TTL_MS = PREFIX + "dek.cache.ttl.ms";
 
+  /**
+   * IAM role assumed before building any AWS client. Not encryption-specific and not prefixed: one
+   * role covers KMS and the Glue schema registry alike, and it is declared here because this is the
+   * key holder both the config and the encryption packages can see.
+   */
+  public static final String ASSUME_ROLE_ARN = "assumeRoleArn";
+
   private EncryptionProps() {}
 }

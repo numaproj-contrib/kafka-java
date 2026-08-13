@@ -6,7 +6,6 @@ import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.numaproj.kafka.common.EnvVarInterpolator;
-import io.numaproj.kafka.common.aws.AwsCredentials;
 import io.numaproj.kafka.encryption.EncryptingSerializer;
 import io.numaproj.kafka.encryption.EncryptionProps;
 import io.numaproj.kafka.encryption.EnvelopeEncryptionFactory;
@@ -169,7 +168,7 @@ public class ProducerConfig {
           props.getProperty(SerializationProps.REGION),
           props.getProperty(
               SerializationProps.REGISTRY_NAME, SerializationProps.DEFAULT_REGISTRY_NAME),
-          props.getProperty(AwsCredentials.ASSUME_ROLE_ARN));
+          props.getProperty(EncryptionProps.ASSUME_ROLE_ARN));
     }
     return new ConfluentRegistry(schemaRegistryClient());
   }
@@ -196,7 +195,7 @@ public class ProducerConfig {
     props.keySet().removeIf(k -> k instanceof String s && s.startsWith(EncryptionProps.PREFIX));
     props.remove(SerializationProps.REGION);
     props.remove(SerializationProps.REGISTRY_NAME);
-    props.remove(AwsCredentials.ASSUME_ROLE_ARN);
+    props.remove(EncryptionProps.ASSUME_ROLE_ARN);
     props.remove(SerializationProps.DATA_FORMAT);
     props.remove(SerializationProps.COMPRESSION);
     props.remove(SerializationProps.AVRO_RECORD_TYPE);

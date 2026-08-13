@@ -23,12 +23,6 @@ import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 @Slf4j
 public class AwsCredentials implements AutoCloseable {
 
-  /**
-   * The property that names the role to assume. Defined here, not next to the serialization or the
-   * encryption keys, because a single role covers every AWS client this connector builds.
-   */
-  public static final String ASSUME_ROLE_ARN = "assumeRoleArn";
-
   private static final String SESSION_NAME = "kafka-java";
 
   private final AwsCredentialsProvider credentials; // null => SDK default chain
