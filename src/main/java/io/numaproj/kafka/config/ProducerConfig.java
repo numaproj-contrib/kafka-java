@@ -5,18 +5,14 @@ import com.google.common.annotations.VisibleForTesting;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
-import io.numaproj.kafka.common.EnvVarInterpolator;
+import io.numaproj.kafka.common.aws.AwsCredentials;
 import io.numaproj.kafka.encryption.EncryptingSerializer;
-import io.numaproj.kafka.encryption.EncryptionProps;
 import io.numaproj.kafka.encryption.EnvelopeEncryptionFactory;
 import io.numaproj.kafka.encryption.PayloadEncryptor;
 import io.numaproj.kafka.schema.ConfluentRegistry;
 import io.numaproj.kafka.schema.GlueRegistry;
 import io.numaproj.kafka.schema.Registry;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringReader;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -33,26 +29,15 @@ public class ProducerConfig {
 
   private final String producerPropertiesFilePath;
 
-  // Loaded once; loadProps() hands out copies because callers mutate what they get.
-  private Properties cachedProps;
+  private final ClientProps clientProps;
 
   public ProducerConfig(String producerPropertiesFilePath) {
     this.producerPropertiesFilePath = producerPropertiesFilePath;
+    this.clientProps = new ClientProps(producerPropertiesFilePath);
   }
 
-  private synchronized Properties loadProps() throws IOException {
-    if (cachedProps == null) {
-      Properties props = new Properties();
-      try (InputStream is = new FileInputStream(this.producerPropertiesFilePath)) {
-        props.load(is);
-      }
-      EnvVarInterpolator.interpolate(props);
-      loadCredentialProperties(props);
-      cachedProps = props;
-    }
-    Properties copy = new Properties();
-    copy.putAll(cachedProps);
-    return copy;
+  private Properties loadProps() throws IOException {
+    return clientProps.load();
   }
 
   /**
@@ -129,7 +114,7 @@ public class ProducerConfig {
 
   private <T> KafkaProducer<String, T> buildProducer(Properties props, Serializer<T> rawValueSerializer) {
     PayloadEncryptor encryptor = EnvelopeEncryptionFactory.fromProps(props);
-    Map<String, Object> configs = toSerializerConfigs(props);
+    Map<String, Object> configs = ClientProps.toConfigMap(props);
     rawValueSerializer.configure(configs, false);
     StringSerializer keySerializer = new StringSerializer();
     keySerializer.configure(configs, true);
@@ -165,34 +150,21 @@ public class ProducerConfig {
           props.getProperty(SerializationProps.REGION),
           props.getProperty(
               SerializationProps.REGISTRY_NAME, SerializationProps.DEFAULT_REGISTRY_NAME),
-          props.getProperty(EncryptionProps.ASSUME_ROLE_ARN));
+          props.getProperty(AwsCredentials.ASSUME_ROLE_ARN));
     }
     return new ConfluentRegistry(schemaRegistryClient());
   }
 
-  /** Merge credential properties supplied via the KAFKA_CREDENTIAL_PROPERTIES env var. */
-  private static void loadCredentialProperties(Properties props) throws IOException {
-    String credentialProperties = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
-    if (credentialProperties != null && !credentialProperties.isEmpty()) {
-      try (StringReader sr = new StringReader(credentialProperties)) {
-        props.load(sr);
-      }
-      EnvVarInterpolator.interpolate(props);
-    }
-  }
-
   /**
-   * Remove keys that are not Kafka client configs so they are not passed to Kafka clients:
-   * kafka-java-managed keys ({@code schema.registry.type}, the {@code payload.envelope.encryption.*}
-   * family) and the Glue/AWS keys, which the serializer instance has already been configured with —
-   * leaving them in would only make the producer log "supplied but isn't a known config" warnings.
+   * Remove keys that are not Kafka client configs so they are not passed to Kafka clients: the
+   * kafka-java-managed keys every path strips, plus the Glue/AWS serializer keys, which the
+   * serializer instance has already been configured with — leaving them in would only make the
+   * producer log "supplied but isn't a known config" warnings.
    */
   private static void stripManagedProps(Properties props) {
-    props.remove(SerializationProps.SCHEMA_REGISTRY_TYPE);
-    props.keySet().removeIf(k -> k instanceof String s && s.startsWith(EncryptionProps.PREFIX));
+    ClientProps.stripManagedProps(props);
     props.remove(SerializationProps.REGION);
     props.remove(SerializationProps.REGISTRY_NAME);
-    props.remove(EncryptionProps.ASSUME_ROLE_ARN);
     props.remove(SerializationProps.DATA_FORMAT);
     props.remove(SerializationProps.COMPRESSION);
     props.remove(SerializationProps.AVRO_RECORD_TYPE);
@@ -207,13 +179,5 @@ public class ProducerConfig {
   @VisibleForTesting
   static <T> Serializer<T> wrapWithEncryption(Serializer<T> serializer, PayloadEncryptor encryptor) {
     return encryptor == null ? serializer : new EncryptingSerializer<>(serializer, encryptor);
-  }
-
-  private static Map<String, Object> toSerializerConfigs(Properties props) {
-    Map<String, Object> configs = new HashMap<>();
-    for (String name : props.stringPropertyNames()) {
-      configs.put(name, props.getProperty(name));
-    }
-    return configs;
   }
 }

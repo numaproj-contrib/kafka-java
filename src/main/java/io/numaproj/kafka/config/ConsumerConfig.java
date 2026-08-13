@@ -3,16 +3,10 @@ package io.numaproj.kafka.config;
 import com.amazonaws.services.schemaregistry.deserializers.GlueSchemaRegistryKafkaDeserializer;
 import com.google.common.annotations.VisibleForTesting;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
-import io.numaproj.kafka.common.EnvVarInterpolator;
 import io.numaproj.kafka.encryption.DecryptingDeserializer;
-import io.numaproj.kafka.encryption.EncryptionProps;
 import io.numaproj.kafka.encryption.EnvelopeDecryptionFactory;
 import io.numaproj.kafka.encryption.PayloadDecryptor;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringReader;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import lombok.extern.slf4j.Slf4j;
@@ -34,17 +28,15 @@ public class ConsumerConfig {
 
   private final String consumerPropertiesFilePath;
 
+  private final ClientProps clientProps;
+
   public ConsumerConfig(String consumerPropertiesFilePath) {
     this.consumerPropertiesFilePath = consumerPropertiesFilePath;
+    this.clientProps = new ClientProps(consumerPropertiesFilePath);
   }
 
   private Properties loadProps() throws IOException {
-    Properties props = new Properties();
-    try (InputStream is = new FileInputStream(this.consumerPropertiesFilePath)) {
-      props.load(is);
-    }
-    EnvVarInterpolator.interpolate(props);
-    return props;
+    return clientProps.load();
   }
 
   /**
@@ -106,13 +98,10 @@ public class ConsumerConfig {
     props.put(MAX_POLL_RECORDS_CONFIG, String.valueOf(batchSize));
     log.info("Setting max.poll.records to {}", batchSize);
 
-    // set credential properties from environment variable
-    loadCredentialProperties(props);
-
     // Build the (optional) payload decryptor, then build and configure the value deserializer
     // instance and wrap it when decryption is enabled.
     PayloadDecryptor decryptor = EnvelopeDecryptionFactory.fromProps(props);
-    Map<String, Object> configs = toDeserializerConfigs(props);
+    Map<String, Object> configs = ClientProps.toConfigMap(props);
 
     Deserializer<Object> avroDeserializer =
         useGlueSchemaRegistry
@@ -159,11 +148,8 @@ public class ConsumerConfig {
     props.put(MAX_POLL_RECORDS_CONFIG, String.valueOf(batchSize));
     log.info("Setting max.poll.records to {}", batchSize);
 
-    // set credential properties from environment variable
-    loadCredentialProperties(props);
-
     PayloadDecryptor decryptor = EnvelopeDecryptionFactory.fromProps(props);
-    Map<String, Object> configs = toDeserializerConfigs(props);
+    Map<String, Object> configs = ClientProps.toConfigMap(props);
 
     ByteArrayDeserializer byteArrayDeserializer = new ByteArrayDeserializer();
     byteArrayDeserializer.configure(configs, false);
@@ -182,40 +168,13 @@ public class ConsumerConfig {
   // and it does not need all the properties that consumer client needs.
   public AdminClient kafkaAdminClient() throws IOException {
     Properties props = loadProps();
-    // set credential properties from environment variable
-    loadCredentialProperties(props);
     // strip kafka-java-managed keys as the last step before instantiating the client
     stripManagedProps(props);
     return KafkaAdminClient.create(props);
   }
 
-  /** Merge credential properties supplied via the KAFKA_CREDENTIAL_PROPERTIES env var. */
-  private static void loadCredentialProperties(Properties props) throws IOException {
-    String credentialProperties = System.getenv("KAFKA_CREDENTIAL_PROPERTIES");
-    if (credentialProperties != null && !credentialProperties.isEmpty()) {
-      try (StringReader sr = new StringReader(credentialProperties)) {
-        props.load(sr);
-      }
-      EnvVarInterpolator.interpolate(props);
-    }
-  }
-
-  /**
-   * Remove kafka-java-managed keys (consumed internally, not real Kafka client configs) so they are
-   * not passed to Kafka clients: {@code schema.registry.type} and the
-   * {@code payload.envelope.encryption.*} family.
-   */
   private static void stripManagedProps(Properties props) {
-    props.remove(SerializationProps.SCHEMA_REGISTRY_TYPE);
-    props.keySet().removeIf(k -> k instanceof String s && s.startsWith(EncryptionProps.PREFIX));
-  }
-
-  private static Map<String, Object> toDeserializerConfigs(Properties props) {
-    Map<String, Object> configs = new HashMap<>();
-    for (String name : props.stringPropertyNames()) {
-      configs.put(name, props.getProperty(name));
-    }
-    return configs;
+    ClientProps.stripManagedProps(props);
   }
 
   /**

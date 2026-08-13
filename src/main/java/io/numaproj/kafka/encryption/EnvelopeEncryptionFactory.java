@@ -1,5 +1,6 @@
 package io.numaproj.kafka.encryption;
 
+import io.numaproj.kafka.common.aws.AwsCredentials;
 import io.numaproj.kafka.encryption.aws.KmsDekGenerator;
 import java.util.Properties;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +28,7 @@ public final class EnvelopeEncryptionFactory {
     if (keyArn == null || keyArn.isBlank()) {
       return null;
     }
-    String assumeRoleArn = props.getProperty(EncryptionProps.ASSUME_ROLE_ARN);
+    String assumeRoleArn = props.getProperty(AwsCredentials.ASSUME_ROLE_ARN);
     KmsDekGenerator kmsGenerator = KmsDekGenerator.create(keyArn.trim(), assumeRoleArn);
     log.info("Payload envelope encryption enabled (aws-kms)");
     // One DEK per process lifetime: generated on first use, rotated by restart/redeploy.

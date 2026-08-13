@@ -117,7 +117,7 @@ public class GlueRegistry implements Registry {
 
   @Override
   public void close() {
-    AwsCredentials.closeQuietly(this.credentials, log, "the Glue registry");
-    AwsCredentials.closeQuietly(this.glue, log, "the Glue registry");
+    AwsCredentials.closeQuietly(this.credentials, "the Glue registry");
+    AwsCredentials.closeQuietly(this.glue, "the Glue registry");
   }
 }

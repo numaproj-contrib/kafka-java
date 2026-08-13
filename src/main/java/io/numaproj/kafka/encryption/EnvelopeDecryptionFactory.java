@@ -1,6 +1,7 @@
 package io.numaproj.kafka.encryption;
 
 import com.google.common.base.Ticker;
+import io.numaproj.kafka.common.aws.AwsCredentials;
 import io.numaproj.kafka.encryption.aws.KmsDekUnwrapper;
 import java.time.Duration;
 import java.util.Properties;
@@ -38,7 +39,7 @@ public final class EnvelopeDecryptionFactory {
     }
     // Parse the TTL before creating any AWS clients, so a bad TTL fails without allocating them.
     long ttlMillis = parseTtl(props.getProperty(EncryptionProps.DEK_CACHE_TTL_MS));
-    String assumeRoleArn = props.getProperty(EncryptionProps.ASSUME_ROLE_ARN);
+    String assumeRoleArn = props.getProperty(AwsCredentials.ASSUME_ROLE_ARN);
     KmsDekUnwrapper kmsUnwrapper = KmsDekUnwrapper.create(keyArn.trim(), assumeRoleArn);
     log.info("Payload envelope decryption enabled (aws-kms)");
     // Caching is backend-agnostic: wrap the KMS unwrapper with a DEK cache decorator.

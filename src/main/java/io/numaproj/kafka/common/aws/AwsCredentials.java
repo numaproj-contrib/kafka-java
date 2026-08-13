@@ -1,7 +1,6 @@
 package io.numaproj.kafka.common.aws;
 
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 import software.amazon.awssdk.regions.Region;
@@ -24,6 +23,12 @@ import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 public class AwsCredentials implements AutoCloseable {
 
   private static final String SESSION_NAME = "kafka-java";
+
+  /**
+   * Configuration key for the IAM role assumed before building any AWS client. One role covers KMS
+   * and the Glue schema registry alike, which is why the key lives with the credentials it selects.
+   */
+  public static final String ASSUME_ROLE_ARN = "assumeRoleArn";
 
   private final AwsCredentialsProvider credentials; // null => SDK default chain
   private final AutoCloseable ownedProvider; // the assume-role provider, as a closeable (nullable)
@@ -73,8 +78,8 @@ public class AwsCredentials implements AutoCloseable {
               .build();
       return new AwsCredentials(provider, provider, sts);
     } catch (RuntimeException e) {
-      closeQuietly(sts, log, "AWS credentials");
-      closeQuietly(provider, log, "AWS credentials");
+      closeQuietly(sts, "AWS credentials");
+      closeQuietly(provider, "AWS credentials");
       throw e;
     }
   }
@@ -86,11 +91,11 @@ public class AwsCredentials implements AutoCloseable {
 
   @Override
   public void close() {
-    closeQuietly(this.ownedStsClient, log, "AWS credentials");
-    closeQuietly(this.ownedProvider, log, "AWS credentials");
+    closeQuietly(this.ownedStsClient, "AWS credentials");
+    closeQuietly(this.ownedProvider, "AWS credentials");
   }
 
-  public static void closeQuietly(AutoCloseable resource, Logger log, String context) {
+  public static void closeQuietly(AutoCloseable resource, String context) {
     if (resource == null) {
       return;
     }

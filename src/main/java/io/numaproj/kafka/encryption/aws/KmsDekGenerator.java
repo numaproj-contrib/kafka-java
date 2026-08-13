@@ -72,7 +72,7 @@ public class KmsDekGenerator implements DekGenerator {
 
   @Override
   public void close() {
-    AwsCredentials.closeQuietly(this.credentials, log, "the KMS generator");
-    AwsCredentials.closeQuietly(this.kms, log, "the KMS generator");
+    AwsCredentials.closeQuietly(this.credentials, "the KMS generator");
+    AwsCredentials.closeQuietly(this.kms, "the KMS generator");
   }
 }
