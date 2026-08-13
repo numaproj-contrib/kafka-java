@@ -87,8 +87,7 @@ public class ProducerConfig {
    * therefore disabled unconditionally rather than only for the Avro paths — a schema definition
    * that is not already in the registry must fail, not be created implicitly.
    */
-  @VisibleForTesting
-  Properties applySerializerConfigs() throws IOException {
+  private Properties applySerializerConfigs() throws IOException {
     Properties props = loadProps();
     if (isGlueSchemaRegistry()) {
       props.put(SerializationProps.DATA_FORMAT, SerializationProps.DATA_FORMAT_AVRO);

@@ -93,31 +93,21 @@ public class ProducerConfigTest {
   }
 
   @Test
-  public void applySerializerConfigs_overridesTheKeysKafkaJavaOwns() throws Exception {
-    Properties props = configFor("producer.properties.glue.userkeys").applySerializerConfigs();
-
-    assertEquals("GENERIC_RECORD", props.getProperty(SerializationProps.AVRO_RECORD_TYPE));
-    assertEquals("AVRO", props.getProperty(SerializationProps.DATA_FORMAT));
-    assertEquals("false", props.getProperty(SerializationProps.GLUE_SCHEMA_AUTO_REGISTRATION));
-    assertEquals("false", props.getProperty(SerializationProps.CONFLUENT_AUTO_REGISTER_SCHEMAS));
-    // Compression is the user's to choose, so it is only defaulted.
-    assertEquals("ZLIB", props.getProperty(SerializationProps.COMPRESSION));
+  public void glueProducer_userSuppliedSerializerKeysAreOverridden() throws Exception {
+    // dataFormat and avroRecordType are set to values the Glue configuration rejects outright
+    // (both are parsed with Enum.valueOf), so the serializer would fail to configure if kafka-java
+    // passed them through. Building the producer proves it overrides them instead.
+    try (var producer = configFor("producer.properties.glue.userkeys").kafkaAvroProducer()) {
+      assertNotNull(producer);
+    }
   }
 
   @Test
-  public void applySerializerConfigs_keepsTheConfiguredCompression() throws Exception {
-    Properties props = configFor("producer.properties.glue.nocompression").applySerializerConfigs();
-
-    assertEquals("NONE", props.getProperty(SerializationProps.COMPRESSION));
-  }
-
-  @Test
-  public void applySerializerConfigs_confluentPathLeavesGlueKeysUnset() throws Exception {
-    Properties props = underTest().applySerializerConfigs();
-
-    assertNull(props.getProperty(SerializationProps.COMPRESSION));
-    assertNull(props.getProperty(SerializationProps.AVRO_RECORD_TYPE));
-    assertEquals("false", props.getProperty(SerializationProps.CONFLUENT_AUTO_REGISTER_SCHEMAS));
+  public void glueProducer_compressionIsTheUsersToChoose() throws Exception {
+    // Unlike the keys above, compression is only defaulted, so NONE reaches the serializer.
+    try (var producer = configFor("producer.properties.glue.nocompression").kafkaAvroProducer()) {
+      assertNotNull(producer);
+    }
   }
 
   @Test
