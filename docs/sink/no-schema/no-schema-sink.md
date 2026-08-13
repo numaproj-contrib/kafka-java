@@ -12,8 +12,7 @@ In `kafka-java`, if no schema information is provided, by default, the producer 
 Payloads pass through unchanged, including a null or empty one: it is produced as-is, so a pipeline
 that emits an empty payload writes a tombstone to the topic. With envelope encryption enabled the
 value stays unencrypted in that case — a tombstone only marks a key for deletion while it is null on
-the wire. (An Avro sink is different: an empty payload is not a valid Avro record, so it fails
-conversion before it reaches the topic.)
+the wire.
 
 ### Example
 

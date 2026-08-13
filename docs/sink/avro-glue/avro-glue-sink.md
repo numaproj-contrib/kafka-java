@@ -12,7 +12,8 @@ The value is written in the Glue **binary wire format**: an 18-byte header (head
 compression flag, then the 16-byte schema-version UUID) followed by the Avro body.
 
 As with the Confluent path, the incoming payload is expected to be JSON matching the schema; the sink
-decodes it into an Avro `GenericRecord` before the serializer frames it.
+decodes it into an Avro `GenericRecord` before the serializer frames it. A null or empty payload is
+therefore not producible here — it fails decoding, and there is no Glue frame that could carry it.
 
 For the source-side equivalent, see [avro-glue-source](../../source/avro-glue/avro-glue-source.md).
 
