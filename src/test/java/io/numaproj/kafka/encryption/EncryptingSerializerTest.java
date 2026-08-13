@@ -43,8 +43,8 @@ class EncryptingSerializerTest {
   }
 
   /**
-   * A tombstone only marks a key for deletion while it stays null on the wire, so an empty
-   * serialized value is produced as-is. The source-side mirror is {@code
+   * A null value means "delete this key" to a compacted topic, and only while it stays null on the
+   * wire, so it is produced as-is. The source-side mirror is {@code
    * DecryptingDeserializerTest#passesThroughNullWithoutDecrypting}.
    */
   @Test

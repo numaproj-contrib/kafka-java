@@ -9,11 +9,11 @@ In `kafka-java`, if no schema information is provided, by default, the producer 
 `org.apache.kafka.common.serialization.StringSerializer` to serialize the key. For the value,
 `org.apache.kafka.common.serialization.ByteArraySerializer`.
 
-Payloads pass through unchanged, including a null or empty one. A **null** payload is produced as a
-null value, which is what Kafka log compaction reads as a tombstone — a delete marker for that key.
-An **empty** payload is an ordinary record whose value happens to be zero bytes; it is not a delete
-marker. With envelope encryption enabled neither is encrypted, since a tombstone only marks a key for
-deletion while it stays null on the wire, and an empty plaintext carries nothing to protect.
+Payloads pass through unchanged, including a null or empty one. A **null** payload is written to the
+topic as a null value, which on a compacted topic marks the key for deletion. An **empty** payload is
+an ordinary record whose value happens to be zero bytes, and does not delete anything. With envelope
+encryption enabled neither is encrypted: a null value has to stay null to mean what it means, and an
+empty value carries nothing to protect.
 
 ### Example
 

@@ -35,9 +35,9 @@ class DecryptingDeserializerTest {
   }
 
   /**
-   * A topic this source consumes may legitimately carry tombstones (a Debezium connector writes
-   * them), and attempting to decrypt one would fail the vertex on a record that is valid. The
-   * sink-side mirror of this is {@code EncryptingSerializerTest#passesThroughNullWithoutEncrypting}.
+   * A topic this source consumes may legitimately carry null values, and attempting to decrypt one
+   * would fail the vertex on a record that is valid. The sink-side mirror is {@code
+   * EncryptingSerializerTest#passesThroughNullWithoutEncrypting}.
    */
   @Test
   void passesThroughNullWithoutDecrypting() {

@@ -9,7 +9,7 @@ message. For the key, string serializer `org.apache.kafka.common.serialization.S
 
 An empty payload is not a JSON document, and a missing one is nothing to validate — both fail before
 reaching Kafka rather than being produced. Use the [no-schema sink](../no-schema/no-schema-sink.md)
-for a topic that carries tombstones.
+if your topic needs null values.
 
 ### Example
 

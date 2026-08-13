@@ -90,7 +90,7 @@ class KafkaSinkerTest {
   @Test
   void processMessages_nullValueFailsAvroConversionAndIsNotProduced() {
     // An empty payload is not a valid Avro record, so the avro sink fails it in conversion. A raw
-    // sink produces it as a tombstone — see rawSinkProducesAnEmptyPayloadAsATombstone.
+    // sink produces it as-is — see rawSinkProducesANullPayloadAsANullValue.
     SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
     iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(null).build());
 
@@ -117,10 +117,10 @@ class KafkaSinkerTest {
 
   @Test
   @SuppressWarnings("unchecked")
-  void rawSinkProducesANullPayloadAsATombstone() {
-    // The raw sink has no schema to violate, so a null payload reaches Kafka as a null value — the
-    // delete marker log compaction reads as a tombstone. Whether to write one is the pipeline's
-    // call, not this sink's. An empty payload is a different thing: see the test below.
+  void rawSinkProducesANullPayloadAsANullValue() {
+    // The raw sink has no schema to violate, so a null payload reaches Kafka as a null value, which
+    // a compacted topic reads as "delete this key". Whether to write one is the pipeline's call, not
+    // this sink's. An empty payload is a different thing: see the test below.
     KafkaProducer<String, byte[]> rawProducer = mock(KafkaProducer.class);
     doReturn(
             CompletableFuture.completedFuture(
@@ -148,7 +148,7 @@ class KafkaSinkerTest {
   @SuppressWarnings("unchecked")
   void rawSinkProducesAnEmptyPayloadAsAnOrdinaryRecord() {
     // Zero bytes is not a delete marker — compaction keys on the value being null — so an empty
-    // payload must arrive as an empty value, not be turned into a tombstone or refused.
+    // payload must arrive as an empty value, not be turned into a null one or refused.
     KafkaProducer<String, byte[]> rawProducer = mock(KafkaProducer.class);
     doReturn(
             CompletableFuture.completedFuture(

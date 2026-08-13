@@ -13,7 +13,7 @@ import org.apache.kafka.common.serialization.Serializer;
  * {@link DecryptingDeserializer}, which decrypts before delegating, down to how a null or empty
  * serialized value is handled — both are written through unencrypted, for two different reasons.
  *
- * <p>A null value is a tombstone, and it only marks a key for deletion while it stays null on the
+ * <p>A null value means "delete this key" to a compacted topic, and only while it stays null on the
  * wire; there is no envelope that could carry it. An empty value <em>could</em> be encrypted — the
  * cipher accepts an empty plaintext and returns the authentication tag — but is not, so that the
  * raw sink's round trip stays symmetric with the source, which passes an empty value to its
@@ -45,9 +45,9 @@ public class EncryptingSerializer<T> implements Serializer<T> {
 
   private byte[] encryptIfPresent(byte[] serialized) {
     // Null is guarded because it has to be: the cipher rejects a null input buffer with an
-    // IllegalArgumentException, which PayloadEncryptor does not catch, so a tombstone would fail the
-    // message with an opaque error after spending a DEK generation to get there. Empty is guarded by
-    // choice: it encrypts fine, but leaving it alone keeps the sink symmetric with
+    // IllegalArgumentException, which PayloadEncryptor does not catch, so a null value would fail
+    // the message with an opaque error after spending a DEK generation to get there. Empty is
+    // guarded by choice: it encrypts fine, but leaving it alone keeps the sink symmetric with
     // DecryptingDeserializer, which hands an empty value to its delegate without decrypting.
     if (serialized == null || serialized.length == 0) {
       return serialized;
