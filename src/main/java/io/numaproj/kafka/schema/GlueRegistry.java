@@ -91,17 +91,22 @@ public class GlueRegistry implements Registry {
                       SchemaVersionNumber.builder().versionNumber((long) version).build())
                   .build());
       if (response.dataFormat() != DataFormat.AVRO) {
-        log.error(
-            "Schema data format is not AVRO for schema {}, version {}. Found {}.",
-            subject,
-            version,
-            response.dataFormatAsString());
-        return null;
+        throw new IllegalStateException(
+            "Schema data format is not AVRO for schema "
+                + subject
+                + ", version "
+                + version
+                + "; found "
+                + response.dataFormatAsString());
       }
       return new Schema.Parser().parse(response.schemaDefinition());
+    } catch (IllegalStateException e) {
+      throw e;
     } catch (RuntimeException e) {
-      log.error("Failed to retrieve the Avro schema for schema {}, version {}", subject, version, e);
-      return null;
+      // Unlike ConfluentRegistry's log-and-return-null, surface the real cause (schema not found,
+      // access denied, corrupt definition) in the startup failure rather than a prior log line.
+      throw new IllegalStateException(
+          "Failed to retrieve the Avro schema for schema " + subject + ", version " + version, e);
     }
   }
 

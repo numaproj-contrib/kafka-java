@@ -1,9 +1,10 @@
 package io.numaproj.kafka.schema;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
@@ -62,7 +63,7 @@ class GlueRegistryTest {
   }
 
   @Test
-  void getAvroSchema_returnsNullWhenDataFormatIsNotAvro() {
+  void getAvroSchema_throwsWhenDataFormatIsNotAvro() {
     when(glue.getSchemaVersion(any(GetSchemaVersionRequest.class)))
         .thenReturn(
             GetSchemaVersionResponse.builder()
@@ -70,21 +71,25 @@ class GlueRegistryTest {
                 .schemaDefinition("{}")
                 .build());
 
-    assertNull(underTest().getAvroSchema(SCHEMA_NAME, 1));
+    IllegalStateException e =
+        assertThrows(IllegalStateException.class, () -> underTest().getAvroSchema(SCHEMA_NAME, 1));
+    assertTrue(e.getMessage().contains("not AVRO"));
   }
 
   @Test
-  void getAvroSchema_returnsNullWhenSchemaNotFound() {
+  void getAvroSchema_throwsWhenSchemaNotFound() {
     when(glue.getSchemaVersion(any(GetSchemaVersionRequest.class)))
         .thenThrow(EntityNotFoundException.builder().message("not found").build());
 
-    assertNull(underTest().getAvroSchema(SCHEMA_NAME, 1));
+    IllegalStateException e =
+        assertThrows(IllegalStateException.class, () -> underTest().getAvroSchema(SCHEMA_NAME, 1));
+    assertInstanceOf(EntityNotFoundException.class, e.getCause());
   }
 
   @Test
-  void getAvroSchema_returnsNullWhenStoredDefinitionIsNotValidAvro() {
+  void getAvroSchema_throwsWhenStoredDefinitionIsNotValidAvro() {
     // Glue reports AVRO but hands back a definition the Avro parser rejects — a registry-content
-    // mismatch. The registry returns null and the application fails startup rather than sinking.
+    // mismatch. The registry throws so startup fails with the parser error as the cause.
     when(glue.getSchemaVersion(any(GetSchemaVersionRequest.class)))
         .thenReturn(
             GetSchemaVersionResponse.builder()
@@ -92,20 +97,24 @@ class GlueRegistryTest {
                 .schemaDefinition("{\"type\":\"record\",\"name\":\"Broken\"}")
                 .build());
 
-    assertNull(underTest().getAvroSchema(SCHEMA_NAME, 1));
+    IllegalStateException e =
+        assertThrows(IllegalStateException.class, () -> underTest().getAvroSchema(SCHEMA_NAME, 1));
+    assertNotNull(e.getCause());
   }
 
   @Test
-  void getAvroSchema_returnsNullWhenGlueAccessIsDenied() {
-    // The IAM role lacks glue:GetSchemaVersion. Same startup outcome as a missing schema: null,
-    // which fetchAvroSchema turns into a fail-fast RuntimeException.
+  void getAvroSchema_throwsWhenGlueAccessIsDenied() {
+    // The IAM role lacks glue:GetSchemaVersion. The failure carries the AccessDeniedException as
+    // its cause, so the startup crash names the real problem rather than a generic retrieval error.
     when(glue.getSchemaVersion(any(GetSchemaVersionRequest.class)))
         .thenThrow(
             AccessDeniedException.builder()
                 .message("User is not authorized to perform: glue:GetSchemaVersion")
                 .build());
 
-    assertNull(underTest().getAvroSchema(SCHEMA_NAME, 1));
+    IllegalStateException e =
+        assertThrows(IllegalStateException.class, () -> underTest().getAvroSchema(SCHEMA_NAME, 1));
+    assertInstanceOf(AccessDeniedException.class, e.getCause());
   }
 
   @Test
