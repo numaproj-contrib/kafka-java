@@ -63,23 +63,9 @@ public class KafkaSinker<V> extends Sinker {
       }
 
       log.trace("Processing message with id: {}", datum.getId());
-      byte[] payload = datum.getValue();
-      // The sink never produces a null or empty value. A tombstone is a deliberate act of the
-      // system that owns the topic (a Debezium connector, say) — reaching one here means the
-      // upstream vertex emitted nothing, which is a bug worth surfacing rather than writing a
-      // delete marker on its behalf. The decrypting source still reads tombstones, since those
-      // topics legitimately carry them.
-      if (payload == null || payload.length == 0) {
-        log.error("Refusing to produce a null or empty value for message with id: {}", datum.getId());
-        responseListBuilder.addResponse(
-            Response.responseFailure(
-                datum.getId(), "the sink does not produce null or empty values"));
-        continue;
-      }
-
       V value;
       try {
-        value = format.toRecord(payload);
+        value = format.toRecord(datum.getValue());
       } catch (FormatException e) {
         log.error("Failed to convert message with id: {}", datum.getId(), e);
         responseListBuilder.addResponse(Response.responseFailure(datum.getId(), e.getMessage()));
@@ -92,10 +78,11 @@ public class KafkaSinker<V> extends Sinker {
         inflightTasks.put(datum.getId(), producer.send(record));
       } catch (Exception e) {
         // send() serializes the value on this thread before queueing the record, so a serializer
-        // failure surfaces here rather than through the Future. With encryption on, that serializer
-        // is the encrypting wrapper around the schema serializer (ProducerConfig#wrapWithEncryption)
-        // — so schema resolution and encryption both fail into this catch. Fail this message only,
-        // rather than letting the exception abandon the rest of the batch.
+        // failure surfaces here rather than through the Future — an uncaught one would abandon the
+        // rest of the batch, including the messages already handed to the producer. That was always
+        // true of the schema serializer; encryption adds a second way to fail on this thread, since
+        // the encrypting wrapper sits outside it (ProducerConfig#wrapWithEncryption). Fail this
+        // message only.
         log.error("Failed to send message with id: {}", datum.getId(), e);
         // toString, not getMessage: some exceptions carry a null message.
         responseListBuilder.addResponse(Response.responseFailure(datum.getId(), e.toString()));

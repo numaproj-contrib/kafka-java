@@ -9,9 +9,11 @@ In `kafka-java`, if no schema information is provided, by default, the producer 
 `org.apache.kafka.common.serialization.StringSerializer` to serialize the key. For the value,
 `org.apache.kafka.common.serialization.ByteArraySerializer`.
 
-The sink does not produce null or empty values: a message whose payload is empty is failed rather
-than written, on any `schemaType`. Writing a tombstone is a decision for whoever owns the topic, not
-something this sink does on a pipeline's behalf.
+Payloads pass through unchanged, including a null or empty one: it is produced as-is, so a pipeline
+that emits an empty payload writes a tombstone to the topic. With envelope encryption enabled the
+value stays unencrypted in that case — a tombstone only marks a key for deletion while it is null on
+the wire. (An Avro sink is different: an empty payload is not a valid Avro record, so it fails
+conversion before it reaches the topic.)
 
 ### Example
 

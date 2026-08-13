@@ -1,11 +1,13 @@
 package io.numaproj.kafka.encryption;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import org.apache.kafka.common.serialization.Serializer;
@@ -38,6 +40,29 @@ class EncryptingSerializerTest {
     InOrder inOrder = inOrder(delegate, encryptor);
     inOrder.verify(delegate).serialize(TOPIC, "record");
     inOrder.verify(encryptor).encrypt(SERIALIZED);
+  }
+
+  /**
+   * A tombstone only marks a key for deletion while it stays null on the wire, so an empty
+   * serialized value is produced as-is. The source-side mirror is {@code
+   * DecryptingDeserializerTest#passesThroughNullWithoutDecrypting}.
+   */
+  @Test
+  void passesThroughNullWithoutEncrypting() {
+    when(delegate.serialize(TOPIC, null)).thenReturn(null);
+
+    assertNull(underTest().serialize(TOPIC, null));
+
+    verifyNoInteractions(encryptor);
+  }
+
+  @Test
+  void passesThroughEmptyWithoutEncrypting() {
+    when(delegate.serialize(TOPIC, "record")).thenReturn(new byte[0]);
+
+    assertArrayEquals(new byte[0], underTest().serialize(TOPIC, "record"));
+
+    verifyNoInteractions(encryptor);
   }
 
   @Test

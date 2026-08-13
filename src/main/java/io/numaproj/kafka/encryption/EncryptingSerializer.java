@@ -10,10 +10,11 @@ import org.apache.kafka.common.serialization.Serializer;
  *
  * <p>Sitting on the outside of the delegate is what makes encryption the <em>final</em> step: the
  * value on the wire is {@code encrypt(serialize(record))}. The mirror of
- * {@link DecryptingDeserializer}, which decrypts before delegating — but not symmetrically for empty
- * values: the source passes a null or empty value through undecrypted, because a topic it consumes
- * may legitimately carry tombstones, while the sink refuses to produce one at all
- * ({@code KafkaSinker}), so nothing empty reaches this serializer.
+ * {@link DecryptingDeserializer}, which decrypts before delegating, down to how empty values are
+ * handled: a null or empty serialized value is written through unencrypted. A tombstone only marks a
+ * key for deletion while it stays null on the wire, and encrypting it would produce an envelope —
+ * a normal value with a payload of zero bytes. There is nothing to protect either way: an empty
+ * plaintext carries no information.
  *
  * <p>The delegate is configured by the caller ({@code ProducerConfig}) before being wrapped, so this
  * wrapper does not override {@link #configure}; Kafka's inherited no-op is sufficient.
@@ -30,12 +31,19 @@ public class EncryptingSerializer<T> implements Serializer<T> {
 
   @Override
   public byte[] serialize(String topic, T data) {
-    return encryptor.encrypt(delegate.serialize(topic, data));
+    return encryptIfPresent(delegate.serialize(topic, data));
   }
 
   @Override
   public byte[] serialize(String topic, Headers headers, T data) {
-    return encryptor.encrypt(delegate.serialize(topic, headers, data));
+    return encryptIfPresent(delegate.serialize(topic, headers, data));
+  }
+
+  private byte[] encryptIfPresent(byte[] serialized) {
+    if (serialized == null || serialized.length == 0) {
+      return serialized;
+    }
+    return encryptor.encrypt(serialized);
   }
 
   @Override

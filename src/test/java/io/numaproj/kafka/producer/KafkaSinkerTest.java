@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.format.AvroFormat;
+import io.numaproj.kafka.format.ByteArrayFormat;
 import io.numaproj.numaflow.sinker.Response;
 import io.numaproj.numaflow.sinker.ResponseList;
 import io.numaproj.numaflow.sinker.SinkerTestKit;
@@ -86,7 +87,9 @@ class KafkaSinkerTest {
   }
 
   @Test
-  void processMessages_nullValueIsRefusedAndNotProduced() {
+  void processMessages_nullValueFailsAvroConversionAndIsNotProduced() {
+    // An empty payload is not a valid Avro record, so the avro sink fails it in conversion. A raw
+    // sink produces it as a tombstone — see rawSinkProducesAnEmptyPayloadAsATombstone.
     SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
     iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(null).build());
 
@@ -94,13 +97,12 @@ class KafkaSinkerTest {
 
     Response response = result.getResponses().getFirst();
     assertFalse(response.getSuccess());
-    assertTrue(response.getErr().contains("null or empty"));
-    // No tombstone is written on the pipeline's behalf.
+    assertTrue(response.getErr().contains("Failed to prepare avro generic record"));
     verify(producer, never()).send(any(ProducerRecord.class));
   }
 
   @Test
-  void processMessages_emptyValueIsRefusedAndNotProduced() {
+  void processMessages_emptyValueFailsAvroConversionAndIsNotProduced() {
     SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
     iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(new byte[0]).build());
 
@@ -108,12 +110,40 @@ class KafkaSinkerTest {
 
     Response response = result.getResponses().getFirst();
     assertFalse(response.getSuccess());
-    assertTrue(response.getErr().contains("null or empty"));
+    assertTrue(response.getErr().contains("Failed to prepare avro generic record"));
     verify(producer, never()).send(any(ProducerRecord.class));
   }
 
   @Test
-  void processMessages_refusedValueDoesNotAbandonTheRestOfTheBatch() {
+  @SuppressWarnings("unchecked")
+  void rawSinkProducesAnEmptyPayloadAsATombstone() {
+    // The raw sink has no schema to violate: an empty payload is a tombstone, and writing one is the
+    // pipeline's call, not this sink's.
+    KafkaProducer<String, byte[]> rawProducer = mock(KafkaProducer.class);
+    doReturn(
+            CompletableFuture.completedFuture(
+                new RecordMetadata(new TopicPartition(TOPIC, 1), 1, 1, 1, 1, 1)))
+        .when(rawProducer)
+        .send(any(ProducerRecord.class));
+    UserConfig userConfig = mock(UserConfig.class);
+    when(userConfig.getTopicName()).thenReturn(TOPIC);
+    KafkaSinker<byte[]> rawSinker =
+        new KafkaSinker<>(userConfig, rawProducer, new ByteArrayFormat());
+
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(null).build());
+
+    ResponseList result = rawSinker.processMessages(iterator);
+
+    assertEquals(Map.of("1", true), successById(result));
+    ArgumentCaptor<ProducerRecord<String, byte[]>> captor =
+        ArgumentCaptor.forClass(ProducerRecord.class);
+    verify(rawProducer).send(captor.capture());
+    assertNull(captor.getValue().value());
+  }
+
+  @Test
+  void processMessages_failedValueDoesNotAbandonTheRestOfTheBatch() {
     producerSucceeds();
     SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
     iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(new byte[0]).build());
