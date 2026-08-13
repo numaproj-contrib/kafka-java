@@ -61,13 +61,10 @@ public class ProducerConfig {
    * file itself.
    */
   public boolean isGlueSchemaRegistry() throws IOException {
-    return isGlueSchemaRegistry(loadProps());
-  }
-
-  private static boolean isGlueSchemaRegistry(Properties props) {
     return SerializationProps.TYPE_GLUE.equalsIgnoreCase(
-        props.getProperty(
-            SerializationProps.SCHEMA_REGISTRY_TYPE, SerializationProps.TYPE_CONFLUENT));
+        loadProps()
+            .getProperty(
+                SerializationProps.SCHEMA_REGISTRY_TYPE, SerializationProps.TYPE_CONFLUENT));
   }
 
   // Kafka producer client to publish raw data in byte array format to Kafka
@@ -90,7 +87,7 @@ public class ProducerConfig {
         this.producerPropertiesFilePath);
     Properties props = loadProps();
 
-    boolean useGlueSchemaRegistry = isGlueSchemaRegistry(props);
+    boolean useGlueSchemaRegistry = isGlueSchemaRegistry();
     log.info("Using the Glue schema registry: {}", useGlueSchemaRegistry);
     applySerializerConfigs(props, useGlueSchemaRegistry);
 
@@ -163,7 +160,7 @@ public class ProducerConfig {
    */
   public Registry schemaRegistry() throws IOException {
     Properties props = loadProps();
-    if (isGlueSchemaRegistry(props)) {
+    if (isGlueSchemaRegistry()) {
       return GlueRegistry.create(
           props.getProperty(SerializationProps.REGION),
           props.getProperty(
