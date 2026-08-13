@@ -11,6 +11,10 @@ Decryption is **independent of serialization** — it works with any `schemaType
 are handed to the normal deserializer for that `schemaType`, so the downstream output is identical to
 the equivalent non-encrypted topic.
 
+A **null** or **empty** value is handed to the deserializer without decrypting, mirroring the
+[encrypting sink](../../sink/envelope-encryption/encrypting-sink.md), which writes both through
+unencrypted — the round trip is symmetric.
+
 The only key-management backend supported today is **AWS KMS**.
 
 It is **opt-in**: decryption runs only when the AWS KMS key ARN is configured. With the key unset, the

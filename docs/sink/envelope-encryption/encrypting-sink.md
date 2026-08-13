@@ -11,6 +11,12 @@ Encryption is **independent of serialization** — it works with any `schemaType
 would otherwise have put on the wire is encrypted as-is, so encryption is always the **final** step
 before producing.
 
+A **null** or **empty** value is written through unencrypted, whatever the `schemaType`: a null value
+has to stay null on the wire to keep its meaning on a compacted topic, and an empty value carries
+nothing to protect. The [decrypting source](../../source/envelope-encryption/decrypting-source.md)
+mirrors this, handing a null or empty value to its deserializer without decrypting, so the round trip
+is symmetric.
+
 The only key-management backend supported today is **AWS KMS**.
 
 It is **opt-in**: encryption runs only when the AWS KMS key ARN is configured. With the key unset, the

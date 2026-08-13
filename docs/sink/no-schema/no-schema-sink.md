@@ -11,9 +11,7 @@ In `kafka-java`, if no schema information is provided, by default, the producer 
 
 Payloads pass through unchanged, including a null or empty one. A **null** payload is written to the
 topic as a null value, which on a compacted topic marks the key for deletion. An **empty** payload is
-an ordinary record whose value happens to be zero bytes, and does not delete anything. With envelope
-encryption enabled neither is encrypted: a null value has to stay null to mean what it means, and an
-empty value carries nothing to protect.
+an ordinary record whose value happens to be zero bytes, and does not delete anything.
 
 ### Example
 
