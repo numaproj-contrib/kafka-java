@@ -93,15 +93,8 @@ public class ProducerConfigTest {
   }
 
   @Test
-  public void applySerializerConfigs_overridesTheKeysKafkaJavaOwns() {
-    Properties props = new Properties();
-    // What a user might set, deliberately wrong for this sink.
-    props.setProperty(SerializationProps.AVRO_RECORD_TYPE, "SPECIFIC_RECORD");
-    props.setProperty(SerializationProps.DATA_FORMAT, "JSON");
-    props.setProperty(SerializationProps.GLUE_SCHEMA_AUTO_REGISTRATION, "true");
-    props.setProperty(SerializationProps.CONFLUENT_AUTO_REGISTER_SCHEMAS, "true");
-
-    ProducerConfig.applySerializerConfigs(props, true);
+  public void applySerializerConfigs_overridesTheKeysKafkaJavaOwns() throws Exception {
+    Properties props = configFor("producer.properties.glue.userkeys").applySerializerConfigs();
 
     assertEquals("GENERIC_RECORD", props.getProperty(SerializationProps.AVRO_RECORD_TYPE));
     assertEquals("AVRO", props.getProperty(SerializationProps.DATA_FORMAT));
@@ -112,20 +105,15 @@ public class ProducerConfigTest {
   }
 
   @Test
-  public void applySerializerConfigs_keepsTheConfiguredCompression() {
-    Properties props = new Properties();
-    props.setProperty(SerializationProps.COMPRESSION, "NONE");
-
-    ProducerConfig.applySerializerConfigs(props, true);
+  public void applySerializerConfigs_keepsTheConfiguredCompression() throws Exception {
+    Properties props = configFor("producer.properties.glue.nocompression").applySerializerConfigs();
 
     assertEquals("NONE", props.getProperty(SerializationProps.COMPRESSION));
   }
 
   @Test
-  public void applySerializerConfigs_confluentPathLeavesGlueKeysUnset() {
-    Properties props = new Properties();
-
-    ProducerConfig.applySerializerConfigs(props, false);
+  public void applySerializerConfigs_confluentPathLeavesGlueKeysUnset() throws Exception {
+    Properties props = underTest().applySerializerConfigs();
 
     assertNull(props.getProperty(SerializationProps.COMPRESSION));
     assertNull(props.getProperty(SerializationProps.AVRO_RECORD_TYPE));

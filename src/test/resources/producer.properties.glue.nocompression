@@ -1,0 +1,10 @@
+bootstrap.servers=localhost:9092
+acks=all
+retries=0
+compression.type=none
+# Glue Schema Registry configurations
+schema.registry.type=glue
+region=us-east-1
+registry.name=test-registry
+# In-frame compression is the user's to choose; kafka-java only defaults it
+compression=NONE

@@ -85,9 +85,6 @@ Glue-specific properties:
 Of these, `schema.registry.type` is managed by kafka-java. All other properties are passed through directly to the
 Glue deserializer.
 
-`avroRecordType` and `schemaAutoRegistrationEnabled` are **set by kafka-java** and not configurable —
-setting them in `consumer.properties` has no effect.
-
 Deploy the ConfigMap:
 
 ```bash

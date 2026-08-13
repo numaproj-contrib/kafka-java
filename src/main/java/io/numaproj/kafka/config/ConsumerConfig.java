@@ -26,12 +26,9 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.MAX_POLL_RECORDS_
 @Slf4j
 public class ConsumerConfig {
 
-  private final String consumerPropertiesFilePath;
-
   private final ClientProps clientProps;
 
   public ConsumerConfig(String consumerPropertiesFilePath) {
-    this.consumerPropertiesFilePath = consumerPropertiesFilePath;
     this.clientProps = new ClientProps(consumerPropertiesFilePath);
   }
 
@@ -57,9 +54,7 @@ public class ConsumerConfig {
 
   // Kafka Avro consumer client
   public KafkaConsumer<String, GenericRecord> kafkaAvroConsumer(int batchSize) throws IOException {
-    log.info(
-        "Instantiating the Kafka Avro consumer from the consumer properties file: {}",
-        this.consumerPropertiesFilePath);
+    log.info("Instantiating the Kafka Avro consumer");
     Properties props = loadProps();
     // disable auto commit, numaflow data forwarder takes care of committing offsets
     if (props.getProperty(
@@ -122,9 +117,7 @@ public class ConsumerConfig {
 
   // Kafka byte array consumer client
   public KafkaConsumer<String, byte[]> kafkaByteArrayConsumer(int batchSize) throws IOException {
-    log.info(
-        "Instantiating the Kafka byte array consumer from the consumer properties file: {}",
-        this.consumerPropertiesFilePath);
+    log.info("Instantiating the Kafka byte array consumer");
     Properties props = loadProps();
     // disable auto commit, numaflow data forwarder takes care of committing offsets
     if (props.getProperty(

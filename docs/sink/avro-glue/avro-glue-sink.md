@@ -55,9 +55,6 @@ serializer resolves that same definition back to a schema-version id, so the two
 Of these, `schema.registry.type` is managed by kafka-java. All other properties are passed through
 directly to the Glue serializer.
 
-`dataFormat`, `avroRecordType` and `schemaAutoRegistrationEnabled` are **set by kafka-java** and not
-configurable — setting them in `producer.properties` has no effect.
-
 In `user.configuration`:
 
 * `topicName` — the Kafka topic to write to.

@@ -27,12 +27,9 @@ import org.apache.kafka.common.serialization.StringSerializer;
 @Slf4j
 public class ProducerConfig {
 
-  private final String producerPropertiesFilePath;
-
   private final ClientProps clientProps;
 
   public ProducerConfig(String producerPropertiesFilePath) {
-    this.producerPropertiesFilePath = producerPropertiesFilePath;
     this.clientProps = new ClientProps(producerPropertiesFilePath);
   }
 
@@ -55,26 +52,20 @@ public class ProducerConfig {
   // Kafka producer client to publish raw data in byte array format to Kafka
   // It is used when the destination topic has no schema or json schema
   public KafkaProducer<String, byte[]> kafkaByteArrayProducer() throws IOException {
-    log.info(
-        "Instantiating the Kafka byte array producer from the producer properties file path: {}",
-        this.producerPropertiesFilePath);
-    Properties props = loadProps();
-    // No Glue framing on this path, whatever schema.registry.type says: json and raw values are
-    // produced as bytes. The call is still made, for the auto-registration guarantee it carries.
-    applySerializerConfigs(props, false);
-    return buildProducer(props, new ByteArraySerializer());
+    log.info("Instantiating the Kafka byte array producer");
+    // The Glue keys settled here are inert on this path — json and raw values are produced as
+    // bytes, and the ByteArraySerializer reads none of them — but the auto-registration guarantee
+    // holds everywhere, so every producer path goes through the same call.
+    return buildProducer(applySerializerConfigs(), new ByteArraySerializer());
   }
 
   // Kafka producer client for Avro
   public KafkaProducer<String, GenericRecord> kafkaAvroProducer() throws IOException {
-    log.info(
-        "Instantiating the Kafka Avro producer from the producer properties file path: {}",
-        this.producerPropertiesFilePath);
-    Properties props = loadProps();
+    log.info("Instantiating the Kafka Avro producer");
+    Properties props = applySerializerConfigs();
 
     boolean useGlueSchemaRegistry = isGlueSchemaRegistry();
     log.info("Using the Glue schema registry: {}", useGlueSchemaRegistry);
-    applySerializerConfigs(props, useGlueSchemaRegistry);
 
     Serializer<Object> avroSerializer =
         useGlueSchemaRegistry ? new GlueSchemaRegistryKafkaSerializer() : new KafkaAvroSerializer();
@@ -85,19 +76,21 @@ public class ProducerConfig {
   }
 
   /**
-   * Settle the serializer configs kafka-java owns, on every producer path. {@code put}, not {@code
-   * putIfAbsent}, for everything except {@code compression}: those keys are fixed rather than
-   * defaulted, so a value in the properties file cannot break the contract the sink relies on — the
-   * serializer is handed a {@code GenericRecord}, and no schema is ever registered on the user's
-   * behalf. In-frame compression is the one the user does own; kafka-java only defaults it.
+   * The producer properties with the serializer configs kafka-java owns settled on top, on every
+   * producer path. {@code put}, not {@code putIfAbsent}, for everything except {@code compression}:
+   * those keys are fixed rather than defaulted, so a value in the properties file cannot break the
+   * contract the sink relies on — the serializer is handed a {@code GenericRecord}, and no schema is
+   * ever registered on the user's behalf. In-frame compression is the one the user does own;
+   * kafka-java only defaults it.
    *
    * <p>kafka-java is a connector: it reads schemas, it never creates them. Auto-registration is
    * therefore disabled unconditionally rather than only for the Avro paths — a schema definition
    * that is not already in the registry must fail, not be created implicitly.
    */
   @VisibleForTesting
-  static void applySerializerConfigs(Properties props, boolean useGlueSchemaRegistry) {
-    if (useGlueSchemaRegistry) {
+  Properties applySerializerConfigs() throws IOException {
+    Properties props = loadProps();
+    if (isGlueSchemaRegistry()) {
       props.put(SerializationProps.DATA_FORMAT, SerializationProps.DATA_FORMAT_AVRO);
       // The Glue serializer never reads avroRecordType — it picks the datum writer from the object
       // it is handed, which here is always a GenericRecord. Pinned anyway because the Glue config
@@ -110,6 +103,7 @@ public class ProducerConfig {
     // Confluent and Glue spell auto-registration differently; disable both.
     props.put(SerializationProps.CONFLUENT_AUTO_REGISTER_SCHEMAS, "false");
     props.put(SerializationProps.GLUE_SCHEMA_AUTO_REGISTRATION, "false");
+    return props;
   }
 
   private <T> KafkaProducer<String, T> buildProducer(Properties props, Serializer<T> rawValueSerializer) {

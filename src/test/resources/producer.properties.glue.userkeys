@@ -1,0 +1,13 @@
+bootstrap.servers=localhost:9092
+acks=all
+retries=0
+compression.type=none
+# Glue Schema Registry configurations
+schema.registry.type=glue
+region=us-east-1
+registry.name=test-registry
+# What a user might set, deliberately wrong for this sink: kafka-java overrides all four
+dataFormat=JSON
+avroRecordType=SPECIFIC_RECORD
+schemaAutoRegistrationEnabled=true
+auto.register.schemas=true
