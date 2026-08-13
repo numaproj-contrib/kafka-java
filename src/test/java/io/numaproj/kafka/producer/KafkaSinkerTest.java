@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.format.AvroFormat;
 import io.numaproj.kafka.format.ByteArrayFormat;
+import io.numaproj.kafka.format.JsonFormat;
 import io.numaproj.numaflow.sinker.Response;
 import io.numaproj.numaflow.sinker.ResponseList;
 import io.numaproj.numaflow.sinker.SinkerTestKit;
@@ -140,6 +141,38 @@ class KafkaSinkerTest {
         ArgumentCaptor.forClass(ProducerRecord.class);
     verify(rawProducer).send(captor.capture());
     assertNull(captor.getValue().value());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void jsonSinkFailsAnEmptyPayloadWithoutAbandoningTheBatch() {
+    // The JSON validator throws a NullPointerException on a null payload and a parse error on an
+    // empty one. Neither is a FormatException, so before JsonFormat rejected them itself they
+    // escaped processMessages and the batch returned no responses at all.
+    KafkaProducer<String, byte[]> jsonProducer = mock(KafkaProducer.class);
+    doReturn(
+            CompletableFuture.completedFuture(
+                new RecordMetadata(new TopicPartition(TOPIC, 1), 1, 1, 1, 1, 1)))
+        .when(jsonProducer)
+        .send(any(ProducerRecord.class));
+    UserConfig userConfig = mock(UserConfig.class);
+    when(userConfig.getTopicName()).thenReturn(TOPIC);
+    KafkaSinker<byte[]> jsonSinker =
+        new KafkaSinker<>(
+            userConfig,
+            jsonProducer,
+            new JsonFormat("{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}"));
+
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(null).build());
+    iterator.addDatum(SinkerTestKit.TestDatum.builder().id("2").value(new byte[0]).build());
+    iterator.addDatum(
+        SinkerTestKit.TestDatum.builder().id("3").value("{\"name\":\"Kobe\"}".getBytes()).build());
+
+    ResponseList result = jsonSinker.processMessages(iterator);
+
+    assertEquals(Map.of("1", false, "2", false, "3", true), successById(result));
+    verify(jsonProducer, times(1)).send(any(ProducerRecord.class));
   }
 
   @Test
