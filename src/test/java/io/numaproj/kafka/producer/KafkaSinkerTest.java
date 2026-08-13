@@ -117,9 +117,10 @@ class KafkaSinkerTest {
 
   @Test
   @SuppressWarnings("unchecked")
-  void rawSinkProducesAnEmptyPayloadAsATombstone() {
-    // The raw sink has no schema to violate: an empty payload is a tombstone, and writing one is the
-    // pipeline's call, not this sink's.
+  void rawSinkProducesANullPayloadAsATombstone() {
+    // The raw sink has no schema to violate, so a null payload reaches Kafka as a null value — the
+    // delete marker log compaction reads as a tombstone. Whether to write one is the pipeline's
+    // call, not this sink's. An empty payload is a different thing: see the test below.
     KafkaProducer<String, byte[]> rawProducer = mock(KafkaProducer.class);
     doReturn(
             CompletableFuture.completedFuture(
@@ -141,6 +142,34 @@ class KafkaSinkerTest {
         ArgumentCaptor.forClass(ProducerRecord.class);
     verify(rawProducer).send(captor.capture());
     assertNull(captor.getValue().value());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void rawSinkProducesAnEmptyPayloadAsAnOrdinaryRecord() {
+    // Zero bytes is not a delete marker — compaction keys on the value being null — so an empty
+    // payload must arrive as an empty value, not be turned into a tombstone or refused.
+    KafkaProducer<String, byte[]> rawProducer = mock(KafkaProducer.class);
+    doReturn(
+            CompletableFuture.completedFuture(
+                new RecordMetadata(new TopicPartition(TOPIC, 1), 1, 1, 1, 1, 1)))
+        .when(rawProducer)
+        .send(any(ProducerRecord.class));
+    UserConfig userConfig = mock(UserConfig.class);
+    when(userConfig.getTopicName()).thenReturn(TOPIC);
+    KafkaSinker<byte[]> rawSinker =
+        new KafkaSinker<>(userConfig, rawProducer, new ByteArrayFormat());
+
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(new byte[0]).build());
+
+    ResponseList result = rawSinker.processMessages(iterator);
+
+    assertEquals(Map.of("1", true), successById(result));
+    ArgumentCaptor<ProducerRecord<String, byte[]>> captor =
+        ArgumentCaptor.forClass(ProducerRecord.class);
+    verify(rawProducer).send(captor.capture());
+    assertArrayEquals(new byte[0], captor.getValue().value());
   }
 
   @Test
