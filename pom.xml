@@ -88,6 +88,14 @@
             <artifactId>kms</artifactId>
             <version>2.32.25</version>
         </dependency>
+        <!-- AWS Glue, to read schema definitions from the Glue Schema Registry on the sink path.
+             Already transitive via schema-registry-serde; declared explicitly because we use it
+             directly, at the same version. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>glue</artifactId>
+            <version>2.32.25</version>
+        </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>

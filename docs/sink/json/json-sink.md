@@ -7,6 +7,10 @@ When a JSON schema is provided, `kafka-java` producer validates the value of the
 uses the byte array serializer `org.apache.kafka.common.serialization.ByteArraySerializer` to serialize the value of the
 message. For the key, string serializer `org.apache.kafka.common.serialization.StringSerializer`.
 
+An empty payload is not a JSON document, and a missing one is nothing to validate — both fail before
+reaching Kafka rather than being produced. Use the [no-schema sink](../no-schema/no-schema-sink.md)
+if your topic needs null values.
+
 ### Example
 
 In this example, we create a pipeline that reads from the

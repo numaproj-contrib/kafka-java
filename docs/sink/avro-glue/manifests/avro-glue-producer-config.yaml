@@ -1,0 +1,40 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: avro-glue-producer-config
+data:
+  producer.properties: |
+    # Required connection configs for Kafka producer
+    bootstrap.servers=[placeholder]
+    security.protocol=[placeholder]
+    sasl.jaas.config=[placeholder]
+    sasl.mechanism=[placeholder]
+    # Required for correctness in Apache Kafka clients prior to 2.6
+    client.dns.lookup=use_all_dns_ips
+    # Best practice for higher availability in Apache Kafka clients prior to 3.0
+    session.timeout.ms=45000
+    # Best practice for Kafka producer to prevent data loss
+    acks=all
+    # Other configurations
+    retries=0
+
+    # Kafka-level compression stays off; the only compression is the in-frame zlib.
+    compression.type=none
+
+    # Use AWS Glue Schema Registry
+    schema.registry.type=glue
+    region=us-east-1
+    registry.name=[placeholder]
+    # In-frame compression of the Avro body. ZLIB is what kafka-java applies when this is unset;
+    # set NONE to turn it off.
+    # compression=ZLIB
+
+    # Optional: assume an IAM role before connecting to Glue
+    # assumeRoleArn=arn:aws:iam::123456789012:role/my-producer-role
+  user.configuration: |
+    topicName: [placeholder]
+    schemaType: avro
+    # schemaSubject is the Glue schema name; schemaVersion is its version number.
+    schemaSubject: [placeholder]
+    schemaVersion: 1

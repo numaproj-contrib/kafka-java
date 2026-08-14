@@ -111,36 +111,57 @@ public class KafkaApplication {
 
     if (SCHEMA_TYPE_AVRO.equals(schemaType)) {
       // The application creates the registry, so it owns closing it once the sinker terminates.
-      Registry registry = producerConfig.schemaRegistry(producerConfig.schemaRegistryClient());
+      Registry registry = producerConfig.schemaRegistry();
       try {
         Schema schema = fetchAvroSchema(registry, userConfig);
-        new KafkaSinker<>(userConfig, producerConfig.kafkaAvroProducer(), AvroFormat.forSink(schema))
-            .startSinker();
+        runSinker(
+            new KafkaSinker<>(
+                userConfig, producerConfig.kafkaAvroProducer(), AvroFormat.forSink(schema)));
       } finally {
-        try {
-          registry.close();
-        } catch (IOException e) {
-          log.error("Failed to close the schema registry", e);
-        }
+        closeRegistry(registry);
       }
     } else if (SCHEMA_TYPE_JSON.equals(schemaType)) {
-      Registry registry = producerConfig.schemaRegistry(producerConfig.schemaRegistryClient());
+      // The Glue-framed contract covers Avro only, and schemaRegistryClient() would fail obscurely
+      // on the absent schema.registry.url; fail with a clear message instead.
+      if (producerConfig.isGlueSchemaRegistry()) {
+        throw new IllegalArgumentException(
+            "schemaType=json is not supported with schema.registry.type=glue; use schemaType=avro");
+      }
+      Registry registry = producerConfig.schemaRegistry();
       try {
         String jsonSchema = fetchJsonSchema(registry, userConfig);
-        new KafkaSinker<>(
-                userConfig, producerConfig.kafkaByteArrayProducer(), new JsonFormat(jsonSchema))
-            .startSinker();
+        runSinker(
+            new KafkaSinker<>(
+                userConfig, producerConfig.kafkaByteArrayProducer(), new JsonFormat(jsonSchema)));
       } finally {
-        try {
-          registry.close();
-        } catch (IOException e) {
-          log.error("Failed to close the schema registry", e);
-        }
+        closeRegistry(registry);
       }
     } else {
       // raw: no schema registry involved
-      new KafkaSinker<>(userConfig, producerConfig.kafkaByteArrayProducer(), new ByteArrayFormat())
-          .startSinker();
+      runSinker(
+          new KafkaSinker<>(
+              userConfig, producerConfig.kafkaByteArrayProducer(), new ByteArrayFormat()));
+    }
+  }
+
+  /**
+   * Runs the sinker to termination, then closes it. The sinker owns the Kafka producer, which in turn
+   * owns the value serializer — so this is the one path that releases serializer-held resources such
+   * as the KMS client behind envelope encryption.
+   */
+  private static void runSinker(KafkaSinker<?> sinker) throws Exception {
+    try {
+      sinker.startSinker();
+    } finally {
+      sinker.close();
+    }
+  }
+
+  private static void closeRegistry(Registry registry) {
+    try {
+      registry.close();
+    } catch (IOException e) {
+      log.error("Failed to close the schema registry", e);
     }
   }
 

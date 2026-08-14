@@ -1,4 +1,4 @@
-package io.numaproj.kafka.encryption.aws;
+package io.numaproj.kafka.common.aws;
 
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
@@ -9,39 +9,58 @@ import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 
 /**
- * The AWS credentials the KMS client uses. Either the SDK default chain (IRSA / env / etc.) or, when
+ * The AWS credentials an SDK client uses. Either the SDK default chain (IRSA / env / etc.) or, when
  * an {@code assumeRoleArn} is configured, temporary credentials from STS AssumeRole.
  *
  * <p>Depends on {@link StsClient} and the role ARN. When it creates them, it owns the STS client and
  * the assume-role provider, and releases them in {@link #close()} (STS client first, then the
  * provider that used it).
+ *
+ * <p>Shared by every AWS client this connector builds — the KMS DEK unwrapper and generator, and the
+ * Glue schema registry — so {@code assumeRoleArn} means the same thing everywhere.
  */
 @Slf4j
-class DekCredentialsProvider implements AutoCloseable {
+public class AwsCredentials implements AutoCloseable {
 
-  private static final String SESSION_NAME = "kafka-java-kms";
+  private static final String SESSION_NAME = "kafka-java";
+
+  /**
+   * Configuration key for the IAM role assumed before building any AWS client. One role covers KMS
+   * and the Glue schema registry alike, which is why the key lives with the credentials it selects.
+   */
+  public static final String ASSUME_ROLE_ARN = "assumeRoleArn";
 
   private final AwsCredentialsProvider credentials; // null => SDK default chain
   private final AutoCloseable ownedProvider; // the assume-role provider, as a closeable (nullable)
   private final AutoCloseable ownedStsClient; // the STS client backing the provider (nullable)
 
-  DekCredentialsProvider(
+  AwsCredentials(
       AwsCredentialsProvider credentials, AutoCloseable ownedProvider, AutoCloseable ownedStsClient) {
     this.credentials = credentials;
     this.ownedProvider = ownedProvider;
     this.ownedStsClient = ownedStsClient;
   }
 
+  /**
+   * The credentials for the given {@code assumeRoleArn}: the SDK default chain when it is null or
+   * blank, otherwise STS AssumeRole in {@code region}.
+   */
+  public static AwsCredentials resolve(Region region, String assumeRoleArn) {
+    return (assumeRoleArn == null || assumeRoleArn.isBlank())
+        ? defaultChain()
+        : assumeRole(region, assumeRoleArn);
+  }
+
   /** SDK default credential chain; owns nothing. */
-  static DekCredentialsProvider defaultChain() {
-    return new DekCredentialsProvider(null, null, null);
+  static AwsCredentials defaultChain() {
+    return new AwsCredentials(null, null, null);
   }
 
   /**
    * Temporary credentials via STS AssumeRole; owns the STS client and provider it builds. If
    * construction throws partway, the STS client is closed before propagating.
    */
-  static DekCredentialsProvider assumeRole(Region region, String assumeRoleArn) {
+  static AwsCredentials assumeRole(Region region, String assumeRoleArn) {
     StsClient sts = null;
     StsAssumeRoleCredentialsProvider provider = null;
     try {
@@ -57,33 +76,33 @@ class DekCredentialsProvider implements AutoCloseable {
                       .roleSessionName(SESSION_NAME)
                       .build())
               .build();
-      return new DekCredentialsProvider(provider, provider, sts);
+      return new AwsCredentials(provider, provider, sts);
     } catch (RuntimeException e) {
-      closeQuietly(sts);
-      closeQuietly(provider);
+      closeQuietly(sts, "AWS credentials");
+      closeQuietly(provider, "AWS credentials");
       throw e;
     }
   }
 
-  /** The credentials for the KMS client builder, or {@code null} to use the SDK default chain. */
-  AwsCredentialsProvider credentials() {
+  /** The credentials for an SDK client builder, or {@code null} to use the SDK default chain. */
+  public AwsCredentialsProvider credentials() {
     return this.credentials;
   }
 
   @Override
   public void close() {
-    closeQuietly(this.ownedStsClient);
-    closeQuietly(this.ownedProvider);
+    closeQuietly(this.ownedStsClient, "AWS credentials");
+    closeQuietly(this.ownedProvider, "AWS credentials");
   }
 
-  private static void closeQuietly(AutoCloseable resource) {
+  public static void closeQuietly(AutoCloseable resource, String context) {
     if (resource == null) {
       return;
     }
     try {
       resource.close();
     } catch (Exception e) {
-      log.warn("Failed to close {} while releasing AWS credentials", resource.getClass(), e);
+      log.warn("Failed to close {} while releasing {}", resource.getClass(), context, e);
     }
   }
 }

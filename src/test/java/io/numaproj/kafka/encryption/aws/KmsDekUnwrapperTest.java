@@ -10,6 +10,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.numaproj.kafka.common.aws.AwsCredentials;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -30,7 +31,7 @@ class KmsDekUnwrapperTest {
   private static final byte[] DEK = new byte[32];
 
   @Mock private KmsClient kms;
-  @Mock private DekCredentialsProvider credentials;
+  @Mock private AwsCredentials credentials;
 
   private KmsDekUnwrapper unwrapper() {
     return new KmsDekUnwrapper(kms, credentials, KEY_ARN);
@@ -72,15 +73,4 @@ class KmsDekUnwrapperTest {
     assertThrows(IllegalArgumentException.class, () -> KmsDekUnwrapper.create("not-an-arn", null));
   }
 
-  @Test
-  void arnValidation() {
-    assertTrue(KmsDekUnwrapper.isValidKmsKeyArn(KEY_ARN));
-    assertFalse(
-        KmsDekUnwrapper.isValidKmsKeyArn(
-            "arn:aws:kms:us-east-1:123456789012:alias/my-key")); // alias, not a key
-    assertFalse(KmsDekUnwrapper.isValidKmsKeyArn("arn:aws:s3:::my-bucket")); // wrong service
-    assertFalse(KmsDekUnwrapper.isValidKmsKeyArn("arn:aws:kms::123456789012:key/abcd")); // no region
-    assertFalse(KmsDekUnwrapper.isValidKmsKeyArn("garbage"));
-    assertFalse(KmsDekUnwrapper.isValidKmsKeyArn(null));
-  }
 }

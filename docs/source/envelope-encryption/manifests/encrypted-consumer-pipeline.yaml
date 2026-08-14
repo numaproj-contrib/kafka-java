@@ -24,7 +24,7 @@ spec:
             args: [ "--config=/conf/user.configuration.yaml", "--consumer.properties.path=/conf/consumer.properties" ]
             imagePullPolicy: Always
 
-            # AWS credentials for KMS (and Glue) access: recommended to use a Kubernetes Secret.
+            # AWS credentials for KMS access: recommended to use a Kubernetes Secret.
             # The identity must have kms:Decrypt on the configured key.
             # See docs/credentials-management/protecting-credentials.md.
             envFrom:

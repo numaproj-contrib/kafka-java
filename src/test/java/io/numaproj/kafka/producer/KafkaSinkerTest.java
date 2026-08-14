@@ -5,6 +5,8 @@ import static org.mockito.Mockito.*;
 
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.format.AvroFormat;
+import io.numaproj.kafka.format.ByteArrayFormat;
+import io.numaproj.kafka.format.JsonFormat;
 import io.numaproj.numaflow.sinker.Response;
 import io.numaproj.numaflow.sinker.ResponseList;
 import io.numaproj.numaflow.sinker.SinkerTestKit;
@@ -18,6 +20,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.SerializationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -85,6 +88,136 @@ class KafkaSinkerTest {
   }
 
   @Test
+  void processMessages_nullValueFailsAvroConversionAndIsNotProduced() {
+    // An empty payload is not a valid Avro record, so the avro sink fails it in conversion. A raw
+    // sink produces it as-is — see rawSinkProducesANullPayloadAsANullValue.
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(null).build());
+
+    ResponseList result = underTest.processMessages(iterator);
+
+    Response response = result.getResponses().getFirst();
+    assertFalse(response.getSuccess());
+    assertTrue(response.getErr().contains("Failed to prepare avro generic record"));
+    verify(producer, never()).send(any(ProducerRecord.class));
+  }
+
+  @Test
+  void processMessages_emptyValueFailsAvroConversionAndIsNotProduced() {
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(new byte[0]).build());
+
+    ResponseList result = underTest.processMessages(iterator);
+
+    Response response = result.getResponses().getFirst();
+    assertFalse(response.getSuccess());
+    assertTrue(response.getErr().contains("Failed to prepare avro generic record"));
+    verify(producer, never()).send(any(ProducerRecord.class));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void rawSinkProducesANullPayloadAsANullValue() {
+    // The raw sink has no schema to violate, so a null payload reaches Kafka as a null value, which
+    // a compacted topic reads as "delete this key". Whether to write one is the pipeline's call, not
+    // this sink's. An empty payload is a different thing: see the test below.
+    KafkaProducer<String, byte[]> rawProducer = mock(KafkaProducer.class);
+    doReturn(
+            CompletableFuture.completedFuture(
+                new RecordMetadata(new TopicPartition(TOPIC, 1), 1, 1, 1, 1, 1)))
+        .when(rawProducer)
+        .send(any(ProducerRecord.class));
+    UserConfig userConfig = mock(UserConfig.class);
+    when(userConfig.getTopicName()).thenReturn(TOPIC);
+    KafkaSinker<byte[]> rawSinker =
+        new KafkaSinker<>(userConfig, rawProducer, new ByteArrayFormat());
+
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(null).build());
+
+    ResponseList result = rawSinker.processMessages(iterator);
+
+    assertEquals(Map.of("1", true), successById(result));
+    ArgumentCaptor<ProducerRecord<String, byte[]>> captor =
+        ArgumentCaptor.forClass(ProducerRecord.class);
+    verify(rawProducer).send(captor.capture());
+    assertNull(captor.getValue().value());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void rawSinkProducesAnEmptyPayloadAsAnOrdinaryRecord() {
+    // Zero bytes is not a delete marker — compaction keys on the value being null — so an empty
+    // payload must arrive as an empty value, not be turned into a null one or refused.
+    KafkaProducer<String, byte[]> rawProducer = mock(KafkaProducer.class);
+    doReturn(
+            CompletableFuture.completedFuture(
+                new RecordMetadata(new TopicPartition(TOPIC, 1), 1, 1, 1, 1, 1)))
+        .when(rawProducer)
+        .send(any(ProducerRecord.class));
+    UserConfig userConfig = mock(UserConfig.class);
+    when(userConfig.getTopicName()).thenReturn(TOPIC);
+    KafkaSinker<byte[]> rawSinker =
+        new KafkaSinker<>(userConfig, rawProducer, new ByteArrayFormat());
+
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(new byte[0]).build());
+
+    ResponseList result = rawSinker.processMessages(iterator);
+
+    assertEquals(Map.of("1", true), successById(result));
+    ArgumentCaptor<ProducerRecord<String, byte[]>> captor =
+        ArgumentCaptor.forClass(ProducerRecord.class);
+    verify(rawProducer).send(captor.capture());
+    assertArrayEquals(new byte[0], captor.getValue().value());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void jsonSinkFailsAnEmptyPayloadWithoutAbandoningTheBatch() {
+    // The JSON validator throws a NullPointerException on a null payload and a parse error on an
+    // empty one. Neither is a FormatException, so before JsonFormat rejected them itself they
+    // escaped processMessages and the batch returned no responses at all.
+    KafkaProducer<String, byte[]> jsonProducer = mock(KafkaProducer.class);
+    doReturn(
+            CompletableFuture.completedFuture(
+                new RecordMetadata(new TopicPartition(TOPIC, 1), 1, 1, 1, 1, 1)))
+        .when(jsonProducer)
+        .send(any(ProducerRecord.class));
+    UserConfig userConfig = mock(UserConfig.class);
+    when(userConfig.getTopicName()).thenReturn(TOPIC);
+    KafkaSinker<byte[]> jsonSinker =
+        new KafkaSinker<>(
+            userConfig,
+            jsonProducer,
+            new JsonFormat("{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}"));
+
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(null).build());
+    iterator.addDatum(SinkerTestKit.TestDatum.builder().id("2").value(new byte[0]).build());
+    iterator.addDatum(
+        SinkerTestKit.TestDatum.builder().id("3").value("{\"name\":\"Kobe\"}".getBytes()).build());
+
+    ResponseList result = jsonSinker.processMessages(iterator);
+
+    assertEquals(Map.of("1", false, "2", false, "3", true), successById(result));
+    verify(jsonProducer, times(1)).send(any(ProducerRecord.class));
+  }
+
+  @Test
+  void processMessages_failedValueDoesNotAbandonTheRestOfTheBatch() {
+    producerSucceeds();
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(new byte[0]).build());
+    iterator.addDatum(
+        SinkerTestKit.TestDatum.builder().id("2").value("{\"name\":\"Kobe\"}".getBytes()).build());
+
+    ResponseList result = underTest.processMessages(iterator);
+
+    assertEquals(Map.of("1", false, "2", true), successById(result));
+  }
+
+  @Test
   void processMessages_whenSendFutureFails_thenResponseFails() {
     doReturn(CompletableFuture.failedFuture(new Exception("future error")))
         .when(producer)
@@ -93,6 +226,71 @@ class KafkaSinkerTest {
     ResponseList result = underTest.processMessages(iterator(Map.of("1", "{\"name\":\"Michael\"}")));
 
     assertEquals(Map.of("1", false), successById(result));
+  }
+
+  @Test
+  void processMessages_whenSendThrowsSynchronously_thenOnlyThatMessageFails() {
+    // The value serializer runs inside send(), so a schema-resolution or encryption failure surfaces
+    // synchronously. It must fail one message, not abandon the batch.
+    Future<RecordMetadata> ok =
+        CompletableFuture.completedFuture(
+            new RecordMetadata(new TopicPartition(TOPIC, 1), 1, 1, 1, 1, 1));
+    doThrow(new SerializationException("boom"))
+        .doReturn(ok)
+        .when(producer)
+        .send(any(ProducerRecord.class));
+
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(
+        SinkerTestKit.TestDatum.builder().id("1").value("{\"name\":\"Michael\"}".getBytes()).build());
+    iterator.addDatum(
+        SinkerTestKit.TestDatum.builder().id("2").value("{\"name\":\"Kobe\"}".getBytes()).build());
+
+    ResponseList result = underTest.processMessages(iterator);
+
+    assertEquals(Map.of("1", false, "2", true), successById(result));
+  }
+
+  @Test
+  void processMessages_whenGlueSchemaResolutionFails_thenMessageIsNotAckedAndErrorIsSurfaced() {
+    // With auto-registration off, the Glue serializer throws when the record's schema definition is
+    // not registered (or does not byte-exactly match a registered version). That surfaces here as a
+    // synchronous AWSSchemaRegistryException from send(). A failure response means Numaflow does NOT
+    // ack the message — it is retried — so no record may be reported OK.
+    doThrow(
+            new com.amazonaws.services.schemaregistry.exception.AWSSchemaRegistryException(
+                "Schema version is not found."))
+        .when(producer)
+        .send(any(ProducerRecord.class));
+
+    ResponseList result = underTest.processMessages(iterator(Map.of("1", "{\"name\":\"Michael\"}")));
+
+    Response response = result.getResponses().getFirst();
+    assertFalse(response.getSuccess(), "a schema-resolution failure must not be acked");
+    assertTrue(
+        response.getErr().contains("Schema version is not found"),
+        "the Glue error must be surfaced so the operator can see why: " + response.getErr());
+  }
+
+  @Test
+  void processMessages_whenEncryptionFailsForKmsAccessDenied_thenMessageIsNotAcked() {
+    // The IAM role lacks kms:GenerateDataKey on the configured key. The EncryptingSerializer runs
+    // inside send(), so the KMS denial surfaces synchronously; the message must fail (no ack) and no
+    // unencrypted record may be produced as a fallback.
+    doThrow(
+            software.amazon.awssdk.services.kms.model.KmsException.builder()
+                .message(
+                    "User is not authorized to perform: kms:GenerateDataKey on the resource")
+                .build())
+        .when(producer)
+        .send(any(ProducerRecord.class));
+
+    ResponseList result = underTest.processMessages(iterator(Map.of("1", "{\"name\":\"Michael\"}")));
+
+    Response response = result.getResponses().getFirst();
+    assertFalse(response.getSuccess(), "a KMS access-denied failure must not be acked");
+    assertTrue(response.getErr().contains("kms:GenerateDataKey"));
+    verify(producer).send(any(ProducerRecord.class)); // attempted once, never retried unencrypted
   }
 
   @Test

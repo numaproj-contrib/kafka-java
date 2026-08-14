@@ -34,6 +34,11 @@ class DecryptingDeserializerTest {
     verify(delegate).deserialize("t", plaintext);
   }
 
+  /**
+   * A topic this source consumes may legitimately carry null values, and attempting to decrypt one
+   * would fail the vertex on a record that is valid. The sink-side mirror is {@code
+   * EncryptingSerializerTest#passesThroughNullWithoutEncrypting}.
+   */
   @Test
   void passesThroughNullWithoutDecrypting() {
     DecryptingDeserializer<String> d = new DecryptingDeserializer<>(delegate, decryptor);

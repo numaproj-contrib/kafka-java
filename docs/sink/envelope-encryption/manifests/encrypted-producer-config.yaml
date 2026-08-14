@@ -1,0 +1,34 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: encrypted-producer-config
+data:
+  producer.properties: |
+    # Required connection configs for Kafka producer
+    bootstrap.servers=[placeholder]
+    security.protocol=[placeholder]
+    sasl.jaas.config=[placeholder]
+    sasl.mechanism=[placeholder]
+    # Required for correctness in Apache Kafka clients prior to 2.6
+    client.dns.lookup=use_all_dns_ips
+    # Best practice for higher availability in Apache Kafka clients prior to 3.0
+    session.timeout.ms=45000
+    # Best practice for Kafka producer to prevent data loss
+    acks=all
+    # Other configurations
+    retries=0
+
+    # Enable payload envelope encryption: set the KMS key ARN (its presence turns encryption on).
+    # A full key ARN is required; a bare alias is rejected, because the region is derived from the key.
+    payload.envelope.encryption.provider.aws-kms.key.arn=arn:aws:kms:us-east-1:123456789012:key/[placeholder]
+    # One DEK is generated on first use and reused for the process lifetime; restart to rotate.
+
+    # Optional: assume an IAM role before connecting to KMS
+    # (the role must carry kms:GenerateDataKey on the key above)
+    # assumeRoleArn=arn:aws:iam::123456789012:role/my-producer-role
+  user.configuration: |
+    topicName: [placeholder]
+    # raw: the sink produces the bytes it receives, with no serialization step. Encryption is
+    # configured the same way for any other schemaType.
+    schemaType: raw

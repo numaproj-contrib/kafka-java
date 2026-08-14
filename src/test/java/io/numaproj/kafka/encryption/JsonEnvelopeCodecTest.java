@@ -3,9 +3,15 @@ package io.numaproj.kafka.encryption;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Lists;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.HashSet;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class JsonEnvelopeCodecTest {
@@ -85,5 +91,47 @@ class JsonEnvelopeCodecTest {
     assertThrows(
         PayloadDecryptionException.class,
         () -> codec.parse("not json".getBytes(StandardCharsets.UTF_8)));
+  }
+
+  @Test
+  void unparseThenParseRoundTrips() {
+    byte[] wrappedDek = {1, 2, 3};
+    byte[] nonce = new byte[12];
+    byte[] ciphertext = {9, 8, 7, 6, 5};
+
+    Envelope original = new Envelope(1, "AES-256-GCM", wrappedDek, nonce, ciphertext);
+    Envelope reparsed = codec.parse(codec.unparse(original));
+
+    assertEquals(1, reparsed.version());
+    assertEquals("AES-256-GCM", reparsed.alg());
+    assertArrayEquals(wrappedDek, reparsed.wrappedDek());
+    assertArrayEquals(nonce, reparsed.nonce());
+    assertArrayEquals(ciphertext, reparsed.ciphertext());
+  }
+
+  @Test
+  void unparseWritesTheContractFieldNamesAsUtf8Json() throws Exception {
+    byte[] wire =
+        codec.unparse(new Envelope(1, "AES-256-GCM", new byte[] {1}, new byte[12], new byte[16]));
+
+    JsonNode json = new ObjectMapper().readTree(wire);
+    assertEquals(
+        Set.of("enc_ver", "alg", "ciphertext_dek", "nonce", "ciphertext"),
+        new HashSet<>(Lists.newArrayList(json.fieldNames())));
+    assertTrue(json.get("enc_ver").isInt(), "enc_ver must be an integer, not a string");
+    // Round-trips through UTF-8 without loss.
+    assertEquals(json, new ObjectMapper().readTree(new String(wire, StandardCharsets.UTF_8)));
+  }
+
+  @Test
+  void unparseUsesPaddedStandardBase64() throws Exception {
+    // 0xFB,0xFF exercises base64 chars 62/63, where the URL-safe alphabet differs ('-'/'_').
+    byte[] tricky = {(byte) 0xFB, (byte) 0xFF, (byte) 0xBF, 0x01, 0x02};
+    byte[] wire = codec.unparse(new Envelope(1, "AES-256-GCM", tricky, new byte[12], new byte[16]));
+
+    String dekField = new ObjectMapper().readTree(wire).get("ciphertext_dek").asText();
+    assertEquals(Base64.getEncoder().encodeToString(tricky), dekField);
+    assertTrue(dekField.contains("+") || dekField.contains("/"), "standard alphabet");
+    assertTrue(dekField.endsWith("="), "padding retained");
   }
 }
