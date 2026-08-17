@@ -4,7 +4,6 @@ import io.numaproj.kafka.common.Stage;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.metrics.SourceMetrics;
 import io.numaproj.kafka.metrics.SourceMetrics.DropReason;
-import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -108,8 +107,7 @@ public class KafkaWorker<V> implements Runnable {
             collect(consumer.poll(Duration.ofMillis(remainingMillis(deadlineNanos))));
         return;
       } catch (RecordDeserializationException e) {
-        if (!policy.shouldSkip(
-            RecordLocation.of(e), Stage.DECODE, e.getCause(), () -> bufferBytes(e.valueBuffer()))) {
+        if (!policy.shouldSkip(RecordLocation.of(e), Stage.DECODE, e.getCause())) {
           throw e;
         }
         // Advance exactly one past the bad record; this also discards the buffered fetch whose
@@ -145,17 +143,6 @@ public class KafkaWorker<V> implements Runnable {
 
   private static long remainingMillis(long deadlineNanos) {
     return Math.max(0L, TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime()));
-  }
-
-  /** Copies a buffer's bytes without disturbing its position, for the (lazy) bad-record sink. */
-  private static byte[] bufferBytes(ByteBuffer buffer) {
-    if (buffer == null) {
-      return new byte[0];
-    }
-    ByteBuffer duplicate = buffer.duplicate();
-    byte[] bytes = new byte[duplicate.remaining()];
-    duplicate.get(bytes);
-    return bytes;
   }
 
   private void commitAsync() {

@@ -1,7 +1,5 @@
 package io.numaproj.kafka.common;
 
-import io.numaproj.kafka.format.FormatException;
-
 /**
  * The closed, low-cardinality classification of a read-path failure. Used as a metric label, not a
  * policy gate: {@code onError: skip} skips every read failure regardless of reason for now, and this
@@ -16,8 +14,7 @@ public enum ReadErrorReason {
   UNKNOWN;
 
   /**
-   * Classifies a failure by walking its cause chain for a {@link BadRecordException} or {@link
-   * FormatException}.
+   * Classifies a failure by walking its cause chain for a {@link BadRecordException}.
    *
    * <p><b>Trap:</b> {@code RecordDeserializationException} extends Kafka's {@code
    * SerializationException}, not {@code BadRecordException}. Callers at the decode stage must pass
@@ -25,10 +22,6 @@ public enum ReadErrorReason {
    * #UNKNOWN}.
    */
   public static ReadErrorReason of(Throwable failure) {
-    if (Throwables.hasCauseOfType(failure, BadRecordException.class)
-        || Throwables.hasCauseOfType(failure, FormatException.class)) {
-      return BAD_DATA;
-    }
-    return UNKNOWN;
+    return Throwables.hasCauseOfType(failure, BadRecordException.class) ? BAD_DATA : UNKNOWN;
   }
 }

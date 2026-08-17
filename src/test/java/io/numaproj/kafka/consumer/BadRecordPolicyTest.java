@@ -28,7 +28,7 @@ class BadRecordPolicyTest {
     BadRecordPolicy policy = new BadRecordPolicy(OnError.FAIL, metrics, sink);
     BadRecordException failure = new BadRecordException("bad");
 
-    boolean skipped = policy.shouldSkip(LOCATION, Stage.DECODE, failure, () -> new byte[0]);
+    boolean skipped = policy.shouldSkip(LOCATION, Stage.DECODE, failure);
 
     assertFalse(skipped);
     verify(metrics).recordReadError(Stage.DECODE, ReadErrorReason.BAD_DATA, Action.FAILED);
@@ -40,7 +40,7 @@ class BadRecordPolicyTest {
     BadRecordPolicy policy = new BadRecordPolicy(OnError.SKIP, metrics, sink);
     RuntimeException failure = new RuntimeException("environmental");
 
-    boolean skipped = policy.shouldSkip(LOCATION, Stage.CONVERT, failure, () -> new byte[0]);
+    boolean skipped = policy.shouldSkip(LOCATION, Stage.CONVERT, failure);
 
     assertTrue(skipped);
     verify(metrics).recordReadError(Stage.CONVERT, ReadErrorReason.UNKNOWN, Action.SKIPPED);
@@ -58,7 +58,7 @@ class BadRecordPolicyTest {
   void shouldSkip_onErrorFail_refusalNeverReachesSink() {
     BadRecordPolicy policy = new BadRecordPolicy(OnError.FAIL, metrics, sink);
 
-    policy.shouldSkip(LOCATION, Stage.DECODE, new BadRecordException("bad"), () -> new byte[0]);
+    policy.shouldSkip(LOCATION, Stage.DECODE, new BadRecordException("bad"));
 
     verifyNoInteractions(sink);
   }

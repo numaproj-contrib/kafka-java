@@ -166,9 +166,7 @@ public class KafkaSourcer<V> extends Sourcer {
       payload = format.toPayload(consumerRecord.value());
     } catch (FormatException e) {
       RecordLocation where = RecordLocation.of(consumerRecord);
-      // rawValue is never evaluated by the current (logging-only) sink; deliberately not wired to
-      // the decrypted value here, since a future dead-letter sink would otherwise write plaintext.
-      if (!policy.shouldSkip(where, Stage.CONVERT, e, () -> new byte[0])) {
+      if (!policy.shouldSkip(where, Stage.CONVERT, e)) {
         throw new RuntimeException("Failed to convert the record to a payload: " + where, e);
       }
       return false;

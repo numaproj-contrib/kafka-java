@@ -69,9 +69,6 @@ public class KafkaApplication {
     UserConfig userConfig = buildUserConfig(argMap);
     log.info("UserConfig: {}", userConfig);
 
-    MetricsServer metricsServer = MetricsServer.start();
-    Runtime.getRuntime().addShutdownHook(new Thread(metricsServer::stop));
-
     switch (handler.toLowerCase()) {
       case HANDLER_CONSUMER -> startConsumer(argMap, userConfig);
       case HANDLER_PRODUCER -> startProducer(argMap, userConfig);
@@ -93,6 +90,8 @@ public class KafkaApplication {
     String groupId = consumerConfig.consumerGroupId();
     var adminClient = consumerConfig.kafkaAdminClient();
     Admin admin = new Admin(userConfig, groupId, adminClient);
+    MetricsServer metricsServer = MetricsServer.start();
+    Runtime.getRuntime().addShutdownHook(new Thread(metricsServer::stop));
     SourceMetrics metrics = new PrometheusSourceMetrics();
 
     if (SCHEMA_TYPE_AVRO.equals(userConfig.getSchemaType())) {
