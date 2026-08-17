@@ -19,23 +19,19 @@ data:
     # group.id is required for consumer clients
     group.id=group1
 
-    # Use AWS Glue Schema Registry for the (decrypted) Avro payload
-    schema.registry.type=glue
-    region=us-east-1
-    registry.name=[placeholder]
-    schemaAutoRegistrationEnabled=false
-
     # Enable payload envelope decryption: set the KMS key ARN (its presence turns decryption on).
     payload.envelope.encryption.provider.aws-kms.key.arn=arn:aws:kms:us-east-1:123456789012:key/[placeholder]
     # Optional: plaintext-DEK cache TTL in ms (default 3600000 = 1h)
     # payload.envelope.encryption.dek.cache.ttl.ms=3600000
 
-    # Optional: assume a single IAM role before connecting to KMS and Glue
-    # (the role must carry both kms:Decrypt and any glue:* permissions your schemaType needs)
+    # Optional: assume an IAM role before connecting to KMS
+    # (the role must carry kms:Decrypt on the key above)
     # assumeRoleArn=arn:aws:iam::123456789012:role/my-consumer-role
   user.configuration: |
     topicName: [placeholder]
-    schemaType: avro
+    # raw: the decrypted bytes are forwarded as they are, with no deserialization step. Decryption
+    # is configured the same way for any other schemaType.
+    schemaType: raw
     # Optional: onError: fail (default) crashes the vertex on a record that fails to be read
     # (including a decryption failure); skip drops it and counts it
     # (kafka_java_source_read_errors_total). Source-only.

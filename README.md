@@ -32,6 +32,12 @@ example [here](docs/sink/json/json-sink.md).
 
 Use Case 6: Write data to Kafka with no schema. See an example [here](docs/sink/no-schema/no-schema-sink.md).
 
+Use Case 8: Write data to Kafka with an Avro schema registered in AWS Glue Schema Registry. See an
+example [here](docs/sink/avro-glue/avro-glue-sink.md).
+
+Use Case 9: Write data to Kafka with envelope-encrypted values (AWS KMS + AES-256-GCM). Encryption is
+opt-in and composes with any of the above `schemaType`s. See an example [here](docs/sink/envelope-encryption/encrypting-sink.md).
+
 ### Metrics
 
 The source exposes Prometheus metrics over HTTP. See [source metrics](docs/metrics/source-metrics.md)

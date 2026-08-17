@@ -9,6 +9,10 @@ In `kafka-java`, if no schema information is provided, by default, the producer 
 `org.apache.kafka.common.serialization.StringSerializer` to serialize the key. For the value,
 `org.apache.kafka.common.serialization.ByteArraySerializer`.
 
+Payloads pass through unchanged, including a null or empty one. A **null** payload is written to the
+topic as a null value, which on a compacted topic marks the key for deletion. An **empty** payload is
+an ordinary record whose value happens to be zero bytes, and does not delete anything.
+
 ### Example
 
 In this example, we create a pipeline that reads from the

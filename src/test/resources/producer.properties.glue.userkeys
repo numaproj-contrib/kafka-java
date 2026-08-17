@@ -1,0 +1,15 @@
+bootstrap.servers=localhost:9092
+acks=all
+retries=0
+compression.type=none
+# Glue Schema Registry configurations
+schema.registry.type=glue
+region=us-east-1
+registry.name=test-registry
+# What a user might set, deliberately wrong for this sink: kafka-java overrides all four. The first
+# two are values the Glue configuration rejects, so the serializer fails to configure if they are
+# ever passed through rather than overridden.
+dataFormat=NOT_A_FORMAT
+avroRecordType=NOT_A_RECORD_TYPE
+schemaAutoRegistrationEnabled=true
+auto.register.schemas=true

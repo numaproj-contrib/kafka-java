@@ -74,7 +74,19 @@ public class KafkaSinker<V> extends Sinker {
 
       ProducerRecord<String, V> record =
           new ProducerRecord<>(userConfig.getTopicName(), resolveKey(datum), value);
-      inflightTasks.put(datum.getId(), producer.send(record));
+      try {
+        inflightTasks.put(datum.getId(), producer.send(record));
+      } catch (Exception e) {
+        // send() serializes the value on this thread before queueing the record, so a serializer
+        // failure surfaces here rather than through the Future — an uncaught one would abandon the
+        // rest of the batch, including the messages already handed to the producer. That was always
+        // true of the schema serializer; encryption adds a second way to fail on this thread, since
+        // the encrypting wrapper sits outside it (ProducerConfig#wrapWithEncryption). Fail this
+        // message only.
+        log.error("Failed to send message with id: {}", datum.getId(), e);
+        // toString, not getMessage: some exceptions carry a null message.
+        responseListBuilder.addResponse(Response.responseFailure(datum.getId(), e.toString()));
+      }
     }
 
     producer.flush();

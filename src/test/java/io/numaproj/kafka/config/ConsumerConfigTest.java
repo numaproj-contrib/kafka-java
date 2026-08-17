@@ -7,6 +7,7 @@ import com.amazonaws.services.schemaregistry.exception.AWSSchemaRegistryExceptio
 import com.amazonaws.services.schemaregistry.exception.GlueSchemaRegistryIncompatibleDataException;
 import io.numaproj.kafka.common.BadRecordException;
 import io.numaproj.kafka.encryption.DecryptingDeserializer;
+import io.numaproj.kafka.encryption.EncryptionProps;
 import io.numaproj.kafka.encryption.EnvelopeDecryptionFactory;
 import io.numaproj.kafka.encryption.PayloadDecryptor;
 import java.util.Objects;
@@ -168,7 +169,7 @@ public class ConsumerConfigTest {
   public void wrapWithDecryption_withDecryptor_wraps() {
     Properties props = new Properties();
     props.setProperty(
-        EnvelopeDecryptionFactory.KEY_ARN, "arn:aws:kms:us-east-1:123456789012:key/abcd-1234");
+        EncryptionProps.KEY_ARN, "arn:aws:kms:us-east-1:123456789012:key/abcd-1234");
     PayloadDecryptor decryptor = EnvelopeDecryptionFactory.fromProps(props);
     assertNotNull(decryptor);
 

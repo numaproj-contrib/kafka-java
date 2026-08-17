@@ -1,0 +1,9 @@
+bootstrap.servers=localhost:9092
+acks=all
+retries=0
+# Kafka-level compression must stay off; the only compression is the in-frame zlib
+compression.type=none
+# Glue Schema Registry configurations
+schema.registry.type=glue
+region=us-east-1
+registry.name=test-registry
