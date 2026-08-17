@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import io.numaproj.kafka.common.BadRecordException;
+import io.numaproj.kafka.common.ReadErrorReason;
+import io.numaproj.kafka.common.Stage;
 import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.metrics.SourceMetrics;
 import io.numaproj.kafka.metrics.SourceMetrics.Action;

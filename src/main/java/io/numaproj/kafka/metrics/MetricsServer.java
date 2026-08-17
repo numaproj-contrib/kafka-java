@@ -19,6 +19,9 @@ public class MetricsServer {
   public static final int DEFAULT_PORT = 9091;
   private static final String PORT_ENV_VAR = "KAFKA_JAVA_METRICS_PORT";
 
+  /** Sentinel returned when metrics serving is disabled; {@link #stop()} is a no-op. */
+  private static final MetricsServer DISABLED = new MetricsServer(null);
+
   private final HTTPServer httpServer;
 
   private MetricsServer(HTTPServer httpServer) {
@@ -26,19 +29,19 @@ public class MetricsServer {
   }
 
   /**
-   * Starts the metrics HTTP server against the given registry, unless disabled via {@code
-   * KAFKA_JAVA_METRICS_PORT=0}.
+   * Starts the metrics HTTP server against {@code PrometheusRegistry.defaultRegistry}, unless
+   * disabled via {@code KAFKA_JAVA_METRICS_PORT=0}.
    *
-   * @return the running server, or {@code null} if metrics serving is disabled
+   * @return the running server, or a no-op sentinel if metrics serving is disabled
    */
-  public static MetricsServer start(PrometheusRegistry registry) throws IOException {
+  public static MetricsServer start() throws IOException {
     int port = resolvePort();
     if (port == 0) {
       log.info("Metrics server disabled ({}=0)", PORT_ENV_VAR);
-      return null;
+      return DISABLED;
     }
     HTTPServer server =
-        HTTPServer.builder().port(port).registry(registry).buildAndStart();
+        HTTPServer.builder().port(port).registry(PrometheusRegistry.defaultRegistry).buildAndStart();
     log.info("Metrics server listening on port {} (path /metrics)", port);
     return new MetricsServer(server);
   }
@@ -56,8 +59,11 @@ public class MetricsServer {
     }
   }
 
-  /** Stops the metrics server, releasing its port. Safe to call more than once. */
+  /** Stops the metrics server, releasing its port. Safe to call more than once. No-op if disabled. */
   public void stop() {
+    if (httpServer == null) {
+      return;
+    }
     log.info("Stopping metrics server");
     httpServer.close();
   }

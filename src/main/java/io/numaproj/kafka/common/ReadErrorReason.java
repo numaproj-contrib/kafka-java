@@ -1,6 +1,5 @@
-package io.numaproj.kafka.consumer;
+package io.numaproj.kafka.common;
 
-import io.numaproj.kafka.common.BadRecordException;
 import io.numaproj.kafka.format.FormatException;
 
 /**
@@ -25,11 +24,10 @@ public enum ReadErrorReason {
    * {@code getCause()}, never the wrapper itself, or every decode failure classifies as {@link
    * #UNKNOWN}.
    */
-  static ReadErrorReason of(Throwable failure) {
-    for (Throwable t = failure; t != null; t = t.getCause()) {
-      if (t instanceof BadRecordException || t instanceof FormatException) {
-        return BAD_DATA;
-      }
+  public static ReadErrorReason of(Throwable failure) {
+    if (Throwables.hasCauseOfType(failure, BadRecordException.class)
+        || Throwables.hasCauseOfType(failure, FormatException.class)) {
+      return BAD_DATA;
     }
     return UNKNOWN;
   }

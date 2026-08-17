@@ -3,6 +3,7 @@ package io.numaproj.kafka.consumer;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.numaproj.kafka.common.BadRecordException;
+import io.numaproj.kafka.common.ReadErrorReason;
 import io.numaproj.kafka.encryption.PayloadDecryptionException;
 import io.numaproj.kafka.format.FormatException;
 import java.io.IOException;

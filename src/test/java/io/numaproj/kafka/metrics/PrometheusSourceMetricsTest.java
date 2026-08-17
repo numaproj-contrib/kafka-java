@@ -2,8 +2,8 @@ package io.numaproj.kafka.metrics;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import io.numaproj.kafka.consumer.ReadErrorReason;
-import io.numaproj.kafka.consumer.Stage;
+import io.numaproj.kafka.common.ReadErrorReason;
+import io.numaproj.kafka.common.Stage;
 import io.numaproj.kafka.metrics.SourceMetrics.Action;
 import io.numaproj.kafka.metrics.SourceMetrics.DropReason;
 import io.prometheus.metrics.expositionformats.PrometheusTextFormatWriter;

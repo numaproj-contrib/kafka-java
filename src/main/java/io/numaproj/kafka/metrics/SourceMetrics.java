@@ -1,7 +1,7 @@
 package io.numaproj.kafka.metrics;
 
-import io.numaproj.kafka.consumer.ReadErrorReason;
-import io.numaproj.kafka.consumer.Stage;
+import io.numaproj.kafka.common.ReadErrorReason;
+import io.numaproj.kafka.common.Stage;
 
 /**
  * Source-side counters. Vendor-neutral by design: no Prometheus/OTel/cloud types appear in any

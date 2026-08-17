@@ -17,7 +17,6 @@ import io.numaproj.kafka.metrics.PrometheusSourceMetrics;
 import io.numaproj.kafka.metrics.SourceMetrics;
 import io.numaproj.kafka.producer.KafkaSinker;
 import io.numaproj.kafka.schema.Registry;
-import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
@@ -70,10 +69,8 @@ public class KafkaApplication {
     UserConfig userConfig = buildUserConfig(argMap);
     log.info("UserConfig: {}", userConfig);
 
-    MetricsServer metricsServer = MetricsServer.start(PrometheusRegistry.defaultRegistry);
-    if (metricsServer != null) {
-      Runtime.getRuntime().addShutdownHook(new Thread(metricsServer::stop));
-    }
+    MetricsServer metricsServer = MetricsServer.start();
+    Runtime.getRuntime().addShutdownHook(new Thread(metricsServer::stop));
 
     switch (handler.toLowerCase()) {
       case HANDLER_CONSUMER -> startConsumer(argMap, userConfig);
@@ -96,7 +93,7 @@ public class KafkaApplication {
     String groupId = consumerConfig.consumerGroupId();
     var adminClient = consumerConfig.kafkaAdminClient();
     Admin admin = new Admin(userConfig, groupId, adminClient);
-    SourceMetrics metrics = new PrometheusSourceMetrics(PrometheusRegistry.defaultRegistry);
+    SourceMetrics metrics = new PrometheusSourceMetrics();
 
     if (SCHEMA_TYPE_AVRO.equals(userConfig.getSchemaType())) {
       new KafkaSourcer<GenericRecord>(

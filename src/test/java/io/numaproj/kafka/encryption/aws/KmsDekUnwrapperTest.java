@@ -24,8 +24,10 @@ import software.amazon.awssdk.services.kms.model.DecryptRequest;
 import software.amazon.awssdk.services.kms.model.DecryptResponse;
 import software.amazon.awssdk.services.kms.model.IncorrectKeyException;
 import software.amazon.awssdk.services.kms.model.InvalidCiphertextException;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.kms.model.KmsException;
 import software.amazon.awssdk.services.kms.model.KmsInternalException;
+import software.amazon.awssdk.services.kms.model.LimitExceededException;
 
 @ExtendWith(MockitoExtension.class)
 class KmsDekUnwrapperTest {
@@ -84,6 +86,22 @@ class KmsDekUnwrapperTest {
         .thenThrow(KmsInternalException.builder().message("internal error").build());
 
     assertThrows(KmsInternalException.class, () -> unwrapper().unwrap(WRAPPED));
+  }
+
+  @Test
+  void propagatesThrottlingExceptionUntranslated() {
+    when(kms.decrypt(any(DecryptRequest.class)))
+        .thenThrow(LimitExceededException.builder().message("throttled").build());
+
+    assertThrows(LimitExceededException.class, () -> unwrapper().unwrap(WRAPPED));
+  }
+
+  @Test
+  void propagatesSdkClientExceptionUntranslated() {
+    when(kms.decrypt(any(DecryptRequest.class)))
+        .thenThrow(SdkClientException.create("network error"));
+
+    assertThrows(SdkClientException.class, () -> unwrapper().unwrap(WRAPPED));
   }
 
   @Test

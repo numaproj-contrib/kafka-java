@@ -2,6 +2,7 @@ package io.numaproj.kafka.consumer;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.numaproj.kafka.common.CommonUtils;
+import io.numaproj.kafka.common.Stage;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.format.FormatException;
 import io.numaproj.kafka.format.KafkaFormat;
@@ -73,7 +74,7 @@ public class KafkaSourcer<V> extends Sourcer {
     // (convert failures), so onError is applied and counted identically at both read-path stages.
     this.policy =
         new BadRecordPolicy(
-            userConfig == null ? null : userConfig.getOnError(), metrics, new LoggingBadRecordSink());
+            userConfig.getOnError(), metrics, new LoggingBadRecordSink());
   }
 
   public void startConsumer() throws Exception {
@@ -167,7 +168,7 @@ public class KafkaSourcer<V> extends Sourcer {
       RecordLocation where = RecordLocation.of(consumerRecord);
       // rawValue is never evaluated by the current (logging-only) sink; deliberately not wired to
       // the decrypted value here, since a future dead-letter sink would otherwise write plaintext.
-      if (!policy.shouldSkip(where, Stage.CONVERT, e, () -> null)) {
+      if (!policy.shouldSkip(where, Stage.CONVERT, e, () -> new byte[0])) {
         throw new RuntimeException("Failed to convert the record to a payload: " + where, e);
       }
       return false;

@@ -1,4 +1,4 @@
-package io.numaproj.kafka.consumer;
+package io.numaproj.kafka.common;
 
 /**
  * The read-path stage at which a record failure was detected. Also a metric label.

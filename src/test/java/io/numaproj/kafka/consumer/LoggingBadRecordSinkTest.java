@@ -2,6 +2,8 @@ package io.numaproj.kafka.consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import io.numaproj.kafka.common.ReadErrorReason;
+import io.numaproj.kafka.common.Stage;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
 

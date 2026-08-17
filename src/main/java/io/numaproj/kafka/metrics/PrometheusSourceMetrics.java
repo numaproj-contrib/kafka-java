@@ -1,7 +1,7 @@
 package io.numaproj.kafka.metrics;
 
-import io.numaproj.kafka.consumer.ReadErrorReason;
-import io.numaproj.kafka.consumer.Stage;
+import io.numaproj.kafka.common.ReadErrorReason;
+import io.numaproj.kafka.common.Stage;
 import io.prometheus.metrics.core.metrics.Counter;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import java.util.Locale;
@@ -19,6 +19,11 @@ public class PrometheusSourceMetrics implements SourceMetrics {
 
   private final Counter readErrorsTotal;
   private final Counter recordsDroppedTotal;
+
+  /** Uses {@code PrometheusRegistry.defaultRegistry}. */
+  public PrometheusSourceMetrics() {
+    this(PrometheusRegistry.defaultRegistry);
+  }
 
   public PrometheusSourceMetrics(PrometheusRegistry registry) {
     this.readErrorsTotal =
