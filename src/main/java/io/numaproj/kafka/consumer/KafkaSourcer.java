@@ -27,11 +27,7 @@ import org.apache.kafka.common.header.Header;
 @Slf4j
 public class KafkaSourcer<V> extends Sourcer {
 
-  /**
-   * Numaflow message header carrying the Kafka topic a record was read from. See {@code
-   * docs/source/message-headers.md}.
-   */
-  public static final String KAFKA_TOPIC_HEADER = "X-NF-Kafka-TopicName";
+  private static final String KAFKA_TOPIC_HEADER = "X-NF-Kafka-TopicName";
 
   /** Builds a Kafka consumer sized for the given Numaflow batch size. */
   @FunctionalInterface
