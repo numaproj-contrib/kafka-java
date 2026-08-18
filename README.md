@@ -41,6 +41,10 @@ example [here](docs/sink/avro-glue/avro-glue-sink.md).
 Use Case 9: Write data to Kafka with envelope-encrypted values (AWS KMS + AES-256-GCM). Encryption is
 opt-in and composes with any of the above `schemaType`s. See an example [here](docs/sink/envelope-encryption/encrypting-sink.md).
 
+In all of the above cases, the sink copies the Numaflow message headers onto the Kafka record it
+produces, so headers set upstream reach the destination topic. See
+[message headers](docs/sink/message-headers.md).
+
 ## Upgrading from a Spring Boot version?
 
 If you are upgrading from a Spring Boot-based release, update the **image tag** and make the following changes to your
