@@ -109,8 +109,3 @@ decrypted payloads are never logged.
 > message, not that its nonce is unique across all messages under the DEK, and a nonce-reused
 > message still decrypts with a valid tag. Guaranteeing per-DEK nonce uniqueness is entirely the
 > producer's responsibility.
-
-### Message headers
-
-The source sets the Kafka topic a record was read from on the Numaflow message headers. See
-[message headers](../message-headers.md).

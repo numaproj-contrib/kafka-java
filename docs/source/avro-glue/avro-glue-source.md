@@ -122,11 +122,6 @@ refresh automatically — no pod restart is required.
 The pod's base credentials must have `sts:AssumeRole` permission on the target role, and the target
 role's trust policy must allow the pod's identity to assume it.
 
-### Message headers
-
-The source sets the Kafka topic a record was read from on the Numaflow message headers. See
-[message headers](../message-headers.md).
-
 ### Choose MonoVertex
 
 Although a Pipeline is used in this example, it is recommended to use
