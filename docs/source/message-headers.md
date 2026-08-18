@@ -49,11 +49,3 @@ A user-defined map or reduce vertex reads it the same way, from `datum.getHeader
 The source sets this header **after** copying the record's own headers, so if a producer wrote a
 header with the same key, the actual topic the record was read from wins. All other record headers are
 left untouched.
-
-### Current limitations
-
-* Partition and offset are not exposed as headers. Only the topic is.
-* The **Kafka sink does not propagate inbound headers**. It builds its outbound record from the
-  topic, key and value only, so in a Kafka to Kafka pipeline every header, including
-  `X-NF-Kafka-TopicName`, is dropped when writing to the destination topic. To act on the source
-  topic in such a pipeline, read the header in a user-defined vertex upstream of the sink.
