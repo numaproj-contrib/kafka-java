@@ -113,10 +113,7 @@ public class KafkaSinker<V> extends Sinker {
       return;
     }
     headers.forEach(
-        (key, value) ->
-            record
-                .headers()
-                .add(key, value == null ? null : value.getBytes(StandardCharsets.UTF_8)));
+        (key, value) -> record.headers().add(key, value.getBytes(StandardCharsets.UTF_8)));
   }
 
   private ResponseList awaitResponses(

@@ -363,27 +363,6 @@ class KafkaSinkerTest {
     assertEquals(Map.of(), capturedHeaders());
   }
 
-  @Test
-  void processMessages_whenHeaderValueIsNull_thenHeaderIsWrittenWithANullValue() {
-    // The SDK's protobuf headers map cannot carry a null value, so this input does not occur in
-    // production; the test pins the guard in copyHeaders, which writes the header through with a
-    // null value — Kafka permits one — rather than dropping it.
-    producerSucceeds();
-    Map<String, String> headers = new HashMap<>();
-    headers.put("foo", null);
-    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
-    iterator.addDatum(
-        SinkerTestKit.TestDatum.builder()
-            .id("1")
-            .value("{\"name\":\"Michael\"}".getBytes())
-            .headers(headers)
-            .build());
-
-    underTest.processMessages(iterator);
-
-    assertNull(capturedRecord().headers().lastHeader("foo").value());
-  }
-
   /** The captured record's Kafka headers, as key -> UTF-8 decoded value. */
   private Map<String, String> capturedHeaders() {
     Map<String, String> headers = new HashMap<>();
