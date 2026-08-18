@@ -28,11 +28,8 @@ import org.apache.kafka.common.header.Header;
 public class KafkaSourcer<V> extends Sourcer {
 
   /**
-   * Numaflow message header carrying the Kafka topic a record was read from. Set on every message
-   * and preserved across vertices, so a downstream UDF or sink can read it from {@code
-   * datum.getHeaders()}. The value matches the key used by Numaflow's built-in Kafka source, so a
-   * downstream vertex reads the topic the same way regardless of which source fed it. Changing it is
-   * a breaking change for pipelines that already read the header.
+   * Numaflow message header carrying the Kafka topic a record was read from. See {@code
+   * docs/source/message-headers.md}.
    */
   public static final String KAFKA_TOPIC_HEADER = "X-NF-Kafka-TopicName";
 
