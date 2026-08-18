@@ -27,6 +27,15 @@ import org.apache.kafka.common.header.Header;
 @Slf4j
 public class KafkaSourcer<V> extends Sourcer {
 
+  /**
+   * Numaflow message header carrying the Kafka topic a record was read from. Set on every message
+   * and preserved across vertices, so a downstream UDF or sink can read it from {@code
+   * datum.getHeaders()}. The value matches the key used by Numaflow's built-in Kafka source, so a
+   * downstream vertex reads the topic the same way regardless of which source fed it. Changing it is
+   * a breaking change for pipelines that already read the header.
+   */
+  public static final String KAFKA_TOPIC_HEADER = "X-NF-Kafka-TopicName";
+
   /** Builds a Kafka consumer sized for the given Numaflow batch size. */
   @FunctionalInterface
   public interface ConsumerFactory<V> {
@@ -127,7 +136,7 @@ public class KafkaSourcer<V> extends Sourcer {
     }
     // Set after the record's own headers so a producer-supplied header of the same name cannot
     // shadow the actual topic.
-    kafkaHeaders.put(CommonUtils.KAFKA_TOPIC_HEADER, consumerRecord.topic());
+    kafkaHeaders.put(KAFKA_TOPIC_HEADER, consumerRecord.topic());
     // TODO - Do we need to add cluster ID to the offset value? For now this is good enough.
     String offsetValue = consumerRecord.topic() + ":" + consumerRecord.offset();
     byte[] payload;

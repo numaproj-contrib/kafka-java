@@ -95,6 +95,11 @@ in sink vertex.
 Payload -  {"Data":{"value":1736439076729944818},"Createdts":1736439076729944818}
 ```
 
+### Message headers
+
+The source sets the Kafka topic a record was read from on the Numaflow message headers. See
+[message headers](../message-headers.md).
+
 ### Choose MonoVertex
 
 Although we use Pipeline to demonstrate, it is highly recommended to use
