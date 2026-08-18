@@ -125,6 +125,9 @@ public class KafkaSourcer<V> extends Sourcer {
     for (Header header : consumerRecord.headers()) {
       kafkaHeaders.put(header.key(), new String(header.value(), StandardCharsets.UTF_8));
     }
+    // Set after the record's own headers so a producer-supplied header of the same name cannot
+    // shadow the actual topic.
+    kafkaHeaders.put(CommonUtils.KAFKA_TOPIC_HEADER, consumerRecord.topic());
     // TODO - Do we need to add cluster ID to the offset value? For now this is good enough.
     String offsetValue = consumerRecord.topic() + ":" + consumerRecord.offset();
     byte[] payload;

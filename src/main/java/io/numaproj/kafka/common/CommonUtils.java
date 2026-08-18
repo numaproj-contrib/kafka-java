@@ -6,6 +6,13 @@ public class CommonUtils {
   private static final String KAFKA_KEY_PREFIX = "KAFKA_KEY:";
 
   /**
+   * Numaflow message header carrying the Kafka topic a record was read from. Set by the source on
+   * every message and preserved across vertices, so a downstream UDF or sink can read it from
+   * {@code datum.getHeaders()}.
+   */
+  public static final String KAFKA_TOPIC_HEADER = "X-NF-Kafka-TopicName";
+
+  /**
    * Generate a key for maps holding topic partition offsets
    *
    * @param topic - topic name

@@ -3,6 +3,7 @@ package io.numaproj.kafka.consumer;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import io.numaproj.kafka.common.CommonUtils;
 import io.numaproj.kafka.format.ByteArrayFormat;
 import io.numaproj.numaflow.sourcer.*;
 import java.nio.charset.StandardCharsets;
@@ -62,6 +63,34 @@ class KafkaSourcerTest {
 
     verify(observer)
         .send(argThat(message -> "bar".equals(message.getHeaders().get("foo"))));
+  }
+
+  @Test
+  void read_setsTopicHeader() throws Exception {
+    when(worker.poll(anyLong())).thenReturn(List.of(record(1)));
+
+    underTest.read(readRequest(1), observer);
+
+    verify(observer)
+        .send(
+            argThat(
+                message ->
+                    TOPIC.equals(message.getHeaders().get(CommonUtils.KAFKA_TOPIC_HEADER))));
+  }
+
+  @Test
+  void read_whenRecordCarriesTopicHeader_thenActualTopicWins() throws Exception {
+    ConsumerRecord<String, byte[]> record = record(1);
+    record.headers().add(CommonUtils.KAFKA_TOPIC_HEADER, "spoofed-topic".getBytes());
+    when(worker.poll(anyLong())).thenReturn(List.of(record));
+
+    underTest.read(readRequest(1), observer);
+
+    verify(observer)
+        .send(
+            argThat(
+                message ->
+                    TOPIC.equals(message.getHeaders().get(CommonUtils.KAFKA_TOPIC_HEADER))));
   }
 
   @Test
