@@ -336,19 +336,35 @@ class KafkaSinkerTest {
         SinkerTestKit.TestDatum.builder()
             .id("1")
             .value("{\"name\":\"Michael\"}".getBytes())
-            .headers(Map.of("foo", "bar", "X-NF-Kafka-TopicName", "upstream-topic"))
+            .headers(Map.of("foo", "bär", "X-NF-Kafka-TopicName", "upstream-topic"))
             .build());
 
     underTest.processMessages(iterator);
 
-    assertEquals(Map.of("foo", "bar", "X-NF-Kafka-TopicName", "upstream-topic"), capturedHeaders());
+    assertEquals(Map.of("foo", "bär", "X-NF-Kafka-TopicName", "upstream-topic"), capturedHeaders());
+  }
+
+  @Test
+  void processMessages_whenDatumHasEmptyHeaders_thenRecordHasNone() {
+    // In production the SDK passes the protobuf headers map, which is empty rather than null.
+    producerSucceeds();
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(
+        SinkerTestKit.TestDatum.builder()
+            .id("1")
+            .value("{\"name\":\"Michael\"}".getBytes())
+            .headers(Map.of())
+            .build());
+
+    ResponseList result = underTest.processMessages(iterator);
+
+    assertEquals(Map.of("1", true), successById(result));
+    assertEquals(Map.of(), capturedHeaders());
   }
 
   @Test
   void processMessages_whenDatumHasNoHeaders_thenRecordHasNone() {
-    // TestDatum leaves getHeaders() null when the builder is not given headers; in production the
-    // SDK passes the protobuf headers map, which is empty rather than null. Neither may fail the
-    // send.
+    // TestDatum leaves getHeaders() null when the builder is not given headers.
     producerSucceeds();
     SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
     iterator.addDatum(
