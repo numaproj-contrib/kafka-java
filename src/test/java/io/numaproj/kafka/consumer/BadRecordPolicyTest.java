@@ -62,4 +62,15 @@ class BadRecordPolicyTest {
 
     verifyNoInteractions(sink);
   }
+
+  @Test
+  void shouldSkip_onErrorSkip_withBadRecordException_classifiesAsBadData() {
+    BadRecordPolicy policy = new BadRecordPolicy(OnError.SKIP, metrics, sink);
+    BadRecordException badData = new BadRecordException("malformed avro body");
+
+    boolean skipped = policy.shouldSkip(LOCATION, ReadStage.DECODE, badData);
+
+    assertTrue(skipped);
+    verify(metrics).recordReadError(ReadStage.DECODE, ReadErrorReason.BAD_DATA, Action.SKIPPED);
+  }
 }

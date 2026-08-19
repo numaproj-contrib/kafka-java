@@ -3,6 +3,8 @@ package io.numaproj.kafka.consumer;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import org.mockito.InOrder;
+
 import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.metrics.SourceMetrics;
@@ -124,6 +126,36 @@ class KafkaWorkerTest {
     assertEquals(List.of(), got);
     verify(consumer, times(1)).poll(any());
     verify(consumer, times(1)).seek(new TopicPartition(TOPIC, 1), 6L);
+  }
+
+  @Test
+  void poll_onErrorSkip_seeksPastMultipleConsecutiveBadRecords() throws Exception {
+    worker = newWorker(OnError.SKIP);
+    thread = new Thread(worker);
+    RecordDeserializationException bad5 =
+        deserializationException(5L, new RuntimeException("bad record 1"));
+    RecordDeserializationException bad6 =
+        deserializationException(6L, new RuntimeException("bad record 2"));
+    when(consumer.poll(any())).thenThrow(bad5).thenThrow(bad6).thenReturn(records("good"));
+    thread.start();
+
+    List<ConsumerRecord<String, byte[]>> got = worker.poll(1000);
+
+    assertEquals(1, got.size());
+    InOrder order = inOrder(consumer);
+    order.verify(consumer).seek(new TopicPartition(TOPIC, 1), 6L);
+    order.verify(consumer).seek(new TopicPartition(TOPIC, 1), 7L);
+  }
+
+  @Test
+  void poll_nullValueRecords_areDroppedAndCountedAsTombstones() throws Exception {
+    when(consumer.poll(any())).thenReturn(records("good", null, "also-good"));
+    thread.start();
+
+    List<ConsumerRecord<String, byte[]>> got = worker.poll(1000);
+
+    assertEquals(2, got.size());
+    verify(metrics).recordDropped(SourceMetrics.DropReason.NULL_VALUE);
   }
 
   @Test
