@@ -2,7 +2,7 @@ package io.numaproj.kafka.consumer;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.numaproj.kafka.common.CommonUtils;
-import io.numaproj.kafka.common.Stage;
+import io.numaproj.kafka.common.ReadStage;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.format.FormatException;
 import io.numaproj.kafka.format.KafkaFormat;
@@ -168,7 +168,7 @@ public class KafkaSourcer<V> extends Sourcer {
       payload = format.toPayload(consumerRecord.value());
     } catch (FormatException e) {
       RecordLocation where = RecordLocation.of(consumerRecord);
-      if (!policy.shouldSkip(where, Stage.CONVERT, e)) {
+      if (!policy.shouldSkip(where, ReadStage.CONVERT, e)) {
         throw new RuntimeException("Failed to convert the record to a payload: " + where, e);
       }
       return false;

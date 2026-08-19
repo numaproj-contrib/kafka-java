@@ -1,7 +1,7 @@
 package io.numaproj.kafka.consumer;
 
 import io.numaproj.kafka.common.ReadErrorReason;
-import io.numaproj.kafka.common.Stage;
+import io.numaproj.kafka.common.ReadStage;
 import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.metrics.SourceMetrics;
 import io.numaproj.kafka.metrics.SourceMetrics.Action;
@@ -32,7 +32,7 @@ final class BadRecordPolicy {
    * @return {@code true} if the record should be dropped; {@code false} if the caller must
    *     propagate the failure
    */
-  boolean shouldSkip(RecordLocation where, Stage stage, Throwable failure) {
+  boolean shouldSkip(RecordLocation where, ReadStage stage, Throwable failure) {
     ReadErrorReason reason = ReadErrorReason.of(failure);
     if (onError != OnError.SKIP) {
       metrics.recordReadError(stage, reason, Action.FAILED);

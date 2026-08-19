@@ -3,7 +3,7 @@ package io.numaproj.kafka.metrics;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.numaproj.kafka.common.ReadErrorReason;
-import io.numaproj.kafka.common.Stage;
+import io.numaproj.kafka.common.ReadStage;
 import io.numaproj.kafka.metrics.SourceMetrics.Action;
 import io.numaproj.kafka.metrics.SourceMetrics.DropReason;
 import io.prometheus.metrics.expositionformats.PrometheusTextFormatWriter;
@@ -27,7 +27,7 @@ class PrometheusSourceMetricsTest {
 
   @Test
   void recordReadError_incrementsCounterWithLowercaseLabels() throws IOException {
-    metrics.recordReadError(Stage.DECODE, ReadErrorReason.BAD_DATA, Action.SKIPPED);
+    metrics.recordReadError(ReadStage.DECODE, ReadErrorReason.BAD_DATA, Action.SKIPPED);
 
     String scraped = scrape();
 

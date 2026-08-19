@@ -1,7 +1,7 @@
 package io.numaproj.kafka.metrics;
 
 import io.numaproj.kafka.common.ReadErrorReason;
-import io.numaproj.kafka.common.Stage;
+import io.numaproj.kafka.common.ReadStage;
 
 /**
  * Source-side counters. Vendor-neutral by design: no Prometheus/OTel/cloud types appear in any
@@ -23,7 +23,7 @@ public interface SourceMetrics {
   }
 
   /** Counts a read failure at the given stage, classified by reason, and by the action taken. */
-  void recordReadError(Stage stage, ReadErrorReason reason, Action action);
+  void recordReadError(ReadStage stage, ReadErrorReason reason, Action action);
 
   /** Counts a record dropped for a reason other than an error (e.g. a tombstone). */
   void recordDropped(DropReason reason);
@@ -32,7 +32,7 @@ public interface SourceMetrics {
   SourceMetrics NOOP =
       new SourceMetrics() {
         @Override
-        public void recordReadError(Stage stage, ReadErrorReason reason, Action action) {
+        public void recordReadError(ReadStage stage, ReadErrorReason reason, Action action) {
           // no-op
         }
 

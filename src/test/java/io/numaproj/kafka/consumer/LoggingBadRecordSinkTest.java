@@ -1,7 +1,7 @@
 package io.numaproj.kafka.consumer;
 
 import io.numaproj.kafka.common.ReadErrorReason;
-import io.numaproj.kafka.common.Stage;
+import io.numaproj.kafka.common.ReadStage;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
 
@@ -14,7 +14,7 @@ class LoggingBadRecordSinkTest {
     BadRecord badRecord =
         new BadRecord(
             RecordLocation.of(record),
-            Stage.DECODE,
+            ReadStage.DECODE,
             ReadErrorReason.BAD_DATA,
             new RuntimeException("boom"));
 

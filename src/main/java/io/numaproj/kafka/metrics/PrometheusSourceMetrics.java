@@ -1,7 +1,7 @@
 package io.numaproj.kafka.metrics;
 
 import io.numaproj.kafka.common.ReadErrorReason;
-import io.numaproj.kafka.common.Stage;
+import io.numaproj.kafka.common.ReadStage;
 import io.prometheus.metrics.core.metrics.Counter;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import java.util.Locale;
@@ -41,7 +41,7 @@ public class PrometheusSourceMetrics implements SourceMetrics {
   }
 
   @Override
-  public void recordReadError(Stage stage, ReadErrorReason reason, Action action) {
+  public void recordReadError(ReadStage stage, ReadErrorReason reason, Action action) {
     readErrorsTotal.labelValues(label(stage), label(reason), label(action)).inc();
   }
 

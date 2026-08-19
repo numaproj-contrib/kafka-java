@@ -1,6 +1,6 @@
 package io.numaproj.kafka.consumer;
 
-import io.numaproj.kafka.common.Stage;
+import io.numaproj.kafka.common.ReadStage;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.metrics.SourceMetrics;
 import io.numaproj.kafka.metrics.SourceMetrics.DropReason;
@@ -107,7 +107,7 @@ public class KafkaWorker<V> implements Runnable {
             collect(consumer.poll(Duration.ofMillis(remainingMillis(deadlineNanos))));
         return;
       } catch (RecordDeserializationException e) {
-        if (!policy.shouldSkip(RecordLocation.of(e), Stage.DECODE, e.getCause())) {
+        if (!policy.shouldSkip(RecordLocation.of(e), ReadStage.DECODE, e.getCause())) {
           throw e;
         }
         // Advance exactly one past the bad record; this also discards the buffered fetch whose
