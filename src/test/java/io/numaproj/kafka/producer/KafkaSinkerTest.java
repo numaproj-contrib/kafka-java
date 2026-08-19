@@ -10,6 +10,8 @@ import io.numaproj.kafka.format.JsonFormat;
 import io.numaproj.numaflow.sinker.Response;
 import io.numaproj.numaflow.sinker.ResponseList;
 import io.numaproj.numaflow.sinker.SinkerTestKit;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -21,6 +23,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.SerializationException;
+import org.apache.kafka.common.header.Header;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -323,6 +326,66 @@ class KafkaSinkerTest {
     underTest.processMessages(iterator);
 
     assertEquals(36, capturedRecord().key().length());
+  }
+
+  @Test
+  void processMessages_copiesInboundHeadersOntoTheRecord() {
+    producerSucceeds();
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(
+        SinkerTestKit.TestDatum.builder()
+            .id("1")
+            .value("{\"name\":\"Michael\"}".getBytes())
+            .headers(Map.of("foo", "bär", "X-NF-Kafka-TopicName", "upstream-topic"))
+            .build());
+
+    underTest.processMessages(iterator);
+
+    assertEquals(Map.of("foo", "bär", "X-NF-Kafka-TopicName", "upstream-topic"), capturedHeaders());
+  }
+
+  @Test
+  void processMessages_whenDatumHasEmptyHeaders_thenRecordHasNone() {
+    // In production the SDK passes the protobuf headers map, which is empty rather than null.
+    producerSucceeds();
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(
+        SinkerTestKit.TestDatum.builder()
+            .id("1")
+            .value("{\"name\":\"Michael\"}".getBytes())
+            .headers(Map.of())
+            .build());
+
+    ResponseList result = underTest.processMessages(iterator);
+
+    assertEquals(Map.of("1", true), successById(result));
+    assertEquals(Map.of(), capturedHeaders());
+  }
+
+  @Test
+  void processMessages_whenDatumHasNoHeaders_thenRecordHasNone() {
+    // TestDatum leaves getHeaders() null when the builder is not given headers.
+    producerSucceeds();
+    SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
+    iterator.addDatum(
+        SinkerTestKit.TestDatum.builder()
+            .id("1")
+            .value("{\"name\":\"Michael\"}".getBytes())
+            .build());
+
+    ResponseList result = underTest.processMessages(iterator);
+
+    assertEquals(Map.of("1", true), successById(result));
+    assertEquals(Map.of(), capturedHeaders());
+  }
+
+  /** The captured record's Kafka headers, as key -> UTF-8 decoded value. */
+  private Map<String, String> capturedHeaders() {
+    Map<String, String> headers = new HashMap<>();
+    for (Header header : capturedRecord().headers()) {
+      headers.put(header.key(), new String(header.value(), StandardCharsets.UTF_8));
+    }
+    return headers;
   }
 
   @SuppressWarnings("unchecked")

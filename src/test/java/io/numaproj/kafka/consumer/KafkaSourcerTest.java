@@ -23,6 +23,11 @@ class KafkaSourcerTest {
 
   private static final String TOPIC = "test-topic";
 
+  // Hard-coded on purpose, and NOT read from KafkaSourcer.KAFKA_TOPIC_HEADER: the header key is a
+  // wire contract shared with Numaflow's built-in Kafka source and with downstream vertices already
+  // reading it. Changing the constant must fail this test rather than silently pass.
+  private static final String TOPIC_HEADER = "X-NF-Kafka-TopicName";
+
   private final Admin admin = mock(Admin.class);
   @SuppressWarnings("unchecked")
   private final KafkaWorker<byte[]> worker = mock(KafkaWorker.class);
@@ -84,6 +89,28 @@ class KafkaSourcerTest {
 
     verify(observer)
         .send(argThat(message -> "bar".equals(message.getHeaders().get("foo"))));
+  }
+
+  @Test
+  void read_setsTopicHeader() throws Exception {
+    when(worker.poll(anyLong())).thenReturn(List.of(record(1)));
+
+    underTest.read(readRequest(1), observer);
+
+    verify(observer)
+        .send(argThat(message -> TOPIC.equals(message.getHeaders().get(TOPIC_HEADER))));
+  }
+
+  @Test
+  void read_whenRecordCarriesTopicHeader_thenActualTopicWins() throws Exception {
+    ConsumerRecord<String, byte[]> record = record(1);
+    record.headers().add(TOPIC_HEADER, "spoofed-topic".getBytes());
+    when(worker.poll(anyLong())).thenReturn(List.of(record));
+
+    underTest.read(readRequest(1), observer);
+
+    verify(observer)
+        .send(argThat(message -> TOPIC.equals(message.getHeaders().get(TOPIC_HEADER))));
   }
 
   @Test

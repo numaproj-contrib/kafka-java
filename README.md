@@ -22,6 +22,9 @@ example [here](docs/source/non-avro/non-avro-source.md).
 Use Case 7: Read data from Kafka whose values are envelope-encrypted (AWS KMS + AES-256-GCM). Decryption is
 opt-in and composes with any of the above `schemaType`s. See an example [here](docs/source/envelope-encryption/decrypting-source.md).
 
+In all of the above cases, the source sets the Kafka topic a record was read from on the Numaflow message headers, so a
+downstream vertex can tell which topic it came from. See [message headers](docs/source/message-headers.md).
+
 ### Write data to Kafka
 
 Use Case 4: Write data to Kafka with an Avro schema registered in the Confluent Schema Registry. See an
@@ -37,6 +40,9 @@ example [here](docs/sink/avro-glue/avro-glue-sink.md).
 
 Use Case 9: Write data to Kafka with envelope-encrypted values (AWS KMS + AES-256-GCM). Encryption is
 opt-in and composes with any of the above `schemaType`s. See an example [here](docs/sink/envelope-encryption/encrypting-sink.md).
+
+In all of the above cases, the sink copies the Numaflow message headers onto the Kafka record it
+produces, so headers set upstream reach the destination topic. No configuration is required.
 
 ### Metrics
 

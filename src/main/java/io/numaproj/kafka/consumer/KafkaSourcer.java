@@ -29,6 +29,8 @@ import org.apache.kafka.common.header.Header;
 @Slf4j
 public class KafkaSourcer<V> extends Sourcer {
 
+  private static final String KAFKA_TOPIC_HEADER = "X-NF-Kafka-TopicName";
+
   /** Builds a Kafka consumer sized for the given Numaflow batch size. */
   @FunctionalInterface
   public interface ConsumerFactory<V> {
@@ -180,6 +182,9 @@ public class KafkaSourcer<V> extends Sourcer {
     for (Header header : consumerRecord.headers()) {
       kafkaHeaders.put(header.key(), new String(header.value(), StandardCharsets.UTF_8));
     }
+    // Set after the record's own headers so a producer-supplied header of the same name cannot
+    // shadow the actual topic.
+    kafkaHeaders.put(KAFKA_TOPIC_HEADER, consumerRecord.topic());
     // TODO - Do we need to add cluster ID to the offset value? For now this is good enough.
     String offsetValue = consumerRecord.topic() + ":" + consumerRecord.offset();
     return new Message(

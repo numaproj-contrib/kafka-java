@@ -5,6 +5,7 @@ import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.format.FormatException;
 import io.numaproj.kafka.format.KafkaFormat;
 import io.numaproj.numaflow.sinker.*;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -74,6 +75,7 @@ public class KafkaSinker<V> extends Sinker {
 
       ProducerRecord<String, V> record =
           new ProducerRecord<>(userConfig.getTopicName(), resolveKey(datum), value);
+      copyHeaders(datum.getHeaders(), record);
       try {
         inflightTasks.put(datum.getId(), producer.send(record));
       } catch (Exception e) {
@@ -97,6 +99,15 @@ public class KafkaSinker<V> extends Sinker {
   private static String resolveKey(Datum datum) {
     String key = CommonUtils.extractKafkaKey(datum.getKeys());
     return key != null ? key : UUID.randomUUID().toString();
+  }
+
+  /** Copies the inbound Numaflow message headers onto the outbound record as they arrived. */
+  private static void copyHeaders(Map<String, String> headers, ProducerRecord<String, ?> record) {
+    if (headers == null) {
+      return;
+    }
+    headers.forEach(
+        (key, value) -> record.headers().add(key, value.getBytes(StandardCharsets.UTF_8)));
   }
 
   private ResponseList awaitResponses(
