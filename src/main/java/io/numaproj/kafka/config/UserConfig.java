@@ -1,15 +1,15 @@
 package io.numaproj.kafka.config;
 
-import lombok.*;
-import lombok.extern.slf4j.Slf4j;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 @Getter
 @Setter
 @ToString
 @EqualsAndHashCode
-@Builder
-@Slf4j
-@AllArgsConstructor
 @NoArgsConstructor
 public class UserConfig {
   // TODO - multiple topics support with different brokers
@@ -25,5 +25,5 @@ public class UserConfig {
 
   // Source-only: how the source reacts to a record that fails to be read. UserConfig is shared with
   // the sink, so a producer deployment setting this key is silently ignored.
-  @Builder.Default private OnError onError = OnError.FAIL;
+  private OnError onError = OnError.FAIL;
 }
