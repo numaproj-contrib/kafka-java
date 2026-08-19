@@ -39,47 +39,4 @@ curl -s localhost:9091/metrics | grep kafka_java_source
 
 **A `ServiceMonitor` cannot reach this port.** The `<vertex>-headless` Service that Numaflow creates has
 its port map hardcoded to `metrics` (2469) and `runtime` (2470) in the controller, so a custom port
-cannot be added to it. Use a **PodMonitor** or pod annotations instead.
-
-#### PodMonitor
-
-```yaml
-apiVersion: monitoring.coreos.com/v1
-kind: PodMonitor
-metadata:
-  name: kafka-java-source
-spec:
-  selector:
-    matchLabels:
-      numaflow.numaproj.io/component: vertex # adjust to match your vertex pods
-  podMetricsEndpoints:
-    - port: metrics-source # must match the named container port below
-      path: /metrics
-```
-
-The `udsource.container.ports` field must name the port so the `PodMonitor` can select it by name:
-
-```yaml
-udsource:
-  container:
-    ports:
-      - name: metrics-source
-        containerPort: 9091
-```
-
-This `Container` type is shared between `Pipeline` and `MonoVertex` specs.
-
-#### Annotation fallback
-
-If you scrape via `prometheus.io/*` pod annotations instead of the Prometheus Operator, the
-annotations live in a different place depending on the deployment shape:
-
-- **Pipeline**: `spec.vertices[].metadata.annotations`
-- **MonoVertex**: `spec.metadata.annotations`
-
-```yaml
-annotations:
-  prometheus.io/scrape: "true"
-  prometheus.io/port: "9091"
-  prometheus.io/path: "/metrics"
-```
+cannot be added to it. Use a **PodMonitor** or pod annotations to scrape port `9091`.
