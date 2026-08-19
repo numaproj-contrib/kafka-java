@@ -72,8 +72,7 @@ public class KafkaSourcer<V> extends Sourcer {
     this.format = format;
     this.consumerFactory = consumerFactory;
     this.metrics = metrics;
-    // Built once here (not per record) and shared by the worker (decode failures) and this class
-    // (convert failures), so onError is applied and counted identically at both read-path stages.
+    // Shared with the worker so onError is applied identically at both read-path stages.
     this.policy =
         new BadRecordPolicy(
             userConfig.getOnError(), metrics, new LoggingBadRecordSink());
