@@ -2,16 +2,9 @@
 
 ### Introduction
 
-The Kafka source exposes its own [Prometheus](https://prometheus.io/) metrics over HTTP. This is
-necessary because `numaflow-java` provides no metrics API and no Prometheus client is present on the
-classpath transitively - so without this endpoint, the source would be entirely unobservable from a
-metrics standpoint. Numaflow's user-defined `Container` type has a `ports` field added expressly to
-support this
-([numaflow#2135](https://github.com/numaproj/numaflow/pull/2135): *"Expose containerPort for user
-defined containers so that it can be used for prometheus metrics scraping configuration."*).
+The Kafka source exposes its own [Prometheus](https://prometheus.io/) metrics over HTTP on port `9091`.
 
-This page is vendor-neutral: it covers scraping the endpoint, not shipping the samples to any
-particular backend (CloudWatch, AMP, etc).
+This page covers scraping the endpoint; it is vendor-neutral and does not cover shipping metrics to any particular backend (CloudWatch, AMP, etc).
 
 ### Metrics
 

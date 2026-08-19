@@ -136,11 +136,3 @@ a configuration error, not a per-record one, and `onError` never applies to it.
 **Kafka authentication failures are not per-record either.** A `SaslAuthenticationException` (e.g. from
 MSK IAM auth) fails the consumer as a whole, not a single record, and correctly kills the vertex under
 any `onError` setting rather than being skipped.
-
-> **Producer responsibility — nonce uniqueness.** AES-256-GCM is only secure if the producer never
-> reuses a nonce under the same DEK. Reuse is catastrophic: it exposes the XOR of the affected
-> plaintexts (a two-time pad) and can even let an attacker forge valid authentication tags. The
-> consumer **cannot detect or prevent this** — the tag check verifies the integrity of *this*
-> message, not that its nonce is unique across all messages under the DEK, and a nonce-reused
-> message still decrypts with a valid tag. Guaranteeing per-DEK nonce uniqueness is entirely the
-> producer's responsibility.

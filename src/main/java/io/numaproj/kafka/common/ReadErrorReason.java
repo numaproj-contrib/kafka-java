@@ -13,15 +13,13 @@ public enum ReadErrorReason {
   /** Not positively attributable to the record - e.g. a key-management or registry outage. */
   UNKNOWN;
 
-  /**
-   * Classifies a failure by walking its cause chain for a {@link BadRecordException}.
-   *
-   * <p><b>Trap:</b> {@code RecordDeserializationException} extends Kafka's {@code
-   * SerializationException}, not {@code BadRecordException}. Callers at the decode stage must pass
-   * {@code getCause()}, never the wrapper itself, or every decode failure classifies as {@link
-   * #UNKNOWN}.
-   */
+  /** Classifies a failure by walking its cause chain for a {@link BadRecordException}. */
   public static ReadErrorReason of(Throwable failure) {
-    return Throwables.hasCauseOfType(failure, BadRecordException.class) ? BAD_DATA : UNKNOWN;
+    for (Throwable t = failure; t != null; t = t.getCause()) {
+      if (t instanceof BadRecordException) {
+        return BAD_DATA;
+      }
+    }
+    return UNKNOWN;
   }
 }
