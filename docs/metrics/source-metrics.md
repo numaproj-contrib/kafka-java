@@ -2,9 +2,7 @@
 
 ### Introduction
 
-The Kafka source exposes its own [Prometheus](https://prometheus.io/) metrics over HTTP on port `9091`.
-
-This page covers scraping the endpoint; it is vendor-neutral and does not cover shipping metrics to any particular backend (CloudWatch, AMP, etc).
+The Kafka source exposes its own [Prometheus](https://prometheus.io/) metrics over HTTP on port `9091`; this page does not cover shipping them to any particular backend (CloudWatch, AMP, etc).
 
 ### Metrics
 
