@@ -101,13 +101,7 @@ public class KafkaSinker<V> extends Sinker {
     return key != null ? key : UUID.randomUUID().toString();
   }
 
-  /**
-   * Copies the inbound Numaflow message headers onto the outbound record verbatim — nothing is
-   * filtered or rewritten.
-   *
-   * <p>{@code X-NF-Kafka-TopicName} therefore names the topic the record was <em>read</em> from,
-   * not the one it is written to. See {@code docs/sink/message-headers.md}.
-   */
+  /** Copies the inbound Numaflow message headers onto the outbound record as they arrived. */
   private static void copyHeaders(Map<String, String> headers, ProducerRecord<String, ?> record) {
     if (headers == null) {
       return;
