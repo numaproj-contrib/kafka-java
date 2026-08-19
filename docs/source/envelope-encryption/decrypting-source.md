@@ -107,32 +107,12 @@ and decrypted payloads are never logged.
 Setting `onError: skip` in `user.configuration` (source-only - the sink ignores it) changes this: a
 record that fails to be read is dropped and counted instead of crashing the vertex. A `WARN` log
 identifies the dropped record by `topic`/`partition`/`offset` only - never the record itself - and
-`kafka_java_source_read_errors_total{stage="decode", ..., action="skipped"}` is incremented. See
-[source metrics](../../metrics/source-metrics.md) for the full metric and an alerting query.
+`kafka_java_source_read_errors_total` is incremented. See
+[source metrics](../../metrics/source-metrics.md) for the full metric reference and recommended alert.
 
-The record is **lost** - there is no dead-letter queue yet (`BadRecordSink` is the seam a future one
-will use).
+The record is **lost** - there is no dead-letter queue yet.
 
-Today, `skip` drops **every** decode failure, including one **not** attributable to the record's own
-bytes - for example a KMS throttle, an expired credential, or a Glue/Confluent schema-registry outage.
-This is deliberate for now: reliably distinguishing "this record's bytes are corrupt" from "the
-environment is unavailable" cannot be done cheaply across AWS SDK and schema-registry exception
-taxonomies (see the design notes in the source code). The failure is still classified as a metric
-label - `reason="bad_data"` vs. `reason="unknown"` - so the risk is measurable even though it is not
-yet gated:
-
-```promql
-increase(kafka_java_source_read_errors_total{reason="unknown"}[5m]) > 0
-```
-
-An alert firing on this query means records were dropped for a reason not attributable to their own
-bytes - most likely an incident (KMS or schema-registry outage, expired credentials) discarding good
-records rather than bad ones. A follow-up will retry or circuit-break such failures instead of skipping
-them.
-
-**Startup failures always fail fast**, regardless of `onError`: a malformed key ARN, for instance, is
-a configuration error, not a per-record one, and `onError` never applies to it.
-
-**Kafka authentication failures are not per-record either.** A `SaslAuthenticationException` (e.g. from
-MSK IAM auth) fails the consumer as a whole, not a single record, and correctly kills the vertex under
-any `onError` setting rather than being skipped.
+`skip` currently applies to **all** decode failures, including environmental ones (KMS throttle,
+expired credentials, schema-registry outage). Use `reason="unknown"` on the metric to detect when
+good records may be getting dropped. Startup and Kafka authentication failures always fail fast
+regardless of this setting.
