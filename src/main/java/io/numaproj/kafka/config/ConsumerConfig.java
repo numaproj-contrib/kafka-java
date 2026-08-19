@@ -7,7 +7,6 @@ import com.google.common.annotations.VisibleForTesting;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.numaproj.kafka.common.BadRecordException;
 import io.numaproj.kafka.common.EnvVarInterpolator;
-import io.numaproj.kafka.common.Throwables;
 import io.numaproj.kafka.encryption.DecryptingDeserializer;
 import io.numaproj.kafka.encryption.EnvelopeDecryptionFactory;
 import io.numaproj.kafka.encryption.PayloadDecryptor;
@@ -217,8 +216,10 @@ public class ConsumerConfig {
         } catch (GlueSchemaRegistryIncompatibleDataException e) {
           throw new BadRecordException("Failed to deserialize the schema registry record", e);
         } catch (AWSSchemaRegistryException e) {
-          if (Throwables.hasCauseOfType(e, SdkException.class)) {
-            throw e;
+          for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof SdkException) {
+              throw e;
+            }
           }
           throw new BadRecordException("Failed to deserialize the schema registry record", e);
         } catch (SerializationException e) {
