@@ -92,6 +92,7 @@ public class KafkaSourcer<V> extends Sourcer {
         "Initializing consumer worker with batchSize={} timeoutMs={}",
         batchSize,
         request.getTimeout().toMillis());
+    // metrics used directly by the worker for null-value (tombstone) drops; policy uses it for read errors
     worker = new KafkaWorker<>(userConfig, consumerFactory.create(batchSize), policy, metrics);
     workerThread = new Thread(worker, "consumerWorkerThread");
     workerThread.start();
