@@ -219,13 +219,13 @@ public class KafkaApplication {
       throw new IllegalArgumentException(
           "--schemaVersion must be an integer, got: " + argMap.get(KEY_SCHEMA_VERSION), e);
     }
-    UserConfig config = new UserConfig();
-    config.setTopicName(topicName);
-    config.setSchemaType(schemaType);
-    config.setSchemaSubject(schemaSubject);
-    config.setSchemaVersion(schemaVersion);
-    config.setOnError(OnError.from(argMap.get(KEY_ON_ERROR)));
-    return config;
+    return UserConfig.builder()
+        .topicName(topicName)
+        .schemaType(schemaType)
+        .schemaSubject(schemaSubject)
+        .schemaVersion(schemaVersion)
+        .onError(OnError.from(argMap.get(KEY_ON_ERROR)))
+        .build();
   }
 
   private static Map<String, String> parseArgs(String[] args) {

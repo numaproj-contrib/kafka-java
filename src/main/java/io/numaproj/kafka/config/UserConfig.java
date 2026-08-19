@@ -1,5 +1,7 @@
 package io.numaproj.kafka.config;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -10,6 +12,8 @@ import lombok.ToString;
 @Setter
 @ToString
 @EqualsAndHashCode
+@Builder
+@AllArgsConstructor
 @NoArgsConstructor
 public class UserConfig {
   // TODO - multiple topics support with different brokers
@@ -25,5 +29,5 @@ public class UserConfig {
 
   // Source-only: how the source reacts to a record that fails to be read. UserConfig is shared with
   // the sink, so a producer deployment setting this key is silently ignored.
-  private OnError onError = OnError.FAIL;
+  @Builder.Default private OnError onError = OnError.FAIL;
 }
