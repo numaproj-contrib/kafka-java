@@ -1,9 +1,8 @@
 package io.numaproj.kafka.metrics;
 
 /**
- * Source-side counters. Vendor-neutral by design: no Prometheus/OTel/cloud types appear in any
- * method signature, so this interface can be implemented by any metrics backend (or none, via
- * {@link #NOOP}) without leaking a dependency into the read path.
+ * Source-side counters. No metrics-backend type appears in any method signature, so the read path
+ * compiles against this interface alone and any backend can implement it.
  */
 public interface SourceMetrics {
 

@@ -3,8 +3,8 @@ package io.numaproj.kafka.consumer;
 import io.numaproj.kafka.metrics.SourceMetrics;
 
 /**
- * The single place a dropped message is counted and dispatched to the {@link SkippedRecordSink}. The
- * caller decides whether to drop (from {@code onError}); this class decides nothing.
+ * Counts a dropped message and dispatches it to the {@link SkippedRecordSink}. Whether to drop is
+ * the caller's decision, taken from {@code onError}.
  */
 final class SkippedRecordHandler {
 
@@ -19,7 +19,7 @@ final class SkippedRecordHandler {
   /**
    * Counts and dispatches a record dropped because it could not be read.
    *
-   * @param where the record's coordinates, for logging and the (future) dead-letter sink
+   * @param where the record's coordinates, which identify it to the sink without exposing its value
    * @param failure why the record could not be read
    */
   void handleSkipped(RecordLocation where, Throwable failure) {

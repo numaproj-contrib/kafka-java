@@ -101,7 +101,7 @@ public class KafkaWorker<V> implements Runnable {
         for (ConsumerRecord<String, V> consumerRecord :
             consumer.poll(Duration.ofMillis(remainingMillis(deadlineNanos)))) {
           if (consumerRecord.value() == null) {
-            // A Kafka tombstone. Previously silent; now counted like any other dropped message.
+            // A Kafka tombstone: nothing to forward downstream.
             skippedRecordHandler.handleTombstone();
             continue;
           }

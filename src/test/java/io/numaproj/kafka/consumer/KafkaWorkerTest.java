@@ -53,7 +53,7 @@ class KafkaWorkerTest {
     return userConfig;
   }
 
-  /** Not the {@code @Deprecated} 4-arg constructor - see KafkaWorker's pollRecords javadoc. */
+  /** Builds the exception with the origin and buffers, as the Kafka consumer itself does. */
   private static RecordDeserializationException deserializationException(
       long offset, Throwable cause) {
     return new RecordDeserializationException(

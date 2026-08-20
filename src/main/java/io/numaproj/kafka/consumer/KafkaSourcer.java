@@ -130,9 +130,9 @@ public class KafkaSourcer<V> extends Sourcer {
           continue;
         }
         if (!forward(consumerRecord, observer)) {
-          // Dropped: deliberately NOT tracked. readTopicPartitionOffsetMap is the read/ack
-          // cross-check, and Numaflow can only ack what it received; the consumer position (what
-          // actually gets committed) is already past this record.
+          // A dropped record is not tracked: readTopicPartitionOffsetMap cross-checks reads
+          // against acks, and Numaflow can only ack what it received. The consumer position -
+          // what actually gets committed - is already past this record.
           continue;
         }
         trackReadOffset(consumerRecord);

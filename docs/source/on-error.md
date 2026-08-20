@@ -9,7 +9,7 @@ unaffected.
 
 | Value | Behavior |
 |---|---|
-| `fail` (default) | The failure propagates, the vertex logs it and exits, and the pod restarts. Behavior is unchanged from earlier releases. |
+| `fail` (default) | The failure propagates, the vertex logs it and exits, and the pod restarts. |
 | `skip` | The record is dropped, counted, and logged at `WARN`; the source continues with the next record. |
 
 ```yaml
@@ -24,8 +24,9 @@ An unrecognized value is rejected at startup rather than silently treated as `fa
 ### `onError: skip`
 
 The `WARN` log identifies the dropped record by `topic`, `partition` and `offset` only — never the
-record itself, so a decrypted or otherwise sensitive payload cannot leak into the logs. Every drop is
-counted, so a skip is never silent; see [source metrics](../metrics/source-metrics.md).
+record itself, so a decrypted or otherwise sensitive payload cannot leak into the logs. Every drop
+increments `kafka_java_source_skipped_messages_total`; see
+[source metrics](../metrics/source-metrics.md).
 
 Two limitations to be aware of before enabling it:
 

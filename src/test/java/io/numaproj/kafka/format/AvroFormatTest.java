@@ -36,9 +36,8 @@ class AvroFormatTest {
 
   @Test
   void toPayload_typeMismatch_throwsFormatExceptionNotRawRuntimeException() {
-    // The realistic malformed-Avro failure (e.g. AvroTypeException) is a RuntimeException, not an
-    // IOException. Without catching RuntimeException too, it bypasses FormatException entirely and
-    // kills the pod regardless of onError.
+    // A malformed record surfaces as a RuntimeException (AvroTypeException), not an IOException,
+    // and must still be reported as a FormatException so that onError governs it.
     GenericRecord record = new GenericData.Record(SCHEMA);
     record.put("name", 12345); // schema declares "name" as a string
 

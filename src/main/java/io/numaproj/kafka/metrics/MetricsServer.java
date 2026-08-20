@@ -8,10 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Owns the lifecycle of the Prometheus HTTP scrape endpoint.
  *
- * <p>Default port is {@code 9091}, chosen to avoid Numaflow's reserved {@code 2469} (metrics),
- * {@code 2470} (runtime) and {@code 4327} ports. Overridable via the {@code KAFKA_JAVA_METRICS_PORT}
- * environment variable, and disabled entirely when that variable is set to {@code 0} - matching the
- * existing {@code ROOT_LOG_LEVEL} / {@code KAFKA_LOG_LEVEL} env-var convention.
+ * <p>Default port is {@code 9091}, which avoids Numaflow's reserved {@code 2469} (metrics), {@code
+ * 2470} (runtime) and {@code 4327} ports. Set {@code KAFKA_JAVA_METRICS_PORT} to serve on another
+ * port, or to {@code 0} to disable the endpoint.
  */
 @Slf4j
 public class MetricsServer {

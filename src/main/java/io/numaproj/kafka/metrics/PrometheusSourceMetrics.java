@@ -4,12 +4,8 @@ import io.prometheus.metrics.core.metrics.Counter;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 
 /**
- * {@link SourceMetrics} backed by the Prometheus Java client. The only class in this codebase that
- * imports {@code io.prometheus} - every other class talks to the vendor-neutral {@link
- * SourceMetrics} interface.
- *
- * <p>Metric names follow the {@code kafka_java_} prefix convention
- * (numaproj-contrib/kafka-java#37).
+ * {@link SourceMetrics} backed by the Prometheus Java client, and the only place {@code
+ * io.prometheus} is imported. Metric names carry the {@code kafka_java_} prefix.
  */
 public class PrometheusSourceMetrics implements SourceMetrics {
 

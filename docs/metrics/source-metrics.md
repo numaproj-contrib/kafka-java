@@ -2,7 +2,9 @@
 
 ### Introduction
 
-The Kafka source exposes its own [Prometheus](https://prometheus.io/) metrics over HTTP on port `9091`; this page does not cover shipping them to any particular backend (CloudWatch, AMP, etc).
+The Kafka source exposes its own [Prometheus](https://prometheus.io/) metrics over HTTP on port
+`9091`. Any Prometheus-compatible scraper can collect them and forward them to a backend such as
+CloudWatch or Amazon Managed Service for Prometheus.
 
 ### Metrics
 
@@ -10,8 +12,7 @@ The Kafka source exposes its own [Prometheus](https://prometheus.io/) metrics ov
 |---|---|---|---|
 | `kafka_java_source_skipped_messages_total` | counter | none | A message was dropped instead of being forwarded downstream: a record skipped under [`onError: skip`](../source/on-error.md), or a Kafka tombstone. |
 
-One unlabelled counter, so a skip is never silent and scrape cardinality is fixed. Under `onError:
-fail` an unreadable record kills the pod rather than being counted here.
+Under `onError: fail` an unreadable record kills the pod rather than being counted here.
 
 ### Endpoint
 
