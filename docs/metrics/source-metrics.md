@@ -8,10 +8,10 @@ The Kafka source exposes its own [Prometheus](https://prometheus.io/) metrics ov
 
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|
-| `kafka_java_source_read_errors_total` | counter | `stage` = `decode`\|`convert`, `reason` = `bad_data`\|`unknown` | A record was skipped because it failed to be read. Only emitted under [`onError: skip`](../source/on-error.md) — under `onError: fail` the failure kills the pod instead. |
-| `kafka_java_source_records_dropped_total` | counter | `reason` = `null_value` | A record was dropped without being an error (currently only Kafka tombstones). |
+| `kafka_java_source_skipped_messages_total` | counter | none | A message was dropped instead of being forwarded downstream: a record skipped under [`onError: skip`](../source/on-error.md), or a Kafka tombstone. |
 
-All label values come from closed enums, so cardinality is bounded at compile time.
+One unlabelled counter, so a skip is never silent and scrape cardinality is fixed. Under `onError:
+fail` an unreadable record kills the pod rather than being counted here.
 
 ### Endpoint
 

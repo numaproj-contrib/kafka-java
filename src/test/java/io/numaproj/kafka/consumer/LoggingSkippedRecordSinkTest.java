@@ -5,8 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import io.numaproj.kafka.common.ReadErrorReason;
-import io.numaproj.kafka.common.ReadStage;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
@@ -18,11 +16,7 @@ class LoggingSkippedRecordSinkTest {
     ConsumerRecord<String, byte[]> record =
         new ConsumerRecord<>("t", 0, 5L, "key", "value".getBytes());
     SkippedRecord skippedRecord =
-        new SkippedRecord(
-            RecordLocation.of(record),
-            ReadStage.DECODE,
-            ReadErrorReason.BAD_DATA,
-            new RuntimeException("boom"));
+        new SkippedRecord(RecordLocation.of(record), new RuntimeException("boom"));
 
     new LoggingSkippedRecordSink().quarantine(skippedRecord);
   }
@@ -37,11 +31,7 @@ class LoggingSkippedRecordSinkTest {
       ConsumerRecord<String, byte[]> record =
           new ConsumerRecord<>("my-topic", 2, 42L, "key", "super-secret-value".getBytes());
       SkippedRecord skippedRecord =
-          new SkippedRecord(
-              RecordLocation.of(record),
-              ReadStage.DECODE,
-              ReadErrorReason.BAD_DATA,
-              new RuntimeException("boom"));
+          new SkippedRecord(RecordLocation.of(record), new RuntimeException("boom"));
 
       new LoggingSkippedRecordSink().quarantine(skippedRecord);
 

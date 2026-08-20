@@ -1,10 +1,7 @@
 package io.numaproj.kafka.metrics;
 
-import io.numaproj.kafka.common.ReadErrorReason;
-import io.numaproj.kafka.common.ReadStage;
 import io.prometheus.metrics.core.metrics.Counter;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
-import java.util.Locale;
 
 /**
  * {@link SourceMetrics} backed by the Prometheus Java client. The only class in this codebase that
@@ -12,13 +9,11 @@ import java.util.Locale;
  * SourceMetrics} interface.
  *
  * <p>Metric names follow the {@code kafka_java_} prefix convention
- * (numaproj-contrib/kafka-java#37). All label values come from closed enums, mapped to lowercase
- * strings, so cardinality is bounded at compile time.
+ * (numaproj-contrib/kafka-java#37).
  */
 public class PrometheusSourceMetrics implements SourceMetrics {
 
-  private final Counter readErrorsTotal;
-  private final Counter recordsDroppedTotal;
+  private final Counter skippedMessagesTotal;
 
   /**
    * Singleton, because the Prometheus client throws on registering the same metric name twice in
@@ -36,31 +31,15 @@ public class PrometheusSourceMetrics implements SourceMetrics {
 
   /** Visible so tests can use an isolated registry; production code uses the singleton. */
   PrometheusSourceMetrics(PrometheusRegistry registry) {
-    this.readErrorsTotal =
+    this.skippedMessagesTotal =
         Counter.builder()
-            .name("kafka_java_source_read_errors_total")
-            .help("Records skipped because they failed to be polled or converted.")
-            .labelNames("stage", "reason")
-            .register(registry);
-    this.recordsDroppedTotal =
-        Counter.builder()
-            .name("kafka_java_source_records_dropped_total")
-            .help("Records dropped without being an error (e.g. Kafka tombstones).")
-            .labelNames("reason")
+            .name("kafka_java_source_skipped_messages_total")
+            .help("Messages the source dropped instead of forwarding them downstream.")
             .register(registry);
   }
 
   @Override
-  public void recordReadError(ReadStage stage, ReadErrorReason reason) {
-    readErrorsTotal.labelValues(label(stage), label(reason)).inc();
-  }
-
-  @Override
-  public void recordDropped(DropReason reason) {
-    recordsDroppedTotal.labelValues(label(reason)).inc();
-  }
-
-  private static String label(Enum<?> value) {
-    return value.name().toLowerCase(Locale.ROOT);
+  public void recordSkipped() {
+    skippedMessagesTotal.inc();
   }
 }

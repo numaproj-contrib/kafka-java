@@ -2,9 +2,6 @@ package io.numaproj.kafka.metrics;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import io.numaproj.kafka.common.ReadErrorReason;
-import io.numaproj.kafka.common.ReadStage;
-import io.numaproj.kafka.metrics.SourceMetrics.DropReason;
 import io.prometheus.metrics.expositionformats.PrometheusTextFormatWriter;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import io.prometheus.metrics.model.snapshots.MetricSnapshots;
@@ -25,24 +22,23 @@ class PrometheusSourceMetricsTest {
   }
 
   @Test
-  void recordReadError_incrementsCounterWithLowercaseLabels() throws IOException {
-    metrics.recordReadError(ReadStage.DECODE, ReadErrorReason.BAD_DATA);
+  void recordSkipped_incrementsTheCounter() throws IOException {
+    metrics.recordSkipped();
+    metrics.recordSkipped();
 
     String scraped = scrape();
 
-    assertTrue(scraped.contains("kafka_java_source_read_errors_total"));
-    assertTrue(scraped.contains("stage=\"decode\""));
-    assertTrue(scraped.contains("reason=\"bad_data\""));
+    assertTrue(scraped.contains("kafka_java_source_skipped_messages_total 2.0"));
   }
 
   @Test
-  void recordDropped_incrementsCounterWithLowercaseLabel() throws IOException {
-    metrics.recordDropped(DropReason.NULL_VALUE);
+  void recordSkipped_countsEveryDropUnderOneUnlabelledSeries() throws IOException {
+    metrics.recordSkipped();
 
     String scraped = scrape();
 
-    assertTrue(scraped.contains("kafka_java_source_records_dropped_total"));
-    assertTrue(scraped.contains("reason=\"null_value\""));
+    assertFalse(scraped.contains("stage="));
+    assertFalse(scraped.contains("reason="));
   }
 
   private String scrape() throws IOException {

@@ -58,8 +58,8 @@ public class AvroFormat implements KafkaFormat<GenericRecord> {
       return out.toByteArray();
     } catch (IOException | RuntimeException e) {
       // The realistic malformed-Avro failure (e.g. AvroTypeException) is a RuntimeException, not
-      // an IOException - without this, it would bypass FormatException entirely, kill the pod
-      // regardless of onError, and make stage=convert unreachable.
+      // an IOException - without this, it would bypass FormatException entirely and kill the pod
+      // regardless of onError.
       // Strip the cause's message: AvroTypeException embeds (possibly decrypted) field values.
       throw new FormatException(
           "Failed to convert the Avro record to JSON format", stripMessage(e));

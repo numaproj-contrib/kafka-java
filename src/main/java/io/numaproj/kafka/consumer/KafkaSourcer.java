@@ -2,7 +2,6 @@ package io.numaproj.kafka.consumer;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.numaproj.kafka.common.CommonUtils;
-import io.numaproj.kafka.common.ReadStage;
 import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.format.FormatException;
@@ -167,7 +166,7 @@ public class KafkaSourcer<V> extends Sourcer {
       if (userConfig.getOnError() != OnError.SKIP) {
         throw new RuntimeException("Failed to convert the record to a payload: " + where, e);
       }
-      skippedRecordHandler.handleSkipped(where, ReadStage.CONVERT, e);
+      skippedRecordHandler.handleSkipped(where, e);
       return false;
     }
     observer.send(toMessage(consumerRecord, payload));

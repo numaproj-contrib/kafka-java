@@ -1,13 +1,8 @@
 package io.numaproj.kafka.config;
 
 import com.amazonaws.services.schemaregistry.deserializers.GlueSchemaRegistryKafkaDeserializer;
-import com.amazonaws.services.schemaregistry.exception.AWSSchemaRegistryException;
-import com.amazonaws.services.schemaregistry.exception.GlueSchemaRegistryIncompatibleDataException;
 import com.google.common.annotations.VisibleForTesting;
-import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
-import io.numaproj.kafka.common.BadRecordException;
-import io.numaproj.kafka.common.EnvVarInterpolator;
 import io.numaproj.kafka.encryption.DecryptingDeserializer;
 import io.numaproj.kafka.encryption.EnvelopeDecryptionFactory;
 import io.numaproj.kafka.encryption.PayloadDecryptor;
@@ -20,11 +15,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import software.amazon.awssdk.core.exception.SdkException;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.GROUP_ID_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.MAX_POLL_RECORDS_CONFIG;
@@ -115,8 +108,7 @@ public class ConsumerConfig {
 
     @SuppressWarnings("unchecked")
     Deserializer<GenericRecord> valueDeserializer =
-        wrapWithBadRecordTranslation(
-            (Deserializer<GenericRecord>) (Deserializer<?>) avroDeserializer);
+        (Deserializer<GenericRecord>) (Deserializer<?>) avroDeserializer;
 
     // strip kafka-java-managed keys as the last step before instantiating the client
     stripManagedProps(props);
@@ -187,65 +179,4 @@ public class ConsumerConfig {
       Deserializer<T> deserializer, PayloadDecryptor decryptor) {
     return decryptor == null ? deserializer : new DecryptingDeserializer<>(deserializer, decryptor);
   }
-
-  /**
-   * Wraps a schema-registry value deserializer so its record-attributable decode failures surface
-   * as {@link BadRecordException}, while environment failures (registry unreachable, access denied,
-   * throttled) propagate untranslated. This is the one place in the codebase that already imports
-   * Glue's exception types, so it owns the mapping and keeps the consumer package cloud-agnostic.
-   *
-   * <p>Verified against {@code software.amazon.glue:schema-registry-serde:1.1.27}:
-   * {@code GlueSchemaRegistryIncompatibleDataException} (a malformed header/compression byte or
-   * otherwise undecodable payload) is always record-attributable. A plain {@code
-   * AWSSchemaRegistryException} is also thrown for Glue API failures, so it is translated only when
-   * its cause chain contains no {@link SdkException}. Confluent's deserializer throws Kafka's own
-   * {@link SerializationException} for both malformed data and registry failures, so it is
-   * translated only when its cause chain contains no {@link RestClientException} and no {@link
-   * IOException} - registry failures must classify as UNKNOWN so the reason="unknown" alert fires
-   * instead of good records being skipped as bad data.
-   */
-  @VisibleForTesting
-  static <T> Deserializer<T> wrapWithBadRecordTranslation(Deserializer<T> deserializer) {
-    return new Deserializer<T>() {
-      @Override
-      public void configure(Map<String, ?> configs, boolean isKey) {
-        deserializer.configure(configs, isKey);
-      }
-
-      @Override
-      public T deserialize(String topic, byte[] data) {
-        try {
-          return deserializer.deserialize(topic, data);
-        } catch (GlueSchemaRegistryIncompatibleDataException e) {
-          throw new BadRecordException("Failed to deserialize the schema registry record", e);
-        } catch (AWSSchemaRegistryException e) {
-          if (causeChainContains(e, SdkException.class)) {
-            throw e;
-          }
-          throw new BadRecordException("Failed to deserialize the schema registry record", e);
-        } catch (SerializationException e) {
-          if (causeChainContains(e, RestClientException.class)
-              || causeChainContains(e, IOException.class)) {
-            throw e;
-          }
-          throw new BadRecordException("Failed to deserialize the record", e);
-        }
-      }
-
-      @Override
-      public void close() {
-        deserializer.close();
-      }
-    };
-  }
-
-  private static boolean causeChainContains(Throwable failure, Class<? extends Throwable> type) {
-    for (Throwable t = failure; t != null; t = t.getCause()) {
-      if (type.isInstance(t)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
 }

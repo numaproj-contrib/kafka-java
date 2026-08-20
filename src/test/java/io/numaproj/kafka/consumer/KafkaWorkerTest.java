@@ -148,14 +148,14 @@ class KafkaWorkerTest {
   }
 
   @Test
-  void poll_nullValueRecords_areDroppedAndCountedAsTombstones() throws Exception {
+  void poll_nullValueRecords_areDroppedAndCounted() throws Exception {
     when(consumer.poll(any())).thenReturn(records("good", null, "also-good"));
     thread.start();
 
     List<ConsumerRecord<String, byte[]>> got = worker.poll(1000);
 
     assertEquals(2, got.size());
-    verify(metrics).recordDropped(SourceMetrics.DropReason.NULL_VALUE);
+    verify(metrics).recordSkipped();
   }
 
   @Test

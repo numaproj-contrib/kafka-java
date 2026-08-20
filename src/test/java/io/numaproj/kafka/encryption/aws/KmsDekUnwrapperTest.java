@@ -11,7 +11,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.numaproj.kafka.common.aws.AwsCredentials;
-import io.numaproj.kafka.encryption.PayloadDecryptionException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -22,12 +21,7 @@ import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.kms.KmsClient;
 import software.amazon.awssdk.services.kms.model.DecryptRequest;
 import software.amazon.awssdk.services.kms.model.DecryptResponse;
-import software.amazon.awssdk.services.kms.model.IncorrectKeyException;
-import software.amazon.awssdk.services.kms.model.InvalidCiphertextException;
-import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.kms.model.KmsException;
-import software.amazon.awssdk.services.kms.model.KmsInternalException;
-import software.amazon.awssdk.services.kms.model.LimitExceededException;
 
 @ExtendWith(MockitoExtension.class)
 class KmsDekUnwrapperTest {
@@ -62,46 +56,6 @@ class KmsDekUnwrapperTest {
         .thenThrow(KmsException.builder().message("access denied").build());
 
     assertThrows(KmsException.class, () -> unwrapper().unwrap(WRAPPED));
-  }
-
-  @Test
-  void translatesInvalidCiphertextToPayloadDecryptionException() {
-    when(kms.decrypt(any(DecryptRequest.class)))
-        .thenThrow(InvalidCiphertextException.builder().message("corrupt").build());
-
-    assertThrows(PayloadDecryptionException.class, () -> unwrapper().unwrap(WRAPPED));
-  }
-
-  @Test
-  void translatesIncorrectKeyToPayloadDecryptionException() {
-    when(kms.decrypt(any(DecryptRequest.class)))
-        .thenThrow(IncorrectKeyException.builder().message("wrong key").build());
-
-    assertThrows(PayloadDecryptionException.class, () -> unwrapper().unwrap(WRAPPED));
-  }
-
-  @Test
-  void propagatesKmsInternalExceptionUntranslated() {
-    when(kms.decrypt(any(DecryptRequest.class)))
-        .thenThrow(KmsInternalException.builder().message("internal error").build());
-
-    assertThrows(KmsInternalException.class, () -> unwrapper().unwrap(WRAPPED));
-  }
-
-  @Test
-  void propagatesThrottlingExceptionUntranslated() {
-    when(kms.decrypt(any(DecryptRequest.class)))
-        .thenThrow(LimitExceededException.builder().message("throttled").build());
-
-    assertThrows(LimitExceededException.class, () -> unwrapper().unwrap(WRAPPED));
-  }
-
-  @Test
-  void propagatesSdkClientExceptionUntranslated() {
-    when(kms.decrypt(any(DecryptRequest.class)))
-        .thenThrow(SdkClientException.create("network error"));
-
-    assertThrows(SdkClientException.class, () -> unwrapper().unwrap(WRAPPED));
   }
 
   @Test

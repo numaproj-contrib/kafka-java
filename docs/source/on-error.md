@@ -32,7 +32,8 @@ Two limitations to be aware of before enabling it:
 - **The record is lost.** There is no dead-letter queue yet.
 - **All read failures are skipped, not just malformed records.** A KMS throttle, an expired
   credential or a schema-registry outage is dropped the same way, which discards records that are
-  themselves fine. Watch the source metrics to detect this.
+  themselves fine. The counter alone won't tell the two apart — alert on its rate, then read the
+  `WARN` logs to see which failure is driving it.
 
 Failures outside the read path — an invalid configuration at startup, a Kafka authentication or
 authorization failure — always fail fast regardless of `onError`.

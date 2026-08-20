@@ -1,6 +1,5 @@
 package io.numaproj.kafka.consumer;
 
-import io.numaproj.kafka.common.ReadStage;
 import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.config.UserConfig;
 import java.time.Duration;
@@ -102,7 +101,7 @@ public class KafkaWorker<V> implements Runnable {
         for (ConsumerRecord<String, V> consumerRecord :
             consumer.poll(Duration.ofMillis(remainingMillis(deadlineNanos)))) {
           if (consumerRecord.value() == null) {
-            // A Kafka tombstone. Previously silent; now at least visible in metrics.
+            // A Kafka tombstone. Previously silent; now counted like any other dropped message.
             skippedRecordHandler.handleTombstone();
             continue;
           }
@@ -120,10 +119,9 @@ public class KafkaWorker<V> implements Runnable {
         if (userConfig.getOnError() != OnError.SKIP) {
           throw e;
         }
-        // Classify the deserializer's own failure; fall back to the Kafka wrapper when it has no
-        // cause.
+        // Log the deserializer's own failure; fall back to the Kafka wrapper when it has no cause.
         Throwable failure = e.getCause() != null ? e.getCause() : e;
-        skippedRecordHandler.handleSkipped(RecordLocation.of(e), ReadStage.DECODE, failure);
+        skippedRecordHandler.handleSkipped(RecordLocation.of(e), failure);
         // Advance exactly one past the bad record; this also discards the buffered fetch whose
         // cached exception would otherwise be rethrown by every later poll.
         consumer.seek(e.topicPartition(), e.offset() + 1);

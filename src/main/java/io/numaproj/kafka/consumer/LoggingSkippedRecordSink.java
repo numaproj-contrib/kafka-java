@@ -7,11 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 final class LoggingSkippedRecordSink implements SkippedRecordSink {
   @Override
   public void quarantine(SkippedRecord skippedRecord) {
-    log.warn(
-        "Dropping bad record {} stage:{} reason:{}",
-        skippedRecord.location(),
-        skippedRecord.stage(),
-        skippedRecord.reason(),
-        skippedRecord.failure());
+    log.warn("Dropping bad record {}", skippedRecord.location(), skippedRecord.failure());
   }
 }
