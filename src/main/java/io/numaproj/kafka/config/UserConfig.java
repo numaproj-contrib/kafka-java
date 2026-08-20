@@ -30,9 +30,4 @@ public class UserConfig {
   // Source-only: how the source reacts to a record that fails to be read. UserConfig is shared with
   // the sink, so a producer deployment setting this key is silently ignored.
   @Builder.Default private OnError onError = OnError.FAIL;
-
-  // @Builder.Default only applies through the builder: new UserConfig() leaves the field null.
-  public OnError getOnError() {
-    return onError == null ? OnError.FAIL : onError;
-  }
 }
