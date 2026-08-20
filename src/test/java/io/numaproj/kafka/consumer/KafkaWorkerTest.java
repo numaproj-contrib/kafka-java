@@ -3,9 +3,7 @@ package io.numaproj.kafka.consumer;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.config.UserConfig;
-import io.numaproj.kafka.metrics.SourceMetrics;
 import java.nio.ByteBuffer;
 import java.util.*;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -19,7 +17,6 @@ import org.apache.kafka.common.record.TimestampType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InOrder;
 
 /** The worker is format agnostic, so byte[] values are used to exercise its behavior. */
 class KafkaWorkerTest {
@@ -29,28 +26,15 @@ class KafkaWorkerTest {
   @SuppressWarnings("unchecked")
   private final KafkaConsumer<String, byte[]> consumer = mock(KafkaConsumer.class);
 
-  private final SourceMetrics metrics = mock(SourceMetrics.class);
-  private final SkippedRecordSink sink = mock(SkippedRecordSink.class);
-
   private KafkaWorker<byte[]> worker;
   private Thread thread;
 
   @BeforeEach
   void setUp() {
-    worker = newWorker(OnError.FAIL);
-    thread = new Thread(worker);
-  }
-
-  private KafkaWorker<byte[]> newWorker(OnError onError) {
-    return new KafkaWorker<>(
-        mockUserConfig(onError), consumer, new SkippedRecordHandler(metrics, sink));
-  }
-
-  private static UserConfig mockUserConfig(OnError onError) {
     UserConfig userConfig = mock(UserConfig.class);
     when(userConfig.getTopicName()).thenReturn(TOPIC);
-    when(userConfig.getOnError()).thenReturn(onError);
-    return userConfig;
+    worker = new KafkaWorker<>(userConfig, consumer);
+    thread = new Thread(worker);
   }
 
   /** Builds the exception with the origin and buffers, as the Kafka consumer itself does. */
@@ -75,13 +59,14 @@ class KafkaWorkerTest {
   }
 
   @Test
-  void poll_returnsRecordsAndSkipsNullValues() throws Exception {
+  void poll_returnsEveryRecordPolled_includingTombstones() throws Exception {
+    // Deciding what to do with a tombstone belongs to the sourcer, so the worker forwards it on.
     when(consumer.poll(any())).thenReturn(records("a", null, "b"));
     thread.start();
 
     List<ConsumerRecord<String, byte[]>> got = worker.poll(1000);
 
-    assertEquals(2, got.size());
+    assertEquals(3, got.size());
   }
 
   @Test
@@ -98,64 +83,39 @@ class KafkaWorkerTest {
   }
 
   @Test
-  void poll_onErrorFail_propagatesDeserializationExceptionAndNeverSeeks() throws Exception {
-    RecordDeserializationException deserializationException =
-        deserializationException(5L, new RuntimeException("bad avro"));
-    when(consumer.poll(any())).thenThrow(deserializationException);
+  void poll_whenRecordCannotBeDeserialized_thenReportsItsLocationAndNeverSeeks() throws Exception {
+    RuntimeException cause = new RuntimeException("bad avro");
+    when(consumer.poll(any())).thenThrow(deserializationException(5L, cause));
     thread.start();
 
-    RecordDeserializationException thrown =
-        assertThrows(RecordDeserializationException.class, () -> worker.poll(1000));
+    PoisonRecordException thrown =
+        assertThrows(PoisonRecordException.class, () -> worker.poll(1000));
 
-    assertSame(deserializationException, thrown);
+    assertEquals(new RecordLocation(TOPIC, 1, 5L), thrown.location());
+    assertSame(cause, thrown.getCause());
+    // Recovering from it is the caller's decision, taken from onError.
     verify(consumer, never()).seek(any(), anyLong());
-    verifyNoInteractions(sink);
   }
 
   @Test
-  void poll_onErrorSkip_seeksPastBadRecordAndStopsRetryingOnceDeadlineElapses() throws Exception {
-    worker = newWorker(OnError.SKIP);
-    thread = new Thread(worker);
-    RecordDeserializationException deserializationException =
-        deserializationException(5L, new RuntimeException("bad avro"));
-    when(consumer.poll(any())).thenThrow(deserializationException);
+  void poll_whenTheDeserializationFailureHasNoCause_thenReportsTheKafkaWrapper() throws Exception {
+    RecordDeserializationException noCause = deserializationException(5L, null);
+    when(consumer.poll(any())).thenThrow(noCause);
     thread.start();
 
-    List<ConsumerRecord<String, byte[]>> got = worker.poll(0);
+    PoisonRecordException thrown =
+        assertThrows(PoisonRecordException.class, () -> worker.poll(1000));
 
-    assertEquals(List.of(), got);
-    verify(consumer, times(1)).poll(any());
-    verify(consumer, times(1)).seek(new TopicPartition(TOPIC, 1), 6L);
+    assertSame(noCause, thrown.getCause());
   }
 
   @Test
-  void poll_onErrorSkip_seeksPastMultipleConsecutiveBadRecords() throws Exception {
-    worker = newWorker(OnError.SKIP);
-    thread = new Thread(worker);
-    RecordDeserializationException bad5 =
-        deserializationException(5L, new RuntimeException("bad record 1"));
-    RecordDeserializationException bad6 =
-        deserializationException(6L, new RuntimeException("bad record 2"));
-    when(consumer.poll(any())).thenThrow(bad5).thenThrow(bad6).thenReturn(records("good"));
+  void seekPast_movesTheConsumerOnePastTheRecord() throws Exception {
     thread.start();
 
-    List<ConsumerRecord<String, byte[]>> got = worker.poll(1000);
+    worker.seekPast(new RecordLocation(TOPIC, 1, 5L));
 
-    assertEquals(1, got.size());
-    InOrder order = inOrder(consumer);
-    order.verify(consumer).seek(new TopicPartition(TOPIC, 1), 6L);
-    order.verify(consumer).seek(new TopicPartition(TOPIC, 1), 7L);
-  }
-
-  @Test
-  void poll_nullValueRecords_areDroppedAndCounted() throws Exception {
-    when(consumer.poll(any())).thenReturn(records("good", null, "also-good"));
-    thread.start();
-
-    List<ConsumerRecord<String, byte[]>> got = worker.poll(1000);
-
-    assertEquals(2, got.size());
-    verify(metrics).recordSkipped();
+    verify(consumer).seek(new TopicPartition(TOPIC, 1), 6L);
   }
 
   @Test

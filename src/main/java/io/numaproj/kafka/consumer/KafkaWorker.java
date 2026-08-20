@@ -1,6 +1,5 @@
 package io.numaproj.kafka.consumer;
 
-import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.config.UserConfig;
 import java.time.Duration;
 import java.time.Instant;
@@ -10,7 +9,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -33,7 +31,6 @@ public class KafkaWorker<V> implements Runnable {
 
   private final UserConfig userConfig;
   private final KafkaConsumer<String, V> consumer;
-  private final SkippedRecordHandler skippedRecordHandler;
 
   // A blocking queue used to hand tasks to the consumer thread. It ensures only one of the
   // tasks (POLL/COMMIT/SHUTDOWN) is performed at a time.
@@ -43,13 +40,9 @@ public class KafkaWorker<V> implements Runnable {
   // Records polled from Kafka; volatile to ensure visibility across threads.
   private volatile List<ConsumerRecord<String, V>> consumerRecordList;
 
-  public KafkaWorker(
-      UserConfig userConfig,
-      KafkaConsumer<String, V> consumer,
-      SkippedRecordHandler skippedRecordHandler) {
+  public KafkaWorker(UserConfig userConfig, KafkaConsumer<String, V> consumer) {
     this.userConfig = userConfig;
     this.consumer = consumer;
-    this.skippedRecordHandler = skippedRecordHandler;
   }
 
   @Override
@@ -63,6 +56,7 @@ public class KafkaWorker<V> implements Runnable {
         try {
           switch (request.type) {
             case POLL -> pollRecords(request.timeoutMs);
+            case SEEK -> seekPastRecord(request.location);
             case COMMIT -> commitAsync();
             case SHUTDOWN -> {
               log.info("shutting down the consumer");
@@ -70,6 +64,10 @@ public class KafkaWorker<V> implements Runnable {
             }
           }
           operationCompletion.complete(null);
+        } catch (PoisonRecordException e) {
+          // The caller applies onError to it, and logs the drop if it skips.
+          log.debug("{}", e.getMessage());
+          operationCompletion.completeExceptionally(e);
         } catch (Exception e) {
           log.error("error processing operation: {}", request.type, e);
           operationCompletion.completeExceptionally(e);
@@ -84,58 +82,41 @@ public class KafkaWorker<V> implements Runnable {
   }
 
   /**
-   * Polls until the deadline is reached, skipping past any poison record when {@code onError: skip}
-   * permits it.
+   * Polls once, handing every record polled - tombstones included - to the caller.
    *
-   * <p>Kafka 4.0's {@code CompletedFetch} caches a poison record's exception and does not advance
-   * {@code nextFetchOffset}, so re-polling (or seeking back to the same offset) rethrows the cached
-   * exception without re-invoking the deserializer - only a {@code seek} past the record clears it.
-   * The good records preceding a poison record in the same fetch are returned by an earlier poll, so
-   * only the offending record is dropped.
+   * @throws PoisonRecordException if a record could not be deserialized
    */
   private void pollRecords(long timeoutMs) {
-    long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
-    while (true) {
-      try {
-        List<ConsumerRecord<String, V>> polled = new ArrayList<>();
-        for (ConsumerRecord<String, V> consumerRecord :
-            consumer.poll(Duration.ofMillis(remainingMillis(deadlineNanos)))) {
-          if (consumerRecord.value() == null) {
-            // A Kafka tombstone: nothing to forward downstream.
-            skippedRecordHandler.handleTombstone();
-            continue;
-          }
-          log.debug(
-              "consume:: partition:{} offset:{} timestamp:{}",
-              consumerRecord.partition(),
-              consumerRecord.offset(),
-              Instant.ofEpochMilli(consumerRecord.timestamp()));
-          polled.add(consumerRecord);
-        }
-        log.debug("number of messages polled: {}", polled.size());
-        consumerRecordList = polled;
-        return;
-      } catch (RecordDeserializationException e) {
-        if (userConfig.getOnError() != OnError.SKIP) {
-          throw e;
-        }
-        // Log the deserializer's own failure; fall back to the Kafka wrapper when it has no cause.
-        Throwable failure = e.getCause() != null ? e.getCause() : e;
-        skippedRecordHandler.handleSkipped(RecordLocation.of(e), failure);
-        // Advance exactly one past the bad record; this also discards the buffered fetch whose
-        // cached exception would otherwise be rethrown by every later poll.
-        consumer.seek(e.topicPartition(), e.offset() + 1);
-        if (remainingMillis(deadlineNanos) == 0) {
-          // Read deadline spent; the next read cycle resumes past the drops.
-          consumerRecordList = List.of();
-          return;
-        }
+    List<ConsumerRecord<String, V>> polled = new ArrayList<>();
+    try {
+      for (ConsumerRecord<String, V> consumerRecord : consumer.poll(Duration.ofMillis(timeoutMs))) {
+        log.debug(
+            "consume:: partition:{} offset:{} timestamp:{}",
+            consumerRecord.partition(),
+            consumerRecord.offset(),
+            Instant.ofEpochMilli(consumerRecord.timestamp()));
+        polled.add(consumerRecord);
       }
+    } catch (RecordDeserializationException e) {
+      // Report the deserializer's own failure; fall back to the Kafka wrapper when it has no cause.
+      throw new PoisonRecordException(
+          RecordLocation.of(e), e.getCause() != null ? e.getCause() : e);
     }
+    log.debug("number of messages polled: {}", polled.size());
+    consumerRecordList = polled;
   }
 
-  private static long remainingMillis(long deadlineNanos) {
-    return Math.max(0L, TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime()));
+  /**
+   * Moves the consumer to the offset after the given record.
+   *
+   * <p>Kafka 4.0's {@code CompletedFetch} caches an undecodable record's exception and does not
+   * advance {@code nextFetchOffset}, so re-polling (or seeking back to the same offset) rethrows the
+   * cached exception without re-invoking the deserializer. Seeking past the record is what clears
+   * that buffered fetch.
+   */
+  private void seekPastRecord(RecordLocation location) {
+    consumer.seek(
+        new TopicPartition(location.topic(), location.partition()), location.offset() + 1);
   }
 
   private void commitAsync() {
@@ -158,6 +139,15 @@ public class KafkaWorker<V> implements Runnable {
   public List<ConsumerRecord<String, V>> poll(long timeoutMs) throws InterruptedException {
     await(new OperationRequest(TaskType.POLL, timeoutMs));
     return consumerRecordList == null ? new ArrayList<>() : new ArrayList<>(consumerRecordList);
+  }
+
+  /**
+   * Requests the worker thread to resume reading after the given record, and blocks until it does.
+   *
+   * @throws InterruptedException if the calling thread is interrupted
+   */
+  void seekPast(RecordLocation location) throws InterruptedException {
+    await(new OperationRequest(TaskType.SEEK, location));
   }
 
   /**
@@ -214,15 +204,24 @@ public class KafkaWorker<V> implements Runnable {
     }
   }
 
-  /** A task for the worker thread to perform, with an optional poll timeout. */
-  private record OperationRequest(TaskType type, long timeoutMs) {
+  /** A task for the worker thread to perform, with the poll timeout or seek target it needs. */
+  private record OperationRequest(TaskType type, long timeoutMs, RecordLocation location) {
     OperationRequest(TaskType type) {
-      this(type, 0);
+      this(type, 0, null);
+    }
+
+    OperationRequest(TaskType type, long timeoutMs) {
+      this(type, timeoutMs, null);
+    }
+
+    OperationRequest(TaskType type, RecordLocation location) {
+      this(type, 0, location);
     }
   }
 
   private enum TaskType {
     POLL,
+    SEEK,
     COMMIT,
     SHUTDOWN
   }

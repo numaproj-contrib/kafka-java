@@ -12,6 +12,7 @@ import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.format.ByteArrayFormat;
 import io.numaproj.kafka.format.FormatException;
 import io.numaproj.kafka.format.KafkaFormat;
+import io.numaproj.kafka.metrics.SourceMetrics;
 import io.numaproj.numaflow.sourcer.*;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -23,6 +24,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +38,7 @@ class KafkaSourcerTest {
   private static final String TOPIC_HEADER = "X-NF-Kafka-TopicName";
 
   private final Admin admin = mock(Admin.class);
+  private final SourceMetrics metrics = mock(SourceMetrics.class);
   @SuppressWarnings("unchecked")
   private final KafkaWorker<byte[]> worker = mock(KafkaWorker.class);
   private final OutputObserver observer = mock(OutputObserver.class);
@@ -57,7 +60,8 @@ class KafkaSourcerTest {
   private KafkaSourcer<byte[]> sourcer(
       KafkaFormat<byte[]> format, OnError onError, KafkaWorker<byte[]> worker) {
     KafkaSourcer<byte[]> sourcer =
-        Mockito.spy(new KafkaSourcer<>(userConfig(onError), admin, format, batchSize -> null));
+        Mockito.spy(
+            new KafkaSourcer<>(userConfig(onError), admin, format, batchSize -> null, metrics));
     Thread aliveThread = mock(Thread.class);
     when(aliveThread.isAlive()).thenReturn(true);
     sourcer.setWorker(worker, aliveThread);
@@ -65,10 +69,23 @@ class KafkaSourcerTest {
   }
 
   private static ReadRequest readRequest(long count) {
+    return readRequest(count, 100);
+  }
+
+  private static ReadRequest readRequest(long count, long timeoutMs) {
     ReadRequest request = mock(ReadRequest.class);
     when(request.getCount()).thenReturn(count);
-    when(request.getTimeout()).thenReturn(Duration.ofMillis(100));
+    when(request.getTimeout()).thenReturn(Duration.ofMillis(timeoutMs));
     return request;
+  }
+
+  private static PoisonRecordException poison(long offset) {
+    return new PoisonRecordException(
+        new RecordLocation(TOPIC, 1, offset), new RuntimeException("bad avro"));
+  }
+
+  private static ConsumerRecord<String, byte[]> tombstone(long offset) {
+    return new ConsumerRecord<>(TOPIC, 1, offset, "key", null);
   }
 
   private static ConsumerRecord<String, byte[]> record(long offset) {
@@ -176,6 +193,73 @@ class KafkaSourcerTest {
       throw new RuntimeException(e);
     }
     return format;
+  }
+
+  @Test
+  void read_whenRecordCannotBeDeserializedAndOnErrorSkip_thenCountsSeeksPastAndKeepsReading()
+      throws Exception {
+    KafkaSourcer<byte[]> sourcer = sourcer(new ByteArrayFormat(), OnError.SKIP, worker);
+    when(worker.poll(anyLong())).thenThrow(poison(6)).thenReturn(List.of(record(7)));
+    doNothing().when(sourcer).kill(any());
+
+    sourcer.read(readRequest(2), observer);
+
+    verify(metrics).recordSkipped();
+    verify(worker).seekPast(new RecordLocation(TOPIC, 1, 6L));
+    verify(observer, times(1)).send(any(Message.class));
+    verify(sourcer, never()).kill(any());
+  }
+
+  @Test
+  void read_whenConsecutiveRecordsCannotBeDeserialized_thenSeeksPastEachInTurn() throws Exception {
+    KafkaSourcer<byte[]> sourcer = sourcer(new ByteArrayFormat(), OnError.SKIP, worker);
+    when(worker.poll(anyLong()))
+        .thenThrow(poison(5))
+        .thenThrow(poison(6))
+        .thenReturn(List.of(record(7)));
+
+    sourcer.read(readRequest(3), observer);
+
+    InOrder order = inOrder(worker);
+    order.verify(worker).seekPast(new RecordLocation(TOPIC, 1, 5L));
+    order.verify(worker).seekPast(new RecordLocation(TOPIC, 1, 6L));
+    verify(metrics, times(2)).recordSkipped();
+    verify(observer, times(1)).send(any(Message.class));
+  }
+
+  @Test
+  void read_whenTheDeadlineIsSpentSkipping_thenForwardsNothingAndDoesNotPollAgain()
+      throws Exception {
+    KafkaSourcer<byte[]> sourcer = sourcer(new ByteArrayFormat(), OnError.SKIP, worker);
+    when(worker.poll(anyLong())).thenThrow(poison(6));
+
+    sourcer.read(readRequest(1, 0), observer);
+
+    verify(worker, times(1)).poll(anyLong());
+    verify(worker).seekPast(new RecordLocation(TOPIC, 1, 6L));
+    verify(observer, never()).send(any());
+  }
+
+  @Test
+  void read_whenRecordCannotBeDeserializedAndOnErrorFail_thenKillsWithoutSeeking() throws Exception {
+    when(worker.poll(anyLong())).thenThrow(poison(6));
+    doNothing().when(underTest).kill(any());
+
+    underTest.read(readRequest(1), observer);
+
+    verify(underTest).kill(any(PoisonRecordException.class));
+    verify(worker, never()).seekPast(any());
+    verify(metrics, never()).recordSkipped();
+  }
+
+  @Test
+  void read_tombstone_isCountedAndNotForwarded() throws Exception {
+    when(worker.poll(anyLong())).thenReturn(List.of(record(5), tombstone(6), record(7)));
+
+    underTest.read(readRequest(3), observer);
+
+    verify(observer, times(2)).send(any(Message.class));
+    verify(metrics, times(1)).recordSkipped();
   }
 
   @Test

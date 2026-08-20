@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -88,7 +89,7 @@ public class KafkaSourcer<V> extends Sourcer {
         "Initializing consumer worker with batchSize={} timeoutMs={}",
         batchSize,
         request.getTimeout().toMillis());
-    worker = new KafkaWorker<>(userConfig, consumerFactory.create(batchSize), skippedRecordHandler);
+    worker = new KafkaWorker<>(userConfig, consumerFactory.create(batchSize));
     workerThread = new Thread(worker, "consumerWorkerThread");
     workerThread.start();
   }
@@ -110,7 +111,7 @@ public class KafkaSourcer<V> extends Sourcer {
     readTopicPartitionOffsetMap = new HashMap<>();
     List<ConsumerRecord<String, V>> consumerRecordList;
     try {
-      consumerRecordList = worker.poll(request.getTimeout().toMillis());
+      consumerRecordList = pollApplyingOnError(request.getTimeout().toMillis());
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       kill(new RuntimeException(e));
@@ -127,6 +128,11 @@ public class KafkaSourcer<V> extends Sourcer {
     try {
       for (ConsumerRecord<String, V> consumerRecord : consumerRecordList) {
         if (consumerRecord == null) {
+          continue;
+        }
+        if (consumerRecord.value() == null) {
+          // A Kafka tombstone: nothing to forward downstream.
+          skippedRecordHandler.handleTombstone();
           continue;
         }
         if (!forward(consumerRecord, observer)) {
@@ -149,6 +155,39 @@ public class KafkaSourcer<V> extends Sourcer {
         sent,
         readTopicPartitionOffsetMap.size(),
         readTopicPartitionOffsetMap);
+  }
+
+  /**
+   * Polls until the read deadline is reached, applying {@code onError} to any record the worker
+   * could not deserialize. A skipped record is counted and the worker is asked to resume past it,
+   * because the buffered fetch would otherwise surface the same record on every later poll.
+   *
+   * @return the records polled, or an empty list if the deadline was spent skipping
+   * @throws PoisonRecordException if a record could not be deserialized and {@code onError} is not
+   *     {@code skip}
+   */
+  private List<ConsumerRecord<String, V>> pollApplyingOnError(long timeoutMs)
+      throws InterruptedException {
+    long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
+    while (true) {
+      try {
+        return worker.poll(remainingMillis(deadlineNanos));
+      } catch (PoisonRecordException e) {
+        if (userConfig.getOnError() != OnError.SKIP) {
+          throw e;
+        }
+        skippedRecordHandler.handleSkipped(e.location(), e.getCause());
+        worker.seekPast(e.location());
+        if (remainingMillis(deadlineNanos) == 0) {
+          // Read deadline spent; the next read cycle resumes past the drops.
+          return List.of();
+        }
+      }
+    }
+  }
+
+  private static long remainingMillis(long deadlineNanos) {
+    return Math.max(0L, TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime()));
   }
 
   /**
