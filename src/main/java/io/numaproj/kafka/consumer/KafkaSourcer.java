@@ -130,9 +130,10 @@ public class KafkaSourcer<V> extends Sourcer {
           continue;
         }
         if (!forward(consumerRecord, observer)) {
-          // A dropped record is not tracked: readTopicPartitionOffsetMap cross-checks reads
-          // against acks, and Numaflow can only ack what it received. The consumer position -
-          // what actually gets committed - is already past this record.
+          // A dropped record is not tracked. readTopicPartitionOffsetMap cross-checks reads
+          // against acks, and Numaflow can only ack a message it received, so tracking a dropped
+          // record would report every skip as out of sync. What Kafka commits is unaffected:
+          // commitAsync() commits the consumer's position, which is already past this record.
           continue;
         }
         trackReadOffset(consumerRecord);
