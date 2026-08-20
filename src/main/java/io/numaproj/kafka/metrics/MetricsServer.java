@@ -51,12 +51,18 @@ public class MetricsServer {
     if (override == null || override.isBlank()) {
       return DEFAULT_PORT;
     }
+    int port;
     try {
-      return Integer.parseInt(override.trim());
+      port = Integer.parseInt(override.trim());
     } catch (NumberFormatException e) {
       throw new IllegalArgumentException(
           PORT_ENV_VAR + " must be an integer, got: " + override, e);
     }
+    if (port < 0 || port > 65535) {
+      throw new IllegalArgumentException(
+          PORT_ENV_VAR + " must be between 0 (disabled) and 65535, got: " + override);
+    }
+    return port;
   }
 
   /** Stops the metrics server, releasing its port. Safe to call more than once. No-op if disabled. */

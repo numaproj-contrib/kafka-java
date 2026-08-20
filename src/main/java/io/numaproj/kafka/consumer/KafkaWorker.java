@@ -107,7 +107,9 @@ public class KafkaWorker<V> implements Runnable {
             collect(consumer.poll(Duration.ofMillis(remainingMillis(deadlineNanos))));
         return;
       } catch (RecordDeserializationException e) {
-        if (!policy.shouldSkip(RecordLocation.of(e), ReadStage.DECODE, e.getCause())) {
+        // Classify the deserializer's own failure; fall back to the Kafka wrapper when it has no cause.
+        Throwable failure = e.getCause() != null ? e.getCause() : e;
+        if (!policy.shouldSkip(RecordLocation.of(e), ReadStage.DECODE, failure)) {
           throw e;
         }
         // Advance exactly one past the bad record; this also discards the buffered fetch whose

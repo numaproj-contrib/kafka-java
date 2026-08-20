@@ -6,7 +6,9 @@ import static org.mockito.Mockito.*;
 import com.amazonaws.services.schemaregistry.exception.AWSSchemaRegistryException;
 import com.amazonaws.services.schemaregistry.exception.GlueSchemaRegistryIncompatibleDataException;
 import io.numaproj.kafka.common.BadRecordException;
+import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.numaproj.kafka.encryption.DecryptingDeserializer;
+import java.io.IOException;
 import io.numaproj.kafka.encryption.EncryptionProps;
 import io.numaproj.kafka.encryption.EnvelopeDecryptionFactory;
 import io.numaproj.kafka.encryption.PayloadDecryptor;
@@ -224,5 +226,35 @@ public class ConsumerConfigTest {
     Deserializer<Object> wrapped = ConsumerConfig.wrapWithBadRecordTranslation(delegate);
 
     assertThrows(BadRecordException.class, () -> wrapped.deserialize("topic", new byte[0]));
+  }
+
+  @Test
+  public void
+      wrapWithBadRecordTranslation_serializationExceptionFromRegistryApi_propagatesUntranslated() {
+    Deserializer<Object> delegate = mockDeserializer();
+    when(delegate.deserialize(any(), any()))
+        .thenThrow(
+            new SerializationException(
+                "Error retrieving Avro value schema for id 1",
+                new RestClientException("registry error", 500, 50001)));
+    Deserializer<Object> wrapped = ConsumerConfig.wrapWithBadRecordTranslation(delegate);
+
+    SerializationException thrown =
+        assertThrows(SerializationException.class, () -> wrapped.deserialize("topic", new byte[0]));
+    assertInstanceOf(RestClientException.class, thrown.getCause());
+  }
+
+  @Test
+  public void
+      wrapWithBadRecordTranslation_serializationExceptionFromUnreachableRegistry_propagatesUntranslated() {
+    Deserializer<Object> delegate = mockDeserializer();
+    when(delegate.deserialize(any(), any()))
+        .thenThrow(
+            new SerializationException(
+                "Error retrieving Avro value schema for id 1",
+                new IOException("connection refused")));
+    Deserializer<Object> wrapped = ConsumerConfig.wrapWithBadRecordTranslation(delegate);
+
+    assertThrows(SerializationException.class, () -> wrapped.deserialize("topic", new byte[0]));
   }
 }

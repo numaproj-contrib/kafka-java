@@ -4,6 +4,7 @@ import com.amazonaws.services.schemaregistry.deserializers.GlueSchemaRegistryKaf
 import com.amazonaws.services.schemaregistry.exception.AWSSchemaRegistryException;
 import com.amazonaws.services.schemaregistry.exception.GlueSchemaRegistryIncompatibleDataException;
 import com.google.common.annotations.VisibleForTesting;
+import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.numaproj.kafka.common.BadRecordException;
 import io.numaproj.kafka.common.EnvVarInterpolator;
@@ -198,8 +199,10 @@ public class ConsumerConfig {
    * otherwise undecodable payload) is always record-attributable. A plain {@code
    * AWSSchemaRegistryException} is also thrown for Glue API failures, so it is translated only when
    * its cause chain contains no {@link SdkException}. Confluent's deserializer throws Kafka's own
-   * {@link SerializationException}, which is translated unconditionally - Confluent's Avro
-   * deserializer does not distinguish registry-unavailable from malformed-data via this type.
+   * {@link SerializationException} for both malformed data and registry failures, so it is
+   * translated only when its cause chain contains no {@link RestClientException} and no {@link
+   * IOException} - registry failures must classify as UNKNOWN so the reason="unknown" alert fires
+   * instead of good records being skipped as bad data.
    */
   @VisibleForTesting
   static <T> Deserializer<T> wrapWithBadRecordTranslation(Deserializer<T> deserializer) {
@@ -216,13 +219,15 @@ public class ConsumerConfig {
         } catch (GlueSchemaRegistryIncompatibleDataException e) {
           throw new BadRecordException("Failed to deserialize the schema registry record", e);
         } catch (AWSSchemaRegistryException e) {
-          for (Throwable t = e; t != null; t = t.getCause()) {
-            if (t instanceof SdkException) {
-              throw e;
-            }
+          if (causeChainContains(e, SdkException.class)) {
+            throw e;
           }
           throw new BadRecordException("Failed to deserialize the schema registry record", e);
         } catch (SerializationException e) {
+          if (causeChainContains(e, RestClientException.class)
+              || causeChainContains(e, IOException.class)) {
+            throw e;
+          }
           throw new BadRecordException("Failed to deserialize the record", e);
         }
       }
@@ -232,6 +237,15 @@ public class ConsumerConfig {
         deserializer.close();
       }
     };
+  }
+
+  private static boolean causeChainContains(Throwable failure, Class<? extends Throwable> type) {
+    for (Throwable t = failure; t != null; t = t.getCause()) {
+      if (type.isInstance(t)) {
+        return true;
+      }
+    }
+    return false;
   }
 
 }

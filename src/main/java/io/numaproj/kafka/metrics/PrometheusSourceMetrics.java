@@ -20,12 +20,22 @@ public class PrometheusSourceMetrics implements SourceMetrics {
   private final Counter readErrorsTotal;
   private final Counter recordsDroppedTotal;
 
-  /** Uses {@code PrometheusRegistry.defaultRegistry}. */
-  public PrometheusSourceMetrics() {
-    this(PrometheusRegistry.defaultRegistry);
+  /**
+   * Singleton, because the Prometheus client throws on registering the same metric name twice in
+   * one registry.
+   */
+  private static final class DefaultHolder {
+    private static final PrometheusSourceMetrics INSTANCE =
+        new PrometheusSourceMetrics(PrometheusRegistry.defaultRegistry);
   }
 
-  public PrometheusSourceMetrics(PrometheusRegistry registry) {
+  /** Returns the singleton instance backed by {@code PrometheusRegistry.defaultRegistry}. */
+  public static PrometheusSourceMetrics defaultRegistryInstance() {
+    return DefaultHolder.INSTANCE;
+  }
+
+  /** Visible so tests can use an isolated registry; production code uses the singleton. */
+  PrometheusSourceMetrics(PrometheusRegistry registry) {
     this.readErrorsTotal =
         Counter.builder()
             .name("kafka_java_source_read_errors_total")

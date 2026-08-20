@@ -44,7 +44,12 @@ class AvroFormatTest {
 
     FormatException e =
         assertThrows(FormatException.class, () -> AvroFormat.forSource().toPayload(record));
-    assertInstanceOf(RuntimeException.class, e.getCause());
+    // The cause is stripped to class name + stack trace: AvroTypeException's message embeds the
+    // offending datum, which for the encrypted path would leak decrypted field values into logs.
+    assertNotNull(e.getCause());
+    assertTrue(e.getCause().getMessage().endsWith("Exception"), "cause message must be a class name");
+    assertFalse(e.getCause().getMessage().contains("12345"));
+    assertTrue(e.getCause().getStackTrace().length > 0);
   }
 
   @Test
