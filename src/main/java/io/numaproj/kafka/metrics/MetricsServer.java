@@ -34,7 +34,7 @@ public class MetricsServer {
    * @return the running server, or a no-op sentinel if metrics serving is disabled
    */
   public static MetricsServer start() throws IOException {
-    int port = resolvePort();
+    int port = resolvePort(System.getenv(PORT_ENV_VAR));
     if (port == 0) {
       log.info("Metrics server disabled ({}=0)", PORT_ENV_VAR);
       return DISABLED;
@@ -45,8 +45,8 @@ public class MetricsServer {
     return new MetricsServer(server);
   }
 
-  private static int resolvePort() {
-    String override = System.getenv(PORT_ENV_VAR);
+  /** Resolves the port to serve on from the {@code KAFKA_JAVA_METRICS_PORT} value. */
+  static int resolvePort(String override) {
     if (override == null || override.isBlank()) {
       return DEFAULT_PORT;
     }
