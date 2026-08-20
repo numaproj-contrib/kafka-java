@@ -1,6 +1,7 @@
 package io.numaproj.kafka;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.google.common.annotations.VisibleForTesting;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.numaproj.kafka.config.ConsumerConfig;
@@ -201,7 +202,8 @@ public class KafkaApplication {
     return jsonSchema;
   }
 
-  private static UserConfig buildUserConfig(Map<String, String> argMap) {
+  @VisibleForTesting
+  static UserConfig buildUserConfig(Map<String, String> argMap) {
     String topicName = argMap.get(KEY_TOPIC_NAME);
     if (topicName == null || topicName.isBlank()) {
       throw new IllegalArgumentException("--topicName is required");
