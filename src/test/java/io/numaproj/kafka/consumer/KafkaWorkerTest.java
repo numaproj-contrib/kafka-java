@@ -3,8 +3,6 @@ package io.numaproj.kafka.consumer;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import org.mockito.InOrder;
-
 import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.metrics.SourceMetrics;
@@ -21,6 +19,7 @@ import org.apache.kafka.common.record.TimestampType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 /** The worker is format agnostic, so byte[] values are used to exercise its behavior. */
 class KafkaWorkerTest {
@@ -31,26 +30,26 @@ class KafkaWorkerTest {
   private final KafkaConsumer<String, byte[]> consumer = mock(KafkaConsumer.class);
 
   private final SourceMetrics metrics = mock(SourceMetrics.class);
+  private final SkippedRecordSink sink = mock(SkippedRecordSink.class);
 
   private KafkaWorker<byte[]> worker;
   private Thread thread;
 
   @BeforeEach
   void setUp() {
-    UserConfig userConfig = mock(UserConfig.class);
-    when(userConfig.getTopicName()).thenReturn(TOPIC);
     worker = newWorker(OnError.FAIL);
     thread = new Thread(worker);
   }
 
   private KafkaWorker<byte[]> newWorker(OnError onError) {
-    BadRecordPolicy policy = new BadRecordPolicy(onError, metrics, mock(BadRecordSink.class));
-    return new KafkaWorker<>(mockUserConfig(), consumer, policy, metrics);
+    return new KafkaWorker<>(
+        mockUserConfig(onError), consumer, new SkippedRecordHandler(metrics, sink));
   }
 
-  private static UserConfig mockUserConfig() {
+  private static UserConfig mockUserConfig(OnError onError) {
     UserConfig userConfig = mock(UserConfig.class);
     when(userConfig.getTopicName()).thenReturn(TOPIC);
+    when(userConfig.getOnError()).thenReturn(onError);
     return userConfig;
   }
 
@@ -110,6 +109,7 @@ class KafkaWorkerTest {
 
     assertSame(deserializationException, thrown);
     verify(consumer, never()).seek(any(), anyLong());
+    verifyNoInteractions(sink);
   }
 
   @Test

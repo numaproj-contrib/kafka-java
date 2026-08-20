@@ -1,9 +1,8 @@
 package io.numaproj.kafka.consumer;
 
 import io.numaproj.kafka.common.ReadStage;
+import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.config.UserConfig;
-import io.numaproj.kafka.metrics.SourceMetrics;
-import io.numaproj.kafka.metrics.SourceMetrics.DropReason;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -16,7 +15,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.RecordDeserializationException;
@@ -36,8 +34,7 @@ public class KafkaWorker<V> implements Runnable {
 
   private final UserConfig userConfig;
   private final KafkaConsumer<String, V> consumer;
-  private final BadRecordPolicy policy;
-  private final SourceMetrics metrics;
+  private final SkippedRecordHandler skippedRecordHandler;
 
   // A blocking queue used to hand tasks to the consumer thread. It ensures only one of the
   // tasks (POLL/COMMIT/SHUTDOWN) is performed at a time.
@@ -50,12 +47,10 @@ public class KafkaWorker<V> implements Runnable {
   public KafkaWorker(
       UserConfig userConfig,
       KafkaConsumer<String, V> consumer,
-      BadRecordPolicy policy,
-      SourceMetrics metrics) {
+      SkippedRecordHandler skippedRecordHandler) {
     this.userConfig = userConfig;
     this.consumer = consumer;
-    this.policy = policy;
-    this.metrics = metrics;
+    this.skippedRecordHandler = skippedRecordHandler;
   }
 
   @Override
@@ -103,15 +98,32 @@ public class KafkaWorker<V> implements Runnable {
     long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
     while (true) {
       try {
-        consumerRecordList =
-            collect(consumer.poll(Duration.ofMillis(remainingMillis(deadlineNanos))));
+        List<ConsumerRecord<String, V>> polled = new ArrayList<>();
+        for (ConsumerRecord<String, V> consumerRecord :
+            consumer.poll(Duration.ofMillis(remainingMillis(deadlineNanos)))) {
+          if (consumerRecord.value() == null) {
+            // A Kafka tombstone. Previously silent; now at least visible in metrics.
+            skippedRecordHandler.handleTombstone();
+            continue;
+          }
+          log.debug(
+              "consume:: partition:{} offset:{} timestamp:{}",
+              consumerRecord.partition(),
+              consumerRecord.offset(),
+              Instant.ofEpochMilli(consumerRecord.timestamp()));
+          polled.add(consumerRecord);
+        }
+        log.debug("number of messages polled: {}", polled.size());
+        consumerRecordList = polled;
         return;
       } catch (RecordDeserializationException e) {
-        // Classify the deserializer's own failure; fall back to the Kafka wrapper when it has no cause.
-        Throwable failure = e.getCause() != null ? e.getCause() : e;
-        if (!policy.shouldSkip(RecordLocation.of(e), ReadStage.DECODE, failure)) {
+        if (userConfig.getOnError() != OnError.SKIP) {
           throw e;
         }
+        // Classify the deserializer's own failure; fall back to the Kafka wrapper when it has no
+        // cause.
+        Throwable failure = e.getCause() != null ? e.getCause() : e;
+        skippedRecordHandler.handleSkipped(RecordLocation.of(e), ReadStage.DECODE, failure);
         // Advance exactly one past the bad record; this also discards the buffered fetch whose
         // cached exception would otherwise be rethrown by every later poll.
         consumer.seek(e.topicPartition(), e.offset() + 1);
@@ -122,25 +134,6 @@ public class KafkaWorker<V> implements Runnable {
         }
       }
     }
-  }
-
-  private List<ConsumerRecord<String, V>> collect(ConsumerRecords<String, V> consumerRecords) {
-    List<ConsumerRecord<String, V>> polled = new ArrayList<>();
-    for (ConsumerRecord<String, V> consumerRecord : consumerRecords) {
-      if (consumerRecord.value() == null) {
-        // A Kafka tombstone. Previously silent; now at least visible in metrics.
-        metrics.recordDropped(DropReason.NULL_VALUE);
-        continue;
-      }
-      log.debug(
-          "consume:: partition:{} offset:{} timestamp:{}",
-          consumerRecord.partition(),
-          consumerRecord.offset(),
-          Instant.ofEpochMilli(consumerRecord.timestamp()));
-      polled.add(consumerRecord);
-    }
-    log.debug("number of messages polled: {}", polled.size());
-    return polled;
   }
 
   private static long remainingMillis(long deadlineNanos) {

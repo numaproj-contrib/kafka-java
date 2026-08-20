@@ -3,6 +3,7 @@ package io.numaproj.kafka.consumer;
 import com.google.common.annotations.VisibleForTesting;
 import io.numaproj.kafka.common.CommonUtils;
 import io.numaproj.kafka.common.ReadStage;
+import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.format.FormatException;
 import io.numaproj.kafka.format.KafkaFormat;
@@ -41,8 +42,7 @@ public class KafkaSourcer<V> extends Sourcer {
   private final Admin admin;
   private final KafkaFormat<V> format;
   private final ConsumerFactory<V> consumerFactory;
-  private final SourceMetrics metrics;
-  private final BadRecordPolicy policy;
+  private final SkippedRecordHandler skippedRecordHandler;
 
   // The worker and its thread are lazily initialized on the first read() call because the Numaflow
   // batch size (used to set max.poll.records) is not known until the first ReadRequest arrives.
@@ -71,11 +71,8 @@ public class KafkaSourcer<V> extends Sourcer {
     this.admin = admin;
     this.format = format;
     this.consumerFactory = consumerFactory;
-    this.metrics = metrics;
-    // Shared with the worker so onError is applied identically at both read-path stages.
-    this.policy =
-        new BadRecordPolicy(
-            userConfig.getOnError(), metrics, new LoggingBadRecordSink());
+    // Shared with the worker so a drop is counted and logged identically at both read-path stages.
+    this.skippedRecordHandler = new SkippedRecordHandler(metrics, new LoggingSkippedRecordSink());
   }
 
   public void startConsumer() throws Exception {
@@ -92,8 +89,7 @@ public class KafkaSourcer<V> extends Sourcer {
         "Initializing consumer worker with batchSize={} timeoutMs={}",
         batchSize,
         request.getTimeout().toMillis());
-    // metrics used directly by the worker for null-value (tombstone) drops; policy uses it for read errors
-    worker = new KafkaWorker<>(userConfig, consumerFactory.create(batchSize), policy, metrics);
+    worker = new KafkaWorker<>(userConfig, consumerFactory.create(batchSize), skippedRecordHandler);
     workerThread = new Thread(worker, "consumerWorkerThread");
     workerThread.start();
   }
@@ -160,7 +156,7 @@ public class KafkaSourcer<V> extends Sourcer {
    *
    * @return {@code true} if the record was sent; {@code false} if it was dropped under {@code
    *     onError: skip}
-   * @throws RuntimeException if conversion failed and the policy says to propagate it
+   * @throws RuntimeException if conversion failed and {@code onError} is not {@code skip}
    */
   private boolean forward(ConsumerRecord<String, V> consumerRecord, OutputObserver observer) {
     byte[] payload;
@@ -168,9 +164,10 @@ public class KafkaSourcer<V> extends Sourcer {
       payload = format.toPayload(consumerRecord.value());
     } catch (FormatException e) {
       RecordLocation where = RecordLocation.of(consumerRecord);
-      if (!policy.shouldSkip(where, ReadStage.CONVERT, e)) {
+      if (userConfig.getOnError() != OnError.SKIP) {
         throw new RuntimeException("Failed to convert the record to a payload: " + where, e);
       }
+      skippedRecordHandler.handleSkipped(where, ReadStage.CONVERT, e);
       return false;
     }
     observer.send(toMessage(consumerRecord, payload));

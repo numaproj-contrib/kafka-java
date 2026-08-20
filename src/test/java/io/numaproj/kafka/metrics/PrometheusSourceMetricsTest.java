@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import io.numaproj.kafka.common.ReadErrorReason;
 import io.numaproj.kafka.common.ReadStage;
-import io.numaproj.kafka.metrics.SourceMetrics.Action;
 import io.numaproj.kafka.metrics.SourceMetrics.DropReason;
 import io.prometheus.metrics.expositionformats.PrometheusTextFormatWriter;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
@@ -27,14 +26,13 @@ class PrometheusSourceMetricsTest {
 
   @Test
   void recordReadError_incrementsCounterWithLowercaseLabels() throws IOException {
-    metrics.recordReadError(ReadStage.DECODE, ReadErrorReason.BAD_DATA, Action.SKIPPED);
+    metrics.recordReadError(ReadStage.DECODE, ReadErrorReason.BAD_DATA);
 
     String scraped = scrape();
 
     assertTrue(scraped.contains("kafka_java_source_read_errors_total"));
     assertTrue(scraped.contains("stage=\"decode\""));
     assertTrue(scraped.contains("reason=\"bad_data\""));
-    assertTrue(scraped.contains("action=\"skipped\""));
   }
 
   @Test

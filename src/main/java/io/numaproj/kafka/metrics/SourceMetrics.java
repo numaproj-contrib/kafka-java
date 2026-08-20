@@ -10,20 +10,14 @@ import io.numaproj.kafka.common.ReadStage;
  */
 public interface SourceMetrics {
 
-  /** Whether a read failure at {@code stage} was skipped (dropped) or allowed to fail the pod. */
-  enum Action {
-    SKIPPED,
-    FAILED
-  }
-
   /** Why a record was dropped without being counted as an error. */
   enum DropReason {
     /** A Kafka tombstone (null value). */
     NULL_VALUE
   }
 
-  /** Counts a read failure at the given stage, classified by reason, and by the action taken. */
-  void recordReadError(ReadStage stage, ReadErrorReason reason, Action action);
+  /** Counts a record skipped because it failed to be read at the given stage. */
+  void recordReadError(ReadStage stage, ReadErrorReason reason);
 
   /** Counts a record dropped for a reason other than an error (e.g. a tombstone). */
   void recordDropped(DropReason reason);
@@ -32,7 +26,7 @@ public interface SourceMetrics {
   SourceMetrics NOOP =
       new SourceMetrics() {
         @Override
-        public void recordReadError(ReadStage stage, ReadErrorReason reason, Action action) {
+        public void recordReadError(ReadStage stage, ReadErrorReason reason) {
           // no-op
         }
 

@@ -35,6 +35,6 @@ data:
   user.configuration: |
     topicName: [placeholder]
     schemaType: avro
-    # Optional: onError: fail (default) crashes the vertex on a record that fails to be read;
-    # skip drops it and counts it (kafka_java_source_read_errors_total). Source-only.
+    # Optional: fail (default) crashes the vertex on a record that fails to be read; skip drops
+    # and counts it instead. See docs/source/on-error.md.
     # onError: fail

@@ -95,24 +95,19 @@ To decrypt Avro instead, add the registry configuration from the [Avro](../avro/
 
 ### Failure behavior
 
-By default, the source **fails fast** (logs a clear error and exits, so the pod restarts) on any
+By default the source **fails fast** (logs a clear error and exits, so the pod restarts) on any
 unrecoverable condition: a malformed key ARN at startup; or, per message, a value that is not a valid
-envelope, an unsupported `alg`, a KMS `Decrypt` failure (including ciphertext wrapped under a different
-key), or an authentication-tag failure (tampering / wrong key). A poison or tampered message will
-therefore crash-loop the vertex until its offset is advanced or the message is removed. Plaintext keys
-and decrypted payloads are never logged.
+envelope, an unsupported `alg`, a KMS `Decrypt` failure (including ciphertext wrapped under a
+different key), or an authentication-tag failure (tampering / wrong key). A poison or tampered message
+will therefore crash-loop the vertex until its offset is advanced or the message is removed. Plaintext
+keys and decrypted payloads are never logged.
 
-#### `onError: skip`
+Set [`onError: skip`](../on-error.md) to drop and count such a message instead of crash-looping.
 
-Setting `onError: skip` in `user.configuration` (source-only - the sink ignores it) changes this: a
-record that fails to be read is dropped and counted instead of crashing the vertex. A `WARN` log
-identifies the dropped record by `topic`/`partition`/`offset` only - never the record itself - and
-`kafka_java_source_read_errors_total` is incremented. See
-[source metrics](../../metrics/source-metrics.md) for the full metric reference and recommended alert.
-
-The record is **lost** - there is no dead-letter queue yet.
-
-`skip` currently applies to **all** decode failures, including environmental ones (KMS throttle,
-expired credentials, schema-registry outage). Use `reason="unknown"` on the metric to detect when
-good records may be getting dropped. Startup and Kafka authentication failures always fail fast
-regardless of this setting.
+> **Producer responsibility — nonce uniqueness.** AES-256-GCM is only secure if the producer never
+> reuses a nonce under the same DEK. Reuse is catastrophic: it exposes the XOR of the affected
+> plaintexts (a two-time pad) and can even let an attacker forge valid authentication tags. The
+> consumer **cannot detect or prevent this** — the tag check verifies the integrity of *this*
+> message, not that its nonce is unique across all messages under the DEK, and a nonce-reused
+> message still decrypts with a valid tag. Guaranteeing per-DEK nonce uniqueness is entirely the
+> producer's responsibility.

@@ -39,8 +39,8 @@ public class PrometheusSourceMetrics implements SourceMetrics {
     this.readErrorsTotal =
         Counter.builder()
             .name("kafka_java_source_read_errors_total")
-            .help("Read failures encountered while polling or converting a Kafka record.")
-            .labelNames("stage", "reason", "action")
+            .help("Records skipped because they failed to be polled or converted.")
+            .labelNames("stage", "reason")
             .register(registry);
     this.recordsDroppedTotal =
         Counter.builder()
@@ -51,8 +51,8 @@ public class PrometheusSourceMetrics implements SourceMetrics {
   }
 
   @Override
-  public void recordReadError(ReadStage stage, ReadErrorReason reason, Action action) {
-    readErrorsTotal.labelValues(label(stage), label(reason), label(action)).inc();
+  public void recordReadError(ReadStage stage, ReadErrorReason reason) {
+    readErrorsTotal.labelValues(label(stage), label(reason)).inc();
   }
 
   @Override

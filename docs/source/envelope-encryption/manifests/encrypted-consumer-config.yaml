@@ -32,7 +32,6 @@ data:
     # raw: the decrypted bytes are forwarded as they are, with no deserialization step. Decryption
     # is configured the same way for any other schemaType.
     schemaType: raw
-    # Optional: onError: fail (default) crashes the vertex on a record that fails to be read
-    # (including a decryption failure); skip drops it and counts it
-    # (kafka_java_source_read_errors_total). Source-only.
+    # Optional: fail (default) crashes the vertex on a record that fails to be read; skip drops
+    # and counts it instead. See docs/source/on-error.md.
     # onError: fail

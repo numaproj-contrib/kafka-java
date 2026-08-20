@@ -11,39 +11,39 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
-class LoggingBadRecordSinkTest {
+class LoggingSkippedRecordSinkTest {
 
   @Test
   void quarantine_logsWithoutThrowing() {
     ConsumerRecord<String, byte[]> record =
         new ConsumerRecord<>("t", 0, 5L, "key", "value".getBytes());
-    BadRecord badRecord =
-        new BadRecord(
+    SkippedRecord skippedRecord =
+        new SkippedRecord(
             RecordLocation.of(record),
             ReadStage.DECODE,
             ReadErrorReason.BAD_DATA,
             new RuntimeException("boom"));
 
-    new LoggingBadRecordSink().quarantine(badRecord);
+    new LoggingSkippedRecordSink().quarantine(skippedRecord);
   }
 
   @Test
   void quarantine_logMessageContainsCoordinatesNotPayload() {
-    Logger logger = (Logger) LoggerFactory.getLogger(LoggingBadRecordSink.class);
+    Logger logger = (Logger) LoggerFactory.getLogger(LoggingSkippedRecordSink.class);
     ListAppender<ILoggingEvent> appender = new ListAppender<>();
     appender.start();
     logger.addAppender(appender);
     try {
       ConsumerRecord<String, byte[]> record =
           new ConsumerRecord<>("my-topic", 2, 42L, "key", "super-secret-value".getBytes());
-      BadRecord badRecord =
-          new BadRecord(
+      SkippedRecord skippedRecord =
+          new SkippedRecord(
               RecordLocation.of(record),
               ReadStage.DECODE,
               ReadErrorReason.BAD_DATA,
               new RuntimeException("boom"));
 
-      new LoggingBadRecordSink().quarantine(badRecord);
+      new LoggingSkippedRecordSink().quarantine(skippedRecord);
 
       assertFalse(appender.list.isEmpty());
       String message = appender.list.get(0).getFormattedMessage();

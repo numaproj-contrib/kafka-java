@@ -8,21 +8,10 @@ The Kafka source exposes its own [Prometheus](https://prometheus.io/) metrics ov
 
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|
-| `kafka_java_source_read_errors_total` | counter | `stage` = `decode`\|`convert`, `reason` = `bad_data`\|`unknown`, `action` = `skipped`\|`failed` | A record failed to be read. One counter covers both `onError` policies, so a single dashboard shows skip volume *and* the failure that killed the pod. |
+| `kafka_java_source_read_errors_total` | counter | `stage` = `decode`\|`convert`, `reason` = `bad_data`\|`unknown` | A record was skipped because it failed to be read. Only emitted under [`onError: skip`](../source/on-error.md) — under `onError: fail` the failure kills the pod instead. |
 | `kafka_java_source_records_dropped_total` | counter | `reason` = `null_value` | A record was dropped without being an error (currently only Kafka tombstones). |
 
 All label values come from closed enums, so cardinality is bounded at compile time.
-
-### Recommended alert
-
-```promql
-increase(kafka_java_source_read_errors_total{reason="unknown"}[5m]) > 0
-```
-
-`reason="unknown"` means records were dropped for a reason not attributable to their own bytes - e.g.
-a key-management or schema-registry outage. This is the interim signal for the follow-up work that
-will retry or circuit-break on such failures instead of merely counting them; see
-[the onError documentation](../source/envelope-encryption/decrypting-source.md#failure-behavior).
 
 ### Endpoint
 

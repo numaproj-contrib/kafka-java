@@ -46,8 +46,7 @@ Use the example [ConfigMap](manifests/raw-consumer-config.yaml) to configure the
     * `topicName` is the Kafka topic name to read data from.
     * `schemaType` is set to `raw` to indicate that there is no schema registered for the topic. (You can also set the
       `schemaType` to `json` if the topic has a JSON schema registered).
-    * `onError` (optional, source-only) is `fail` (default) or `skip`; see
-      [failure behavior](../envelope-encryption/decrypting-source.md#failure-behavior).
+    * `onError` (optional) is `fail` (default) or `skip`; see [`onError`](../on-error.md).
 * You can interpolate environment variables in `consumer.properties` values using `${ENV_VAR}` (for example, to set
   `group.instance.id=my-instance-${NUMAFLOW_REPLICA}` for static membership).
 

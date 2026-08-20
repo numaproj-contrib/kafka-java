@@ -40,11 +40,7 @@ class KafkaSourcerTest {
     underTest = sourcer(new ByteArrayFormat(), OnError.FAIL, worker);
   }
 
-  /**
-   * A mocked UserConfig, per the plan: {@code null} is not tolerated (the constructor calls {@code
-   * userConfig.getOnError()}), but a Mockito mock returning {@code null} for an unstubbed {@code
-   * getOnError()} is, since every call site is null-tolerant (compares {@code == OnError.SKIP}).
-   */
+  /** A mocked UserConfig, stubbed only with the {@code onError} the sourcer reads on a failure. */
   private static UserConfig userConfig(OnError onError) {
     UserConfig userConfig = mock(UserConfig.class);
     when(userConfig.getOnError()).thenReturn(onError);
