@@ -316,15 +316,23 @@ class KafkaSourcerTest {
   }
 
   @Test
-  void ack_whenEveryRecordInTheBatchWasSkipped_thenNothingIsAckedAndCommitStillRuns()
-      throws Exception {
+  void read_whenABatchIsFullySkipped_thenTheFollowingBatchAckCommitsPastIt() throws Exception {
     KafkaSourcer<byte[]> sourcer = sourcer(formatFailingOnBadValue(), OnError.SKIP, worker);
-    when(worker.poll(anyLong())).thenReturn(List.of(record(6, "bad")));
 
+    // Nothing is forwarded, so no ack arrives: Numaflow only acks offsets it received, and so the
+    // consumer position past offset 6 stays uncommitted for now.
+    when(worker.poll(anyLong())).thenReturn(List.of(record(6, "bad")));
     sourcer.read(readRequest(1), observer);
 
     verify(observer, never()).send(any());
-    List<ILoggingEvent> errors = captureErrors(() -> sourcer.ack(ackRequest(1)));
+    verify(worker, never()).commit();
+
+    // The next batch carries a readable record, and its ack commits the position - by then already
+    // past offset 6.
+    when(worker.poll(anyLong())).thenReturn(List.of(record(7, "good")));
+    sourcer.read(readRequest(1), observer);
+
+    List<ILoggingEvent> errors = captureErrors(() -> sourcer.ack(ackRequest(1, 7L)));
     assertEquals(List.of(), errors);
     verify(worker).commit();
   }
