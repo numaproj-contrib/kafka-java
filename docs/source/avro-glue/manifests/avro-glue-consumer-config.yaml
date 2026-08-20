@@ -35,6 +35,6 @@ data:
   user.configuration: |
     topicName: [placeholder]
     schemaType: avro
-    # Optional: fail (default) crashes the vertex on a record that fails to be read; skip drops
-    # and counts it instead. See docs/source/on-error.md.
+    # Optional: fail (default) crashes the vertex on a record that fails to be read;
+    # skip drops the record and continues. See docs/source/on-error.md.
     # onError: fail
