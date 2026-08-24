@@ -114,7 +114,10 @@ public class KafkaWorker<V> implements Runnable {
           throw e;
         }
         skippedRecordHandler.handleSkipped(
-            RecordLocation.of(e), e.getCause() != null ? e.getCause() : e);
+            e.topicPartition().topic(),
+            e.topicPartition().partition(),
+            e.offset(),
+            e.getCause() != null ? e.getCause() : e);
         // Kafka 4.0 caches the exception and does not advance nextFetchOffset, so a re-poll at the
         // same position rethrows without invoking the deserializer again. Seeking past the record
         // clears the cached fetch.

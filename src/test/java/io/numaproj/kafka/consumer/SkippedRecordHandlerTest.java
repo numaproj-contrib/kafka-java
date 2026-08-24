@@ -7,37 +7,20 @@ import org.junit.jupiter.api.Test;
 
 class SkippedRecordHandlerTest {
 
-  private static final RecordLocation LOCATION = RecordLocation.of(sampleRecord());
-
   private final SourceMetrics metrics = mock(SourceMetrics.class);
-  private final SkippedRecordSink sink = mock(SkippedRecordSink.class);
-  private final SkippedRecordHandler underTest = new SkippedRecordHandler(metrics, sink);
-
-  private static org.apache.kafka.clients.consumer.ConsumerRecord<String, byte[]> sampleRecord() {
-    return new org.apache.kafka.clients.consumer.ConsumerRecord<>(
-        "t", 0, 5L, "key", "value".getBytes());
-  }
+  private final SkippedRecordHandler underTest = new SkippedRecordHandler(metrics);
 
   @Test
-  void handleSkipped_countsAndReachesSinkWithTheFailure() {
-    RuntimeException failure = new RuntimeException("boom");
-
-    underTest.handleSkipped(LOCATION, failure);
+  void handleSkipped_countsTheDrop() {
+    underTest.handleSkipped("t", 0, 5L, new RuntimeException("boom"));
 
     verify(metrics).recordSkipped();
-    verify(sink)
-        .quarantine(
-            argThat(
-                skippedRecord ->
-                    skippedRecord.location().equals(LOCATION)
-                        && skippedRecord.failure() == failure));
   }
 
   @Test
-  void handleTombstone_countsWithoutReachingSink() {
+  void handleTombstone_countsTheDrop() {
     underTest.handleTombstone();
 
     verify(metrics).recordSkipped();
-    verifyNoInteractions(sink);
   }
 }

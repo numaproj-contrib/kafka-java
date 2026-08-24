@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -63,7 +64,7 @@ public class KafkaSourcer<V> extends Sourcer {
     this.format = format;
     this.consumerFactory = consumerFactory;
     // Shared with the worker so a drop is counted and logged identically at both read-path stages.
-    this.skippedRecordHandler = new SkippedRecordHandler(metrics, new LoggingSkippedRecordSink());
+    this.skippedRecordHandler = new SkippedRecordHandler(metrics);
   }
 
   public void startConsumer() throws Exception {
@@ -126,13 +127,15 @@ public class KafkaSourcer<V> extends Sourcer {
           skippedRecordHandler.handleTombstone();
           continue;
         }
-        if (!forward(consumerRecord, observer)) {
+        Optional<byte[]> payload = toPayload(consumerRecord);
+        if (payload.isEmpty()) {
           // A dropped record is not tracked. readTopicPartitionOffsetMap cross-checks reads
           // against acks, and Numaflow can only ack a message it received, so tracking a dropped
           // record would report every skip as out of sync. What Kafka commits is unaffected:
           // commitAsync() commits the consumer's position, which is already past this record.
           continue;
         }
+        observer.send(toMessage(consumerRecord, payload.get()));
         trackReadOffset(consumerRecord);
         sent++;
       }
@@ -149,26 +152,26 @@ public class KafkaSourcer<V> extends Sourcer {
   }
 
   /**
-   * Converts and sends a single record.
+   * Converts a record's value to a payload, applying {@code onError} on failure.
    *
-   * @return {@code true} if the record was sent; {@code false} if it was dropped under {@code
-   *     onError: skip}
+   * @return the payload, or empty if the record was dropped under {@code onError: skip}
    * @throws RuntimeException if conversion failed and {@code onError} is not {@code skip}
    */
-  private boolean forward(ConsumerRecord<String, V> consumerRecord, OutputObserver observer) {
-    byte[] payload;
+  private Optional<byte[]> toPayload(ConsumerRecord<String, V> consumerRecord) {
     try {
-      payload = format.toPayload(consumerRecord.value());
+      return Optional.of(format.toPayload(consumerRecord.value()));
     } catch (FormatException e) {
-      RecordLocation where = RecordLocation.of(consumerRecord);
       if (userConfig.getOnError() != OnError.SKIP) {
-        throw new RuntimeException("Failed to convert the record to a payload: " + where, e);
+        throw new RuntimeException(
+            "Failed to convert the record to a payload: "
+                + SkippedRecordHandler.coordinates(
+                    consumerRecord.topic(), consumerRecord.partition(), consumerRecord.offset()),
+            e);
       }
-      skippedRecordHandler.handleSkipped(where, e);
-      return false;
+      skippedRecordHandler.handleSkipped(
+          consumerRecord.topic(), consumerRecord.partition(), consumerRecord.offset(), e);
+      return Optional.empty();
     }
-    observer.send(toMessage(consumerRecord, payload));
-    return true;
   }
 
   private static <V> Message toMessage(ConsumerRecord<String, V> consumerRecord, byte[] payload) {

@@ -43,8 +43,7 @@ class KafkaWorkerTest {
     UserConfig userConfig = mock(UserConfig.class);
     when(userConfig.getTopicName()).thenReturn(TOPIC);
     when(userConfig.getOnError()).thenReturn(onError);
-    SkippedRecordHandler handler =
-        new SkippedRecordHandler(metrics, record -> {});
+    SkippedRecordHandler handler = new SkippedRecordHandler(metrics);
     return new KafkaWorker<>(userConfig, consumer, handler);
   }
 
