@@ -35,14 +35,7 @@ public class CommonUtils {
     return null;
   }
 
-  /**
-   * Copy a failure chain, replacing every message with the name of the failing class. A deserializer
-   * or an Avro conversion embeds the offending field values in its message, so only the classes and
-   * the stack traces of a record failure are safe to log.
-   *
-   * @param failure - the failure to copy
-   * @return a copy carrying the class name, stack trace and sanitized cause of every link
-   */
+  /** Returns a loggable copy of the failure chain: class names and stack traces, no messages. */
   public static Throwable sanitizeFailure(Throwable failure) {
     Throwable cause = failure.getCause();
     Throwable sanitized =
