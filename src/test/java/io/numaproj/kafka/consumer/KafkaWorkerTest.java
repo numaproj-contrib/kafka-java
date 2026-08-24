@@ -5,7 +5,6 @@ import static org.mockito.Mockito.*;
 
 import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.config.UserConfig;
-import io.numaproj.kafka.metrics.SourceMetrics;
 import java.nio.ByteBuffer;
 import java.util.*;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -28,24 +27,16 @@ class KafkaWorkerTest {
   @SuppressWarnings("unchecked")
   private final KafkaConsumer<String, byte[]> consumer = mock(KafkaConsumer.class);
 
-  private final SourceMetrics metrics = mock(SourceMetrics.class);
-
   private KafkaWorker<byte[]> worker;
   private Thread thread;
 
   @BeforeEach
   void setUp() {
-    worker = worker(OnError.FAIL);
-    thread = new Thread(worker);
-  }
-
-  private KafkaWorker<byte[]> worker(OnError onError) {
     UserConfig userConfig = mock(UserConfig.class);
     when(userConfig.getTopicName()).thenReturn(TOPIC);
-    when(userConfig.getOnError()).thenReturn(onError);
-    SkippedRecordHandler handler =
-        new SkippedRecordHandler(metrics, record -> {});
-    return new KafkaWorker<>(userConfig, consumer, handler);
+    when(userConfig.getOnError()).thenReturn(OnError.FAIL);
+    worker = new KafkaWorker<>(userConfig, consumer);
+    thread = new Thread(worker);
   }
 
   /** Builds the exception with the origin and buffers, as the Kafka consumer itself does. */
@@ -94,67 +85,28 @@ class KafkaWorkerTest {
   }
 
   @Test
-  void poll_whenRecordCannotBeDeserializedAndOnErrorFail_thenThrowsAndNeverSeeks() throws Exception {
-    when(consumer.poll(any())).thenThrow(deserializationException(5L, new RuntimeException("bad")));
-    thread.start();
-
-    assertThrows(RecordDeserializationException.class, () -> worker.poll(1000));
-
-    verify(consumer, never()).seek(any(), anyLong());
-    verify(metrics, never()).recordSkipped();
-  }
-
-  @Test
-  void poll_whenRecordCannotBeDeserializedAndOnErrorSkip_thenSeeksCountsAndContinues()
+  void poll_whenRecordCannotBeDeserialized_thenThrowsKafkaExceptionAndNeverSeeks()
       throws Exception {
     RuntimeException cause = new RuntimeException("bad avro");
-    when(consumer.poll(any()))
-        .thenThrow(deserializationException(5L, cause))
-        .thenReturn(records("good"));
-    KafkaWorker<byte[]> skipWorker = worker(OnError.SKIP);
-    Thread skipThread = new Thread(skipWorker);
-    skipThread.start();
+    RecordDeserializationException rde = deserializationException(5L, cause);
+    when(consumer.poll(any())).thenThrow(rde);
+    thread.start();
 
-    List<ConsumerRecord<String, byte[]>> got = skipWorker.poll(1000);
+    RecordDeserializationException thrown =
+        assertThrows(RecordDeserializationException.class, () -> worker.poll(1000));
 
-    verify(consumer).seek(new TopicPartition(TOPIC, 1), 6L);
-    verify(metrics).recordSkipped();
-    assertEquals(1, got.size());
-    skipThread.interrupt();
+    assertSame(rde, thrown);
+    // Recovering from it is the caller's decision, taken from onError.
+    verify(consumer, never()).seek(any(), anyLong());
   }
 
   @Test
-  void poll_whenConsecutiveBadRecordsAndOnErrorSkip_thenSeeksPastEach() throws Exception {
-    when(consumer.poll(any()))
-        .thenThrow(deserializationException(5L, new RuntimeException("bad")))
-        .thenThrow(deserializationException(6L, new RuntimeException("bad")))
-        .thenReturn(records("good"));
-    KafkaWorker<byte[]> skipWorker = worker(OnError.SKIP);
-    Thread skipThread = new Thread(skipWorker);
-    skipThread.start();
+  void seekPast_movesTheConsumerOnePastTheRecord() throws Exception {
+    thread.start();
 
-    List<ConsumerRecord<String, byte[]>> got = skipWorker.poll(1000);
+    worker.seekPast(new RecordLocation(TOPIC, 1, 5L));
 
     verify(consumer).seek(new TopicPartition(TOPIC, 1), 6L);
-    verify(consumer).seek(new TopicPartition(TOPIC, 1), 7L);
-    verify(metrics, times(2)).recordSkipped();
-    assertEquals(1, got.size());
-    skipThread.interrupt();
-  }
-
-  @Test
-  void poll_whenDeadlineSpentSkipping_thenReturnsEmptyWithoutFurtherPolling() throws Exception {
-    when(consumer.poll(any())).thenThrow(deserializationException(5L, new RuntimeException("bad")));
-    KafkaWorker<byte[]> skipWorker = worker(OnError.SKIP);
-    Thread skipThread = new Thread(skipWorker);
-    skipThread.start();
-
-    List<ConsumerRecord<String, byte[]>> got = skipWorker.poll(0);
-
-    verify(consumer, times(1)).poll(any());
-    verify(consumer).seek(new TopicPartition(TOPIC, 1), 6L);
-    assertEquals(List.of(), got);
-    skipThread.interrupt();
   }
 
   @Test

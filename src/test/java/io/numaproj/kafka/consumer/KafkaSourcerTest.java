@@ -21,11 +21,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.RecordDeserializationException;
+import org.apache.kafka.common.header.internals.RecordHeaders;
+import org.apache.kafka.common.record.TimestampType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.slf4j.LoggerFactory;
+import java.nio.ByteBuffer;
 
 class KafkaSourcerTest {
 
@@ -76,6 +82,20 @@ class KafkaSourcerTest {
     when(request.getCount()).thenReturn(count);
     when(request.getTimeout()).thenReturn(Duration.ofMillis(timeoutMs));
     return request;
+  }
+
+  private static RecordDeserializationException rde(long offset) {
+    return new RecordDeserializationException(
+        RecordDeserializationException.DeserializationExceptionOrigin.VALUE,
+        new TopicPartition(TOPIC, 1),
+        offset,
+        0L,
+        TimestampType.CREATE_TIME,
+        ByteBuffer.allocate(0),
+        ByteBuffer.allocate(0),
+        new RecordHeaders(),
+        "boom",
+        new RuntimeException("bad avro"));
   }
 
   private static ConsumerRecord<String, byte[]> tombstone(long offset) {
@@ -187,6 +207,63 @@ class KafkaSourcerTest {
       throw new RuntimeException(e);
     }
     return format;
+  }
+
+  @Test
+  void read_whenRecordCannotBeDeserializedAndOnErrorSkip_thenCountsSeeksPastAndKeepsReading()
+      throws Exception {
+    KafkaSourcer<byte[]> sourcer = sourcer(new ByteArrayFormat(), OnError.SKIP, worker);
+    when(worker.poll(anyLong())).thenThrow(rde(6)).thenReturn(List.of(record(7)));
+    doNothing().when(sourcer).kill(any());
+
+    sourcer.read(readRequest(2), observer);
+
+    verify(metrics).recordSkipped();
+    verify(worker).seekPast(new RecordLocation(TOPIC, 1, 6L));
+    verify(observer, times(1)).send(any(Message.class));
+    verify(sourcer, never()).kill(any());
+  }
+
+  @Test
+  void read_whenConsecutiveRecordsCannotBeDeserialized_thenSeeksPastEachInTurn() throws Exception {
+    KafkaSourcer<byte[]> sourcer = sourcer(new ByteArrayFormat(), OnError.SKIP, worker);
+    when(worker.poll(anyLong()))
+        .thenThrow(rde(5))
+        .thenThrow(rde(6))
+        .thenReturn(List.of(record(7)));
+
+    sourcer.read(readRequest(3), observer);
+
+    InOrder order = inOrder(worker);
+    order.verify(worker).seekPast(new RecordLocation(TOPIC, 1, 5L));
+    order.verify(worker).seekPast(new RecordLocation(TOPIC, 1, 6L));
+    verify(metrics, times(2)).recordSkipped();
+    verify(observer, times(1)).send(any(Message.class));
+  }
+
+  @Test
+  void read_whenTheDeadlineIsSpentSkipping_thenForwardsNothingAndDoesNotPollAgain()
+      throws Exception {
+    KafkaSourcer<byte[]> sourcer = sourcer(new ByteArrayFormat(), OnError.SKIP, worker);
+    when(worker.poll(anyLong())).thenThrow(rde(6));
+
+    sourcer.read(readRequest(1, 0), observer);
+
+    verify(worker, times(1)).poll(anyLong());
+    verify(worker).seekPast(new RecordLocation(TOPIC, 1, 6L));
+    verify(observer, never()).send(any());
+  }
+
+  @Test
+  void read_whenRecordCannotBeDeserializedAndOnErrorFail_thenKillsWithoutSeeking() throws Exception {
+    when(worker.poll(anyLong())).thenThrow(rde(6));
+    doNothing().when(underTest).kill(any());
+
+    underTest.read(readRequest(1), observer);
+
+    verify(underTest).kill(any(RecordDeserializationException.class));
+    verify(worker, never()).seekPast(any());
+    verify(metrics, never()).recordSkipped();
   }
 
   @Test
