@@ -114,8 +114,6 @@ public class KafkaWorker<V> implements Runnable {
         if (userConfig.getOnError() != OnError.SKIP) {
           throw e;
         }
-        // Sanitized: a deserializer's message can embed the record's - possibly decrypted - field
-        // values, and the drop is logged.
         skippedRecordHandler.handleSkipped(
             e.topicPartition().topic(),
             e.topicPartition().partition(),
