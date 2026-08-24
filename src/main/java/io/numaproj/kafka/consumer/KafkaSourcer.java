@@ -129,10 +129,9 @@ public class KafkaSourcer<V> extends Sourcer {
         }
         Optional<byte[]> payload = toPayload(consumerRecord);
         if (payload.isEmpty()) {
-          // A dropped record is not tracked. readTopicPartitionOffsetMap cross-checks reads
-          // against acks, and Numaflow can only ack a message it received, so tracking a dropped
-          // record would report every skip as out of sync. What Kafka commits is unaffected:
-          // commitAsync() commits the consumer's position, which is already past this record.
+          // Not tracked: Numaflow never received this record, so no ack will reference it. The
+          // committed offset is unaffected - commitAsync() commits the consumer's position,
+          // which is already past this record.
           continue;
         }
         observer.send(toMessage(consumerRecord, payload.get()));
@@ -155,7 +154,8 @@ public class KafkaSourcer<V> extends Sourcer {
    * Converts a record's value to a payload, applying {@code onError} on failure.
    *
    * @return the payload, or empty if the record was dropped under {@code onError: skip}
-   * @throws RuntimeException if conversion failed and {@code onError} is not {@code skip}
+   * @throws RuntimeException if the value cannot be converted and {@code onError} is not {@code
+   *     skip}
    */
   private Optional<byte[]> toPayload(ConsumerRecord<String, V> consumerRecord) {
     try {
