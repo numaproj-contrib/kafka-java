@@ -1,9 +1,9 @@
 package io.numaproj.kafka;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.google.common.annotations.VisibleForTesting;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.google.common.annotations.VisibleForTesting;
 import io.numaproj.kafka.config.ConsumerConfig;
 import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.config.ProducerConfig;
@@ -102,7 +102,11 @@ public class KafkaApplication {
     } else {
       // json or raw: values are forwarded downstream as-is
       new KafkaSourcer<byte[]>(
-              userConfig, admin, new ByteArrayFormat(), consumerConfig::kafkaByteArrayConsumer, metrics)
+              userConfig,
+              admin,
+              new ByteArrayFormat(),
+              consumerConfig::kafkaByteArrayConsumer,
+              metrics)
           .startConsumer();
     }
   }
