@@ -11,7 +11,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -85,55 +84,42 @@ public class KafkaWorker<V> implements Runnable {
   }
 
   /**
-   * Polls until either records arrive or the read deadline elapses. When {@code onError: skip} is
-   * configured, records that cannot be deserialized are counted, logged, and skipped; the consumer
-   * seeks past them so the buffered fetch is cleared and the next poll can advance. When {@code
-   * onError: fail} is configured, the first deserialization failure is rethrown immediately.
+   * Polls once for the given timeout. Under {@code onError: skip} a record that cannot be
+   * deserialized is counted, logged and sought past, and the batch comes back empty; under {@code
+   * onError: fail} the failure is rethrown.
    *
    * @throws RecordDeserializationException if a record could not be deserialized and {@code onError}
    *     is not {@code skip}
    */
   private void pollRecords(long timeoutMs) {
-    long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
-    while (true) {
-      List<ConsumerRecord<String, V>> polled = new ArrayList<>();
-      try {
-        for (ConsumerRecord<String, V> consumerRecord :
-            consumer.poll(Duration.ofMillis(remaining(deadlineNanos)))) {
-          log.debug(
-              "consume:: partition:{} offset:{} timestamp:{}",
-              consumerRecord.partition(),
-              consumerRecord.offset(),
-              Instant.ofEpochMilli(consumerRecord.timestamp()));
-          polled.add(consumerRecord);
-        }
-        log.debug("number of messages polled: {}", polled.size());
-        consumerRecordList = polled;
-        return;
-      } catch (RecordDeserializationException e) {
-        if (userConfig.getOnError() != OnError.SKIP) {
-          throw e;
-        }
-        skippedRecordHandler.handleSkipped(
-            e.topicPartition().topic(),
-            e.topicPartition().partition(),
-            e.offset(),
-            CommonUtils.sanitizeFailure(e.getCause() != null ? e.getCause() : e));
-        // Kafka 4.0 caches the exception and does not advance nextFetchOffset, so a re-poll at the
-        // same position rethrows without invoking the deserializer again. Seeking past the record
-        // clears the cached fetch.
-        consumer.seek(e.topicPartition(), e.offset() + 1);
-        if (remaining(deadlineNanos) == 0) {
-          // Read deadline spent; the next read cycle resumes past the drops.
-          consumerRecordList = List.of();
-          return;
-        }
+    List<ConsumerRecord<String, V>> polled = new ArrayList<>();
+    try {
+      for (ConsumerRecord<String, V> consumerRecord : consumer.poll(Duration.ofMillis(timeoutMs))) {
+        log.debug(
+            "consume:: partition:{} offset:{} timestamp:{}",
+            consumerRecord.partition(),
+            consumerRecord.offset(),
+            Instant.ofEpochMilli(consumerRecord.timestamp()));
+        polled.add(consumerRecord);
       }
+      log.debug("number of messages polled: {}", polled.size());
+      consumerRecordList = polled;
+    } catch (RecordDeserializationException e) {
+      if (userConfig.getOnError() != OnError.SKIP) {
+        throw e;
+      }
+      skippedRecordHandler.handleSkipped(
+          e.topicPartition().topic(),
+          e.topicPartition().partition(),
+          e.offset(),
+          CommonUtils.sanitizeFailure(e.getCause() != null ? e.getCause() : e));
+      // Kafka 4.0 caches the exception and does not advance nextFetchOffset, so a re-poll at the
+      // same position rethrows without invoking the deserializer again. Seeking past the record
+      // clears the cached fetch.
+      consumer.seek(e.topicPartition(), e.offset() + 1);
+      // Nothing to hand over: the next read resumes past the drop.
+      consumerRecordList = List.of();
     }
-  }
-
-  private static long remaining(long deadlineNanos) {
-    return Math.max(0L, TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime()));
   }
 
   private void commitAsync() {
