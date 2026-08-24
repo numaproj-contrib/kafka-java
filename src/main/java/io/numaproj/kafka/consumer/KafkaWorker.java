@@ -150,6 +150,8 @@ public class KafkaWorker<V> implements Runnable {
    * Requests the worker thread to poll messages and blocks until they are available.
    *
    * @return the list of records polled, never {@code null}
+   * @throws RecordDeserializationException if a record could not be deserialized and {@code
+   *     onError} is not {@code skip}
    * @throws InterruptedException if the calling thread is interrupted
    */
   public List<ConsumerRecord<String, V>> poll(long timeoutMs) throws InterruptedException {
