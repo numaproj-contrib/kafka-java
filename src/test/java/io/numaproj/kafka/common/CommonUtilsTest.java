@@ -1,5 +1,6 @@
 package io.numaproj.kafka.common;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -76,5 +77,29 @@ public class CommonUtilsTest {
     String[] keys = {"KAFKA_KEY:"};
     String result = CommonUtils.extractKafkaKey(keys);
     assertEquals("", result);
+  }
+
+  @Test
+  public void testSanitizeFailure_replacesEveryMessageWithItsClassName() {
+    Throwable failure =
+        new RuntimeException(
+            "failed on ssn=123-45-6789", new IllegalStateException("expected int, got 123-45-6789"));
+
+    Throwable sanitized = CommonUtils.sanitizeFailure(failure);
+
+    assertEquals(RuntimeException.class.getName(), sanitized.getMessage());
+    assertEquals(IllegalStateException.class.getName(), sanitized.getCause().getMessage());
+    assertNull(sanitized.getCause().getCause());
+  }
+
+  @Test
+  public void testSanitizeFailure_keepsTheStackTraceOfEveryLink() {
+    Throwable cause = new IllegalStateException("cause");
+    Throwable failure = new RuntimeException("failure", cause);
+
+    Throwable sanitized = CommonUtils.sanitizeFailure(failure);
+
+    assertArrayEquals(failure.getStackTrace(), sanitized.getStackTrace());
+    assertArrayEquals(cause.getStackTrace(), sanitized.getCause().getStackTrace());
   }
 }

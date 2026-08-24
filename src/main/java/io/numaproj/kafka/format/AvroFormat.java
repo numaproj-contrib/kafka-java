@@ -1,5 +1,6 @@
 package io.numaproj.kafka.format;
 
+import io.numaproj.kafka.common.CommonUtils;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import lombok.extern.slf4j.Slf4j;
@@ -59,17 +60,10 @@ public class AvroFormat implements KafkaFormat<GenericRecord> {
     } catch (IOException | RuntimeException e) {
       // A malformed record surfaces as a RuntimeException (e.g. AvroTypeException) rather than an
       // IOException, so both are treated as format errors and both honour onError.
-      // Strip the cause's message: AvroTypeException embeds (possibly decrypted) field values.
+      // Sanitize the cause: AvroTypeException embeds (possibly decrypted) field values.
       throw new FormatException(
-          "Failed to convert the Avro record to JSON format", stripMessage(e));
+          "Failed to convert the Avro record to JSON format", CommonUtils.sanitizeFailure(e));
     }
-  }
-
-  /** Preserves the failure's class and stack trace while discarding its payload-bearing message. */
-  private static Throwable stripMessage(Throwable failure) {
-    Throwable sanitized = new Throwable(failure.getClass().getName());
-    sanitized.setStackTrace(failure.getStackTrace());
-    return sanitized;
   }
 
   @Override

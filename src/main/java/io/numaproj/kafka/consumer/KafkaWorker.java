@@ -1,5 +1,6 @@
 package io.numaproj.kafka.consumer;
 
+import io.numaproj.kafka.common.CommonUtils;
 import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.config.UserConfig;
 import java.time.Duration;
@@ -113,11 +114,13 @@ public class KafkaWorker<V> implements Runnable {
         if (userConfig.getOnError() != OnError.SKIP) {
           throw e;
         }
+        // Sanitized: a deserializer's message can embed the record's - possibly decrypted - field
+        // values, and the drop is logged.
         skippedRecordHandler.handleSkipped(
             e.topicPartition().topic(),
             e.topicPartition().partition(),
             e.offset(),
-            e.getCause() != null ? e.getCause() : e);
+            CommonUtils.sanitizeFailure(e.getCause() != null ? e.getCause() : e));
         // Kafka 4.0 caches the exception and does not advance nextFetchOffset, so a re-poll at the
         // same position rethrows without invoking the deserializer again. Seeking past the record
         // clears the cached fetch.

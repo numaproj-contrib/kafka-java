@@ -17,7 +17,12 @@ final class SkippedRecordHandler {
     this.metrics = metrics;
   }
 
-  /** Counts and logs a record dropped because it could not be read. */
+  /**
+   * Counts and logs a record dropped because it could not be read.
+   *
+   * @param failure the failure, with its messages already sanitized by the caller - it is logged as
+   *     is, and a deserializer or Avro message embeds the record's field values
+   */
   void handleSkipped(String topic, int partition, long offset, Throwable failure) {
     metrics.recordSkipped();
     log.warn("Dropping bad record {}", coordinates(topic, partition, offset), failure);

@@ -19,6 +19,7 @@ import org.apache.kafka.common.record.TimestampType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 /** The worker is format agnostic, so byte[] values are used to exercise its behavior. */
 class KafkaWorkerTest {
@@ -40,10 +41,13 @@ class KafkaWorkerTest {
   }
 
   private KafkaWorker<byte[]> worker(OnError onError) {
+    return worker(onError, new SkippedRecordHandler(metrics));
+  }
+
+  private KafkaWorker<byte[]> worker(OnError onError, SkippedRecordHandler handler) {
     UserConfig userConfig = mock(UserConfig.class);
     when(userConfig.getTopicName()).thenReturn(TOPIC);
     when(userConfig.getOnError()).thenReturn(onError);
-    SkippedRecordHandler handler = new SkippedRecordHandler(metrics);
     return new KafkaWorker<>(userConfig, consumer, handler);
   }
 
@@ -138,6 +142,28 @@ class KafkaWorkerTest {
     verify(consumer).seek(new TopicPartition(TOPIC, 1), 7L);
     verify(metrics, times(2)).recordSkipped();
     assertEquals(1, got.size());
+    skipThread.interrupt();
+  }
+
+  @Test
+  void poll_whenRecordSkipped_thenTheFailureHandedOverCarriesNoFieldValues() throws Exception {
+    // The drop is logged with this failure attached, and a deserializer's message embeds the
+    // offending - possibly decrypted - field values.
+    SkippedRecordHandler handler = mock(SkippedRecordHandler.class);
+    RuntimeException cause = new RuntimeException("expected int for ssn, got 123-45-6789");
+    when(consumer.poll(any()))
+        .thenThrow(deserializationException(5L, cause))
+        .thenReturn(records("good"));
+    KafkaWorker<byte[]> skipWorker = worker(OnError.SKIP, handler);
+    Thread skipThread = new Thread(skipWorker);
+    skipThread.start();
+
+    skipWorker.poll(1000);
+
+    ArgumentCaptor<Throwable> failure = ArgumentCaptor.forClass(Throwable.class);
+    verify(handler).handleSkipped(eq(TOPIC), eq(1), eq(5L), failure.capture());
+    assertEquals(RuntimeException.class.getName(), failure.getValue().getMessage());
+    assertTrue(failure.getValue().getStackTrace().length > 0);
     skipThread.interrupt();
   }
 
