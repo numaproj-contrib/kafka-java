@@ -57,14 +57,6 @@ public class KafkaSourcer<V> extends Sourcer {
       UserConfig userConfig,
       Admin admin,
       KafkaFormat<V> format,
-      ConsumerFactory<V> consumerFactory) {
-    this(userConfig, admin, format, consumerFactory, SourceMetrics.NOOP);
-  }
-
-  public KafkaSourcer(
-      UserConfig userConfig,
-      Admin admin,
-      KafkaFormat<V> format,
       ConsumerFactory<V> consumerFactory,
       SourceMetrics metrics) {
     this.userConfig = userConfig;
@@ -291,6 +283,7 @@ public class KafkaSourcer<V> extends Sourcer {
     return worker == null ? List.of() : worker.getPartitions();
   }
 
+  /** Logs the exception and exits with code 100, so Kubernetes restarts the pod as a crash. */
   public void kill(Exception e) {
     log.error("Received kill signal, shutting down the sourcer", e);
     System.exit(100);
