@@ -20,8 +20,14 @@ import io.numaproj.kafka.producer.KafkaSinker;
 import io.numaproj.kafka.schema.Registry;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
@@ -36,6 +42,7 @@ public class KafkaApplication {
   private static final String KEY_PRODUCER_PROPERTIES_PATH = "producer.properties.path";
   private static final String KEY_CONSUMER_PROPERTIES_PATH = "consumer.properties.path";
   private static final String KEY_TOPIC_NAME = "topicName";
+  private static final String KEY_TOPIC_NAMES = "topicNames";
   private static final String KEY_SCHEMA_TYPE = "schemaType";
   private static final String KEY_SCHEMA_SUBJECT = "schemaSubject";
   private static final String KEY_SCHEMA_VERSION = "schemaVersion";
@@ -113,6 +120,11 @@ public class KafkaApplication {
 
   private static void startProducer(Map<String, String> argMap, UserConfig userConfig)
       throws Exception {
+    if (userConfig.isMultiTopic()) {
+      // Multi-topic is a source-only feature; the sink has no rule for choosing a topic per message.
+      throw new IllegalArgumentException(
+          "--topicNames is not supported in producer mode, use --topicName");
+    }
     String producerPropertiesPath = argMap.get(KEY_PRODUCER_PROPERTIES_PATH);
     if (producerPropertiesPath == null) {
       throw new IllegalArgumentException(
@@ -209,9 +221,22 @@ public class KafkaApplication {
   @VisibleForTesting
   static UserConfig buildUserConfig(Map<String, String> argMap) {
     String topicName = argMap.get(KEY_TOPIC_NAME);
-    if (topicName == null || topicName.isBlank()) {
-      throw new IllegalArgumentException("--topicName is required");
+    String topicNamesArg = argMap.get(KEY_TOPIC_NAMES);
+    boolean hasTopicName = topicName != null && !topicName.isBlank();
+    boolean hasTopicNames = topicNamesArg != null && !topicNamesArg.isBlank();
+    if (hasTopicName && hasTopicNames) {
+      throw new IllegalArgumentException(
+          "--topicName and --topicNames are mutually exclusive, set exactly one");
     }
+    if (!hasTopicName && !hasTopicNames) {
+      throw new IllegalArgumentException("--topicName or --topicNames is required");
+    }
+    // Single-topic mode keeps topicName set, which is what tells the source to stay on the
+    // pre-multi-topic read path; multi-topic mode leaves it null.
+    String singleTopicName = hasTopicName ? topicName.trim() : null;
+    List<String> topicNames =
+        hasTopicNames ? parseTopicNames(topicNamesArg) : List.of(singleTopicName);
+
     String schemaType = argMap.get(KEY_SCHEMA_TYPE);
     if (schemaType == null || schemaType.isBlank()) {
       throw new IllegalArgumentException(
@@ -226,7 +251,8 @@ public class KafkaApplication {
           "--schemaVersion must be an integer, got: " + argMap.get(KEY_SCHEMA_VERSION), e);
     }
     return UserConfig.builder()
-        .topicName(topicName)
+        .topicName(singleTopicName)
+        .topicNames(topicNames)
         .schemaType(schemaType)
         .schemaSubject(schemaSubject)
         .schemaVersion(schemaVersion)
@@ -234,7 +260,36 @@ public class KafkaApplication {
         .build();
   }
 
-  private static Map<String, String> parseArgs(String[] args) {
+  /**
+   * Splits the comma-separated {@code topicNames} value into trimmed, deduplicated topics. A YAML
+   * list reaches this method in the same comma-separated form, because {@link #loadConfigFile}
+   * joins collections before flattening.
+   *
+   * @throws IllegalArgumentException if any entry is blank
+   */
+  private static List<String> parseTopicNames(String topicNamesArg) {
+    Set<String> unique = new LinkedHashSet<>();
+    List<String> duplicates = new ArrayList<>();
+    for (String entry : topicNamesArg.split(",", -1)) {
+      String topicName = entry.trim();
+      if (topicName.isEmpty()) {
+        throw new IllegalArgumentException(
+            "--topicNames must not contain a blank entry, got: " + topicNamesArg);
+      }
+      if (!unique.add(topicName)) {
+        duplicates.add(topicName);
+      }
+    }
+    if (!duplicates.isEmpty()) {
+      // A repeated topic is almost always a copy-paste slip rather than intent, and dropping it
+      // costs nothing: the source subscribes to a set either way.
+      log.warn("Ignoring duplicate entries in --topicNames: {}", duplicates);
+    }
+    return List.copyOf(unique);
+  }
+
+  @VisibleForTesting
+  static Map<String, String> parseArgs(String[] args) {
     Map<String, String> map = new HashMap<>();
     String configPath = null;
 
@@ -265,7 +320,14 @@ public class KafkaApplication {
           new File(path), new TypeReference<Map<String, Object>>() {});
       Map<String, String> result = new HashMap<>();
       yaml.forEach((k, v) -> {
-        if (v != null) result.put(k, v.toString());
+        if (v == null) return;
+        // A YAML list would otherwise flatten to "[a, b, c]" via toString(). Joining it produces
+        // the same comma-separated form as --topicNames=a,b,c, so both spellings parse identically.
+        result.put(
+            k,
+            v instanceof Collection<?> values
+                ? values.stream().map(String::valueOf).collect(Collectors.joining(","))
+                : v.toString());
       });
       return result;
     } catch (IOException e) {
