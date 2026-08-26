@@ -2,6 +2,7 @@ package io.numaproj.kafka.metrics;
 
 import io.prometheus.metrics.core.metrics.Counter;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
+import java.util.Collection;
 
 /**
  * {@link SourceMetrics} backed by the Prometheus Java client, and the only place {@code
@@ -31,11 +32,17 @@ public class PrometheusSourceMetrics implements SourceMetrics {
         Counter.builder()
             .name("kafka_java_source_skipped_messages_total")
             .help("Messages the source dropped instead of forwarding them downstream.")
+            .labelNames("topic")
             .register(registry);
   }
 
   @Override
-  public void recordSkipped() {
-    skippedMessagesTotal.inc();
+  public void recordSkipped(String topic) {
+    skippedMessagesTotal.labelValues(topic).inc();
+  }
+
+  @Override
+  public void registerTopics(Collection<String> topics) {
+    topics.forEach(skippedMessagesTotal::labelValues);
   }
 }

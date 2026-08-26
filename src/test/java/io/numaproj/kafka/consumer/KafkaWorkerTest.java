@@ -104,7 +104,7 @@ class KafkaWorkerTest {
     assertThrows(RecordDeserializationException.class, () -> worker.poll(1000));
 
     verify(consumer, never()).seek(any(), anyLong());
-    verify(metrics, never()).recordSkipped();
+    verify(metrics, never()).recordSkipped(any());
   }
 
   @Test
@@ -122,7 +122,7 @@ class KafkaWorkerTest {
     List<ConsumerRecord<String, byte[]>> next = skipWorker.poll(1000);
 
     verify(consumer).seek(new TopicPartition(TOPIC, 1), 6L);
-    verify(metrics).recordSkipped();
+    verify(metrics).recordSkipped(TOPIC);
     assertEquals(List.of(), skipped);
     assertEquals(1, next.size());
     skipThread.interrupt();
@@ -144,7 +144,7 @@ class KafkaWorkerTest {
 
     verify(consumer).seek(new TopicPartition(TOPIC, 1), 6L);
     verify(consumer).seek(new TopicPartition(TOPIC, 1), 7L);
-    verify(metrics, times(2)).recordSkipped();
+    verify(metrics, times(2)).recordSkipped(TOPIC);
     assertEquals(1, got.size());
     skipThread.interrupt();
   }

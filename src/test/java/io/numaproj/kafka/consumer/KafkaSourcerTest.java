@@ -31,9 +31,9 @@ class KafkaSourcerTest {
 
   private static final String TOPIC = "test-topic";
 
-  // Hard-coded on purpose, and NOT read from KafkaSourcer.KAFKA_TOPIC_HEADER: the header key is a
-  // wire contract shared with Numaflow's built-in Kafka source and with downstream vertices already
-  // reading it. Changing the constant must fail this test rather than silently pass.
+  // Hard-coded on purpose, and NOT read from CommonUtils.SOURCE_TOPIC_NAME_HEADER: the header key
+  // is a wire contract shared with Numaflow's built-in Kafka source and with downstream vertices
+  // already reading it. Changing the constant must fail this test rather than silently pass.
   private static final String TOPIC_HEADER = "X-NF-Kafka-TopicName";
 
   private final Admin admin = mock(Admin.class);
@@ -196,7 +196,7 @@ class KafkaSourcerTest {
     underTest.read(readRequest(3), observer);
 
     verify(observer, times(2)).send(any(Message.class));
-    verify(metrics, times(1)).recordSkipped();
+    verify(metrics, times(1)).recordSkipped(TOPIC);
   }
 
   @Test

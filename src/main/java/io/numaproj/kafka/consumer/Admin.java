@@ -1,6 +1,7 @@
 package io.numaproj.kafka.consumer;
 
 import io.numaproj.kafka.config.UserConfig;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -8,6 +9,7 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 
@@ -72,6 +74,24 @@ public class Admin {
       log.error("Failed to get pending messages", e);
       return PendingNotAvailable;
     }
+  }
+
+  /**
+   * Looks up how many partitions each topic currently has, so the partition ID map can be built
+   * before the first poll.
+   *
+   * @throws Exception if the metadata call fails, notably {@code UnknownTopicOrPartitionException}
+   *     if a topic does not exist - the source must not start with an understated partition count,
+   *     because the topic appearing later would overlap another topic's ID range
+   */
+  public Map<String, Integer> partitionCounts(Collection<String> topics) throws Exception {
+    Map<String, TopicDescription> descriptions =
+        adminClient.describeTopics(topics).allTopicNames().get();
+    Map<String, Integer> partitionCounts = new HashMap<>();
+    descriptions.forEach(
+        (topic, description) -> partitionCounts.put(topic, description.partitions().size()));
+    log.info("Partition counts: {}", partitionCounts);
+    return partitionCounts;
   }
 
   public void close() {

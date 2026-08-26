@@ -23,7 +23,7 @@ final class SkippedRecordHandler {
    * @param failure the failure, sanitized by the caller, logged as is
    */
   void handleSkipped(String topic, int partition, long offset, Throwable failure) {
-    metrics.recordSkipped();
+    metrics.recordSkipped(topic);
     log.warn("Dropping bad record {}", coordinates(topic, partition, offset), failure);
   }
 
@@ -32,8 +32,11 @@ final class SkippedRecordHandler {
     return "topic:%s partition:%d offset:%d".formatted(topic, partition, offset);
   }
 
-  /** Counts a Kafka tombstone, which is dropped without being an error. */
-  void handleTombstone() {
-    metrics.recordSkipped();
+  /**
+   * Counts a Kafka tombstone, which is dropped without being an error. Attributed to its own topic
+   * so an operator reading per-topic drops sees which topic the tombstones come from.
+   */
+  void handleTombstone(String topic) {
+    metrics.recordSkipped(topic);
   }
 }

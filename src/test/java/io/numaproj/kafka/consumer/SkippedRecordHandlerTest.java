@@ -11,16 +11,16 @@ class SkippedRecordHandlerTest {
   private final SkippedRecordHandler underTest = new SkippedRecordHandler(metrics);
 
   @Test
-  void handleSkipped_countsTheDrop() {
-    underTest.handleSkipped("t", 0, 5L, new RuntimeException("boom"));
+  void handleSkipped_countsTheDropAgainstItsTopic() {
+    underTest.handleSkipped("orders", 0, 5L, new RuntimeException("boom"));
 
-    verify(metrics).recordSkipped();
+    verify(metrics).recordSkipped("orders");
   }
 
   @Test
-  void handleTombstone_countsTheDrop() {
-    underTest.handleTombstone();
+  void handleTombstone_countsTheDropAgainstItsTopic() {
+    underTest.handleTombstone("orders");
 
-    verify(metrics).recordSkipped();
+    verify(metrics).recordSkipped("orders");
   }
 }

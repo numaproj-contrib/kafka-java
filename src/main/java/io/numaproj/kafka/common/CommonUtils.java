@@ -6,6 +6,14 @@ public class CommonUtils {
   private static final String KAFKA_KEY_PREFIX = "KAFKA_KEY:";
 
   /**
+   * Header the source sets on every message naming the topic it was read from, so a downstream
+   * vertex reading several topics through one source can tell them apart. Shared with Numaflow's
+   * builtin Kafka source, so downstream vertices read the same key whichever source produced the
+   * message - do not change the value.
+   */
+  public static final String SOURCE_TOPIC_NAME_HEADER = "X-NF-Kafka-TopicName";
+
+  /**
    * Generate a key for maps holding topic partition offsets
    *
    * @param topic - topic name

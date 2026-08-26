@@ -101,6 +101,7 @@ public class KafkaApplication {
     MetricsServer metricsServer = MetricsServer.start();
     Runtime.getRuntime().addShutdownHook(new Thread(metricsServer::stop));
     SourceMetrics metrics = PrometheusSourceMetrics.defaultRegistryInstance();
+    metrics.registerTopics(userConfig.getTopicNames());
 
     if (SCHEMA_TYPE_AVRO.equals(userConfig.getSchemaType())) {
       new KafkaSourcer<GenericRecord>(

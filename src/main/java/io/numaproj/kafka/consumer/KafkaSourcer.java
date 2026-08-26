@@ -30,8 +30,6 @@ import org.apache.kafka.common.header.Header;
 @Slf4j
 public class KafkaSourcer<V> extends Sourcer {
 
-  private static final String KAFKA_TOPIC_HEADER = "X-NF-Kafka-TopicName";
-
   /** Builds a Kafka consumer sized for the given Numaflow batch size. */
   @FunctionalInterface
   public interface ConsumerFactory<V> {
@@ -124,7 +122,7 @@ public class KafkaSourcer<V> extends Sourcer {
         }
         if (consumerRecord.value() == null) {
           // A Kafka tombstone: nothing to forward downstream.
-          skippedRecordHandler.handleTombstone();
+          skippedRecordHandler.handleTombstone(consumerRecord.topic());
           continue;
         }
         Optional<byte[]> payload = toPayload(consumerRecord);
@@ -181,7 +179,7 @@ public class KafkaSourcer<V> extends Sourcer {
     }
     // Set after the record's own headers so a producer-supplied header of the same name cannot
     // shadow the actual topic.
-    kafkaHeaders.put(KAFKA_TOPIC_HEADER, consumerRecord.topic());
+    kafkaHeaders.put(CommonUtils.SOURCE_TOPIC_NAME_HEADER, consumerRecord.topic());
     // TODO - Do we need to add cluster ID to the offset value? For now this is good enough.
     String offsetValue = consumerRecord.topic() + ":" + consumerRecord.offset();
     return new Message(
