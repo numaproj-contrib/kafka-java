@@ -10,7 +10,7 @@ CloudWatch or Amazon Managed Service for Prometheus.
 
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|
-| `kafka_java_source_skipped_messages_total` | counter | none | A message was dropped instead of being forwarded downstream: a record skipped under [`onError: skip`](../source/on-error.md), or a Kafka tombstone. |
+| `kafka_java_source_skipped_messages_total` | counter | `topic` | A message was dropped instead of being forwarded downstream: a record skipped under [`onError: skip`](../source/on-error.md), or a Kafka tombstone. One series per configured topic, each starting at zero. Use `sum(...)` for the total across topics. |
 
 Under `onError: fail` an unreadable record kills the pod rather than being counted here.
 

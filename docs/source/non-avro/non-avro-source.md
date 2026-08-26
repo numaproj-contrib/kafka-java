@@ -43,7 +43,8 @@ Use the example [ConfigMap](manifests/raw-consumer-config.yaml) to configure the
   consumer. Ensure that the schema registry configurations are set because Avro schema is used to de-serialize the data.
 
 * `user.configuration` is the user configuration for the source vertex.
-    * `topicName` is the Kafka topic name to read data from.
+    * `topicName` is the Kafka topic name to read data from. To read several topics with one source
+      vertex, set `topicNames` instead; see [multi-topic](../multi-topic/multi-topic-source.md).
     * `schemaType` is set to `raw` to indicate that there is no schema registered for the topic. (You can also set the
       `schemaType` to `json` if the topic has a JSON schema registered).
     * `onError` (optional) is `fail` (default) or `skip`; see [`onError`](../on-error.md).

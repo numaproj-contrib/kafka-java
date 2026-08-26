@@ -74,7 +74,8 @@ Use the example [ConfigMap](manifests/avro-consumer-config.yaml) to configure th
   de-serialize the data.
 
 * `user.configuration` is the user configuration for the source vertex.
-    * `topicName` is the Kafka topic name to read data from.
+    * `topicName` is the Kafka topic name to read data from. To read several topics with one source
+      vertex, set `topicNames` instead; see [multi-topic](../multi-topic/multi-topic-source.md).
     * `schemaType` is set to `avro` to indicate that Avro schema is used to de-serialize the data.
     * `onError` (optional) is `fail` (default) or `skip`; see [`onError`](../on-error.md).
 * You can interpolate environment variables in `consumer.properties` values using `${ENV_VAR}` (for example, to set

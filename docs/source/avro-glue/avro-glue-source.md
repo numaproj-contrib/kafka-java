@@ -69,7 +69,7 @@ the placeholders:
 | `bootstrap.servers` | Kafka broker address(es) |
 | `security.protocol`, `sasl.*` | Authentication settings for your Kafka cluster |
 | `registry.name` | Name of your Glue registry |
-| `topicName` | Kafka topic to consume from |
+| `topicName` | Kafka topic to consume from. For several topics, use `topicNames` instead; see [multi-topic](../multi-topic/multi-topic-source.md) |
 
 Glue-specific properties:
 

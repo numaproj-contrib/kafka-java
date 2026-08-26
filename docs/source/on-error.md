@@ -25,7 +25,8 @@ An unrecognized value is rejected at startup rather than silently treated as `fa
 
 The `WARN` log identifies the dropped record by `topic`, `partition` and `offset` only — never the
 record itself, so a decrypted or otherwise sensitive payload cannot leak into the logs. Every drop
-increments `kafka_java_source_skipped_messages_total`; see
+increments `kafka_java_source_skipped_messages_total`, labelled by `topic` so drops stay
+attributable when the source reads [several topics](multi-topic/multi-topic-source.md); see
 [source metrics](../metrics/source-metrics.md).
 
 Two limitations to be aware of before enabling it:

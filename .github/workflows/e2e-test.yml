@@ -69,13 +69,15 @@ jobs:
           kubectl apply -f test/kafka.yaml
           kubectl rollout status deployment/kafka -n kafka --timeout=120s
 
-      - name: Create test topic
+      - name: Create test topics
         run: |
           KAFKA_POD=$(kubectl get pod -n kafka -l app=kafka -o jsonpath='{.items[0].metadata.name}')
-          kubectl exec -n kafka $KAFKA_POD -- /opt/kafka/bin/kafka-topics.sh \
-            --create --topic test-raw \
-            --bootstrap-server localhost:9092 \
-            --partitions 1 --replication-factor 1
+          for TOPIC in test-raw test-raw-2; do
+            kubectl exec -n kafka $KAFKA_POD -- /opt/kafka/bin/kafka-topics.sh \
+              --create --topic $TOPIC \
+              --bootstrap-server localhost:9092 \
+              --partitions 1 --replication-factor 1
+          done
 
       - name: Deploy pipeline
         run: |
@@ -96,7 +98,9 @@ jobs:
 
       - name: Assert messages received by sink
         run: |
-          SINK_POD=$(kubectl get pod -n default -l numaflow.numaproj.io/vertex-name=sink -o jsonpath='{.items[0].metadata.name}')
+          SINK_POD=$(kubectl get pod -n default \
+            -l numaflow.numaproj.io/pipeline-name=test-kafka-pipeline,numaflow.numaproj.io/vertex-name=sink \
+            -o jsonpath='{.items[0].metadata.name}')
           for i in $(seq 1 30); do
             LOGS=$(kubectl logs $SINK_POD -n default --all-containers=true 2>/dev/null)
             if echo "$LOGS" | grep -q "hello numaflow 1" && \
@@ -110,4 +114,53 @@ jobs:
           done
           echo "ERROR: Messages not received in sink after 150s"
           kubectl logs $SINK_POD -n default --all-containers=true | tail -50
+          exit 1
+
+      # The single-topic pipeline above is the backward-compatibility guard: it must keep working
+      # untouched. The multi-topic pipeline below is deployed separately, with its own consumer
+      # group, so the two do not compete for the same partitions.
+      - name: Deploy multi-topic pipeline
+        run: |
+          IMAGE_TAG=$(mvn help:evaluate -Dexpression=image.tag -q -DforceStdout | tr -d '\n')
+          sed "s|quay.io/numaio/numaflow-java/kafka-java:.*|quay.io/numaio/numaflow-java/kafka-java:$IMAGE_TAG|g" test/pipeline-multi-topic.yaml \
+            | kubectl apply -f -
+          kubectl apply -f test/pipeline-multi-topic-config.yaml
+          kubectl wait --for=condition=Ready pod \
+            -l numaflow.numaproj.io/pipeline-name=test-kafka-multi-topic-pipeline \
+            -n default --timeout=120s
+
+      - name: Produce test messages to both topics
+        run: |
+          KAFKA_POD=$(kubectl get pod -n kafka -l app=kafka -o jsonpath='{.items[0].metadata.name}')
+          kubectl exec -n kafka $KAFKA_POD -- bash -c \
+            'echo -e "from topic one a\nfrom topic one b" | /opt/kafka/bin/kafka-console-producer.sh --topic test-raw --bootstrap-server localhost:9092'
+          kubectl exec -n kafka $KAFKA_POD -- bash -c \
+            'echo -e "from topic two a\nfrom topic two b" | /opt/kafka/bin/kafka-console-producer.sh --topic test-raw-2 --bootstrap-server localhost:9092'
+
+      - name: Assert both topics reach the multi-topic sink
+        run: |
+          SINK_POD=$(kubectl get pod -n default \
+            -l numaflow.numaproj.io/pipeline-name=test-kafka-multi-topic-pipeline,numaflow.numaproj.io/vertex-name=sink \
+            -o jsonpath='{.items[0].metadata.name}')
+          for i in $(seq 1 30); do
+            LOGS=$(kubectl logs $SINK_POD -n default --all-containers=true 2>/dev/null)
+            # The builtin log sink prints message headers, so the topic each message came from is
+            # asserted here rather than only in the unit tests.
+            if echo "$LOGS" | grep -q "from topic one a" && \
+               echo "$LOGS" | grep -q "from topic one b" && \
+               echo "$LOGS" | grep -q "from topic two a" && \
+               echo "$LOGS" | grep -q "from topic two b" && \
+               echo "$LOGS" | grep -q "X-NF-Kafka-TopicName: test-raw," && \
+               echo "$LOGS" | grep -q "X-NF-Kafka-TopicName: test-raw-2,"; then
+              echo "Messages from both topics received by the multi-topic sink, each tagged with its topic"
+              exit 0
+            fi
+            echo "Waiting for messages from both topics... attempt $i/30"
+            sleep 5
+          done
+          echo "ERROR: Messages from both topics not received after 150s"
+          kubectl logs $SINK_POD -n default --all-containers=true | tail -50
+          kubectl logs -n default \
+            -l numaflow.numaproj.io/pipeline-name=test-kafka-multi-topic-pipeline,numaflow.numaproj.io/vertex-name=in \
+            --all-containers=true --tail=50
           exit 1

@@ -8,7 +8,9 @@ vertices, so any downstream user-defined vertex or sink can read them.
 
 ### `X-NF-Kafka-TopicName`
 
-The name of the Kafka topic the record was read from.
+The name of the Kafka topic the record was read from. It is set on every message, whether the source
+reads one topic or [several](multi-topic/multi-topic-source.md) — with several, this is how a
+downstream vertex tells them apart.
 
 #### Reading it downstream
 
