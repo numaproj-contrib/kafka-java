@@ -25,6 +25,8 @@ import org.mockito.ArgumentCaptor;
 class KafkaWorkerTest {
 
   private static final String TOPIC = "test-topic";
+  // Sorts after TOPIC, so its partition IDs start above the range reserved for TOPIC.
+  private static final String OTHER_TOPIC = "z-other-topic";
 
   @SuppressWarnings("unchecked")
   private final KafkaConsumer<String, byte[]> consumer = mock(KafkaConsumer.class);
@@ -45,10 +47,23 @@ class KafkaWorkerTest {
   }
 
   private KafkaWorker<byte[]> worker(OnError onError, SkippedRecordHandler handler) {
+    return new KafkaWorker<>(userConfig(onError, List.of(TOPIC)), consumer, handler, null);
+  }
+
+  /** A worker over two topics, with the partition ID map the source would build for them. */
+  private KafkaWorker<byte[]> multiTopicWorker() {
+    return new KafkaWorker<>(
+        userConfig(OnError.FAIL, List.of(TOPIC, OTHER_TOPIC)),
+        consumer,
+        new SkippedRecordHandler(metrics),
+        PartitionIdMapper.of(Map.of(TOPIC, 4, OTHER_TOPIC, 2)));
+  }
+
+  private static UserConfig userConfig(OnError onError, List<String> topicNames) {
     UserConfig userConfig = mock(UserConfig.class);
-    when(userConfig.getTopicName()).thenReturn(TOPIC);
+    when(userConfig.getTopicNames()).thenReturn(topicNames);
     when(userConfig.getOnError()).thenReturn(onError);
-    return new KafkaWorker<>(userConfig, consumer, handler);
+    return userConfig;
   }
 
   /** Builds the exception with the origin and buffers, as the Kafka consumer itself does. */
@@ -189,6 +204,35 @@ class KafkaWorkerTest {
   }
 
   @Test
+  void run_singleTopic_thenSubscribesToThatTopic() throws Exception {
+    when(consumer.poll(any())).thenReturn(records("a"));
+    thread.start();
+    worker.poll(1000);
+
+    assertEquals(List.of(TOPIC), captureSubscribedTopics());
+  }
+
+  @Test
+  void run_multiTopic_thenSubscribesToEveryConfiguredTopic() throws Exception {
+    // One consumer over all the topics, so they share a group and merge into one stream.
+    when(consumer.poll(any())).thenReturn(records("a"));
+    KafkaWorker<byte[]> multiTopicWorker = multiTopicWorker();
+    Thread multiTopicThread = new Thread(multiTopicWorker);
+    multiTopicThread.start();
+    multiTopicWorker.poll(1000);
+
+    assertEquals(Set.of(TOPIC, OTHER_TOPIC), new HashSet<>(captureSubscribedTopics()));
+    multiTopicThread.interrupt();
+  }
+
+  @SuppressWarnings("unchecked")
+  private Collection<String> captureSubscribedTopics() {
+    ArgumentCaptor<Collection<String>> topics = ArgumentCaptor.forClass(Collection.class);
+    verify(consumer).subscribe(topics.capture());
+    return topics.getValue();
+  }
+
+  @Test
   void commit_delegatesToConsumer() throws Exception {
     thread.start();
     worker.commit();
@@ -196,13 +240,91 @@ class KafkaWorkerTest {
   }
 
   @Test
-  void getPartitions_returnsAssignedPartitionsForTopic() {
-    when(consumer.assignment())
-        .thenReturn(
-            Set.of(new TopicPartition(TOPIC, 1), new TopicPartition(TOPIC, 3),
-                new TopicPartition("other", 9)));
+  void getPartitions_singleTopic_thenReturnsTheAssignedKafkaPartitionNumbers() {
+    // The upgrade guarantee: an existing deployment keeps the IDs its watermark entities are named
+    // after, and a topic it does not consume is filtered out.
+    assign(new TopicPartition(TOPIC, 1), new TopicPartition(TOPIC, 3), new TopicPartition("other", 9));
 
-    assertEquals(Set.of(1, 3), new HashSet<>(worker.getPartitions()));
+    assertEquals(Set.of(1, 3), new HashSet<>(pollThenGetPartitions(worker)));
+  }
+
+  @Test
+  void getPartitions_multiTopic_thenReturnsGlobalIdsFromEachTopicsRange() {
+    // test-topic sorts before z-other-topic, so it takes 0-3 and z-other-topic starts at 4.
+    KafkaWorker<byte[]> multiTopicWorker = multiTopicWorker();
+    assign(
+        new TopicPartition(TOPIC, 0),
+        new TopicPartition(TOPIC, 3),
+        new TopicPartition(OTHER_TOPIC, 0),
+        new TopicPartition(OTHER_TOPIC, 1));
+
+    assertEquals(Set.of(0, 3, 4, 5), new HashSet<>(pollThenGetPartitions(multiTopicWorker)));
+  }
+
+  @Test
+  void getPartitions_multiTopicWithAnUnconfiguredTopicAssigned_thenDropsItRatherThanThrowing() {
+    KafkaWorker<byte[]> multiTopicWorker = multiTopicWorker();
+    assign(new TopicPartition(TOPIC, 0), new TopicPartition("never-configured", 0));
+
+    assertEquals(List.of(0), pollThenGetPartitions(multiTopicWorker));
+  }
+
+  @Test
+  void getPartitions_beforeTheFirstPoll_thenIsEmpty() {
+    // Legitimately empty until the worker has polled once; there is no safe value to invent, since
+    // the replica index Sourcer.defaultPartitions() returns is a real ID under multi-topic.
+    assign(new TopicPartition(TOPIC, 1));
+
+    assertEquals(List.of(), worker.getPartitions());
+  }
+
+  @Test
+  void getPartitions_afterARebalance_thenTheNextPollRefreshesIt() throws Exception {
+    when(consumer.poll(any())).thenReturn(records("a"));
+    when(consumer.assignment())
+        .thenReturn(Set.of(new TopicPartition(TOPIC, 1)))
+        .thenReturn(Set.of(new TopicPartition(TOPIC, 1), new TopicPartition(TOPIC, 2)));
+    thread.start();
+
+    worker.poll(1000);
+    assertEquals(List.of(1), worker.getPartitions());
+
+    worker.poll(1000);
+    assertEquals(List.of(1, 2), worker.getPartitions());
+  }
+
+  @Test
+  void getPartitions_whilePolling_thenReadsTheSnapshotAndNeverTheConsumer() throws Exception {
+    // KafkaConsumer is single-threaded; reading assignment() off the worker thread would risk a
+    // ConcurrentModificationException, so getPartitions() must not touch the consumer at all.
+    when(consumer.poll(any())).thenReturn(records("a"));
+    assign(new TopicPartition(TOPIC, 1));
+    thread.start();
+    worker.poll(1000);
+    clearInvocations(consumer);
+
+    worker.getPartitions();
+
+    verify(consumer, never()).assignment();
+  }
+
+  /** Runs one poll so the worker snapshots the assignment, then reads the partitions back. */
+  private List<Integer> pollThenGetPartitions(KafkaWorker<byte[]> underTest) {
+    when(consumer.poll(any())).thenReturn(records("a"));
+    Thread workerThread = new Thread(underTest);
+    workerThread.start();
+    try {
+      underTest.poll(1000);
+      return underTest.getPartitions();
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    } finally {
+      workerThread.interrupt();
+    }
+  }
+
+  private void assign(TopicPartition... topicPartitions) {
+    when(consumer.assignment()).thenReturn(Set.of(topicPartitions));
   }
 
   private static ConsumerRecords<String, byte[]> records(String... values) {

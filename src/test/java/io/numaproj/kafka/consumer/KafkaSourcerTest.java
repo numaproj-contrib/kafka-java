@@ -30,6 +30,8 @@ import org.slf4j.LoggerFactory;
 class KafkaSourcerTest {
 
   private static final String TOPIC = "test-topic";
+  // Sorts after TOPIC, so its partition IDs start above the range reserved for TOPIC.
+  private static final String OTHER_TOPIC = "z-other-topic";
 
   // Hard-coded on purpose, and NOT read from CommonUtils.SOURCE_TOPIC_NAME_HEADER: the header key
   // is a wire contract shared with Numaflow's built-in Kafka source and with downstream vertices
@@ -58,9 +60,27 @@ class KafkaSourcerTest {
 
   private KafkaSourcer<byte[]> sourcer(
       KafkaFormat<byte[]> format, OnError onError, KafkaWorker<byte[]> worker) {
+    return sourcer(format, onError, worker, null);
+  }
+
+  /** A sourcer over two topics, with the partition ID map the source would build for them. */
+  private KafkaSourcer<byte[]> multiTopicSourcer() {
+    return sourcer(
+        new ByteArrayFormat(),
+        OnError.FAIL,
+        worker,
+        PartitionIdMapper.of(Map.of(TOPIC, 4, OTHER_TOPIC, 2)));
+  }
+
+  private KafkaSourcer<byte[]> sourcer(
+      KafkaFormat<byte[]> format,
+      OnError onError,
+      KafkaWorker<byte[]> worker,
+      PartitionIdMapper partitionIdMapper) {
     KafkaSourcer<byte[]> sourcer =
         Mockito.spy(
-            new KafkaSourcer<>(userConfig(onError), admin, format, batchSize -> null, metrics));
+            new KafkaSourcer<>(
+                userConfig(onError), admin, format, batchSize -> null, metrics, partitionIdMapper));
     Thread aliveThread = mock(Thread.class);
     when(aliveThread.isAlive()).thenReturn(true);
     sourcer.setWorker(worker, aliveThread);
@@ -253,20 +273,24 @@ class KafkaSourcerTest {
   }
 
   private static AckRequest ackRequest() {
-    Offset offset = new Offset((TOPIC + ":1").getBytes(StandardCharsets.UTF_8), 10);
-    return new AckRequest() {
-      @Override
-      public List<Offset> getOffsets() {
-        return List.of(offset);
-      }
-    };
+    return ackRequest(TOPIC, 1, 10, 1L);
   }
 
   private static AckRequest ackRequest(int partition, long... offsets) {
+    return ackRequest(TOPIC, partition, partition, offsets);
+  }
+
+  /**
+   * An ack as Numaflow returns it: the token carries the Kafka partition, while the Offset's own
+   * partition ID carries whatever the read path assigned - a global ID under multi-topic.
+   */
+  private static AckRequest ackRequest(
+      String topic, int kafkaPartition, int numaflowPartitionId, long... offsets) {
     List<Offset> acked = new ArrayList<>();
     for (long offset : offsets) {
       acked.add(
-          new Offset((TOPIC + ":" + offset).getBytes(StandardCharsets.UTF_8), partition));
+          new Offset(
+              new SourceOffset(topic, kafkaPartition, offset).encode(), numaflowPartitionId));
     }
     return () -> acked;
   }
@@ -334,6 +358,97 @@ class KafkaSourcerTest {
 
     assertEquals(1, errors.size());
     assertTrue(errors.get(0).getFormattedMessage().contains("READ AND ACK ARE NOT IN SYNC"));
+  }
+
+  @Test
+  void read_singleTopic_thenPartitionIdIsTheKafkaPartition() throws Exception {
+    // The upgrade guarantee: Numaflow names watermark entities after the partition ID, so an
+    // existing deployment must keep the IDs it already has.
+    when(worker.poll(anyLong())).thenReturn(List.of(record(1)));
+
+    underTest.read(readRequest(1), observer);
+
+    verify(observer).send(argThat(message -> message.getOffset().getPartitionId() == 1));
+  }
+
+  @Test
+  void read_multiTopic_thenPartitionIdComesFromTheTopicsReservedRange() throws Exception {
+    // test-topic sorts first and takes IDs 0-3, so z-other-topic partition 1 becomes ID 5.
+    KafkaSourcer<byte[]> sourcer = multiTopicSourcer();
+    when(worker.poll(anyLong()))
+        .thenReturn(List.of(record(1), recordOn(OTHER_TOPIC, 1, 1)));
+
+    sourcer.read(readRequest(2), observer);
+
+    ArgumentCaptor<Message> sent = ArgumentCaptor.forClass(Message.class);
+    verify(observer, times(2)).send(sent.capture());
+    assertEquals(1, sent.getAllValues().get(0).getOffset().getPartitionId());
+    assertEquals(5, sent.getAllValues().get(1).getOffset().getPartitionId());
+  }
+
+  @Test
+  void read_thenTheOffsetTokenCarriesTopicPartitionAndOffset() throws Exception {
+    when(worker.poll(anyLong())).thenReturn(List.of(record(42)));
+
+    underTest.read(readRequest(1), observer);
+
+    ArgumentCaptor<Message> sent = ArgumentCaptor.forClass(Message.class);
+    verify(observer).send(sent.capture());
+    String token = new String(sent.getValue().getOffset().getValue(), StandardCharsets.UTF_8);
+    assertEquals(TOPIC + ":1:42", token);
+    assertEquals(42L, SourceOffset.decode(token.getBytes(StandardCharsets.UTF_8)).offset());
+  }
+
+  @Test
+  void read_multiTopic_thenTheTopicHeaderNamesEachRecordsOwnTopic() throws Exception {
+    KafkaSourcer<byte[]> sourcer = multiTopicSourcer();
+    when(worker.poll(anyLong()))
+        .thenReturn(List.of(record(1), recordOn(OTHER_TOPIC, 1, 1)));
+
+    sourcer.read(readRequest(2), observer);
+
+    ArgumentCaptor<Message> sent = ArgumentCaptor.forClass(Message.class);
+    verify(observer, times(2)).send(sent.capture());
+    assertEquals(TOPIC, sent.getAllValues().get(0).getHeaders().get(TOPIC_HEADER));
+    assertEquals(OTHER_TOPIC, sent.getAllValues().get(1).getHeaders().get(TOPIC_HEADER));
+  }
+
+  @Test
+  void ack_multiTopic_thenTheAckKeyMatchesTheOneReadTracked() throws Exception {
+    // The ack key must come from the Kafka partition in the token, not from the Offset's partition
+    // ID: under multi-topic that ID is global, so keying on it would put every ack in a key space
+    // the read map never uses and the invariant below would fire on every ack.
+    KafkaSourcer<byte[]> sourcer = multiTopicSourcer();
+    when(worker.poll(anyLong())).thenReturn(List.of(recordOn(OTHER_TOPIC, 1, 100)));
+    sourcer.read(readRequest(1), observer);
+
+    assertEquals(Map.of(OTHER_TOPIC + ":1", 100L), sourcer.getReadTopicPartitionOffsetMap());
+
+    // z-other-topic partition 1 was forwarded as global ID 5, and Numaflow acks with that ID.
+    List<ILoggingEvent> errors =
+        captureErrors(() -> sourcer.ack(ackRequest(OTHER_TOPIC, 1, 5, 100L)));
+
+    assertEquals(List.of(), errors, "read and ack must key the same partition identically");
+    verify(worker).commit();
+  }
+
+  @Test
+  void read_tombstone_thenTheDropIsCountedAgainstItsOwnTopic() throws Exception {
+    KafkaSourcer<byte[]> sourcer = multiTopicSourcer();
+    when(worker.poll(anyLong())).thenReturn(List.of(tombstoneOn(OTHER_TOPIC, 1, 6)));
+
+    sourcer.read(readRequest(1), observer);
+
+    verify(metrics).recordSkipped(OTHER_TOPIC);
+  }
+
+  private static ConsumerRecord<String, byte[]> recordOn(String topic, int partition, long offset) {
+    return new ConsumerRecord<>(topic, partition, offset, "key", "value".getBytes());
+  }
+
+  private static ConsumerRecord<String, byte[]> tombstoneOn(
+      String topic, int partition, long offset) {
+    return new ConsumerRecord<>(topic, partition, offset, "key", null);
   }
 
   @Test

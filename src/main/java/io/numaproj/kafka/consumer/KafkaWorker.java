@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -19,9 +20,13 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.RecordDeserializationException;
 
 /**
- * Consumes messages from a Kafka topic and commits offsets on demand. All Kafka client access
- * happens on this single worker thread; the sourcer thread interacts with it exclusively through a
- * one-at-a-time task queue, guaranteeing that poll, commit and shutdown never run concurrently.
+ * Consumes messages from the configured Kafka topics and commits offsets on demand. All Kafka
+ * client access happens on this single worker thread; the sourcer thread interacts with it
+ * exclusively through a one-at-a-time task queue, guaranteeing that poll, commit and shutdown never
+ * run concurrently.
+ *
+ * <p>One consumer subscribes to every configured topic, so a batch is filled from whichever topics
+ * have records and no topic is prioritized - the same design as Numaflow's builtin Kafka source.
  *
  * <p>The worker is format agnostic: it is parameterized by the Kafka value type {@code V} and does
  * not interpret record values.
@@ -34,6 +39,9 @@ public class KafkaWorker<V> implements Runnable {
   private final UserConfig userConfig;
   private final KafkaConsumer<String, V> consumer;
   private final SkippedRecordHandler skippedRecordHandler;
+  // Null in single-topic mode, where the bare Kafka partition is already the Numaflow partition ID.
+  private final PartitionIdMapper partitionIdMapper;
+  private final Set<String> configuredTopics;
 
   // A blocking queue used to hand tasks to the consumer thread. It ensures only one of the
   // tasks (POLL/COMMIT/SHUTDOWN) is performed at a time.
@@ -42,21 +50,32 @@ public class KafkaWorker<V> implements Runnable {
   private volatile CompletableFuture<Void> operationCompletion = new CompletableFuture<>();
   // Records polled from Kafka; volatile to ensure visibility across threads.
   private volatile List<ConsumerRecord<String, V>> consumerRecordList;
+  // The last assignment seen by the worker thread. getPartitions() runs on the sourcer thread, and
+  // KafkaConsumer throws ConcurrentModificationException if touched while this thread is polling,
+  // so the assignment is snapshotted here instead of being read off-thread.
+  private volatile Set<TopicPartition> currentAssignment = Set.of();
+  // Only logged when it changes: getPartitions() is polled continuously.
+  private volatile List<Integer> lastLoggedPartitions;
 
   public KafkaWorker(
       UserConfig userConfig,
       KafkaConsumer<String, V> consumer,
-      SkippedRecordHandler skippedRecordHandler) {
+      SkippedRecordHandler skippedRecordHandler,
+      PartitionIdMapper partitionIdMapper) {
     this.userConfig = userConfig;
     this.consumer = consumer;
     this.skippedRecordHandler = skippedRecordHandler;
+    this.partitionIdMapper = partitionIdMapper;
+    this.configuredTopics = Set.copyOf(userConfig.getTopicNames());
   }
 
   @Override
   public void run() {
     log.info("Consumer worker is running...");
     try {
-      consumer.subscribe(List.of(userConfig.getTopicName()));
+      // Holds the one topic in single-topic mode, so both modes subscribe through this one call.
+      log.info("Subscribing to topics: {}", userConfig.getTopicNames());
+      consumer.subscribe(userConfig.getTopicNames());
       boolean keepRunning = true;
       while (keepRunning) {
         OperationRequest request = taskQueue.take();
@@ -88,15 +107,16 @@ public class KafkaWorker<V> implements Runnable {
    * deserialized is counted, logged and sought past, and the batch comes back empty; under {@code
    * onError: fail} the failure is rethrown.
    *
-   * @throws RecordDeserializationException if a record could not be deserialized and {@code onError}
-   *     is not {@code skip}
+   * @throws RecordDeserializationException if a record could not be deserialized and {@code
+   *     onError} is not {@code skip}
    */
   private void pollRecords(long timeoutMs) {
     List<ConsumerRecord<String, V>> polled = new ArrayList<>();
     try {
       for (ConsumerRecord<String, V> consumerRecord : consumer.poll(Duration.ofMillis(timeoutMs))) {
         log.debug(
-            "consume:: partition:{} offset:{} timestamp:{}",
+            "consume:: topic:{} partition:{} offset:{} timestamp:{}",
+            consumerRecord.topic(),
             consumerRecord.partition(),
             consumerRecord.offset(),
             Instant.ofEpochMilli(consumerRecord.timestamp()));
@@ -120,6 +140,9 @@ public class KafkaWorker<V> implements Runnable {
       // Nothing to hand over: the next read resumes past the drop.
       consumerRecordList = List.of();
     }
+    // Taken here so getPartitions() never touches the consumer from the sourcer thread. Being one
+    // poll cycle stale does not matter: a partition is watermarked from the records it yields.
+    currentAssignment = Set.copyOf(consumer.assignment());
   }
 
   private void commitAsync() {
@@ -170,16 +193,37 @@ public class KafkaWorker<V> implements Runnable {
   }
 
   /**
-   * @return the partitions of the configured topic currently assigned to this consumer
+   * Returns the Numaflow partition IDs of the partitions currently assigned to this consumer, which
+   * is legitimately empty before the first poll completes and during a rebalance.
+   *
+   * <p>Deliberately not falling back to {@link
+   * io.numaproj.numaflow.sourcer.Sourcer#defaultPartitions()}: it returns the replica index, which
+   * under multi-topic is a real partition ID belonging to the alphabetically first topic.
    */
   public List<Integer> getPartitions() {
     List<Integer> partitions =
-        consumer.assignment().stream()
-            .filter(p -> p.topic().equals(userConfig.getTopicName()))
-            .map(TopicPartition::partition)
+        currentAssignment.stream()
+            // A topic rebalanced in but never configured has no ID reserved for it, so it is
+            // dropped here rather than thrown on downstream.
+            .filter(topicPartition -> configuredTopics.contains(topicPartition.topic()))
+            .map(this::partitionId)
+            .sorted()
             .collect(Collectors.toList());
-    log.debug("Partitions: {}", partitions);
+    if (!partitions.equals(lastLoggedPartitions)) {
+      log.debug("Partitions: {}", partitions);
+      lastLoggedPartitions = partitions;
+    }
     return partitions;
+  }
+
+  /**
+   * The ID Numaflow watermarks this partition by: the bare Kafka partition in single-topic mode,
+   * and one drawn from the topic's reserved range under multi-topic.
+   */
+  private int partitionId(TopicPartition topicPartition) {
+    return partitionIdMapper == null
+        ? topicPartition.partition()
+        : partitionIdMapper.globalPartitionId(topicPartition);
   }
 
   /**

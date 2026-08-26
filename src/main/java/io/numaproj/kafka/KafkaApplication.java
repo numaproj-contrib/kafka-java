@@ -10,6 +10,7 @@ import io.numaproj.kafka.config.ProducerConfig;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.consumer.Admin;
 import io.numaproj.kafka.consumer.KafkaSourcer;
+import io.numaproj.kafka.consumer.PartitionIdMapper;
 import io.numaproj.kafka.format.AvroFormat;
 import io.numaproj.kafka.format.ByteArrayFormat;
 import io.numaproj.kafka.format.JsonFormat;
@@ -102,10 +103,16 @@ public class KafkaApplication {
     Runtime.getRuntime().addShutdownHook(new Thread(metricsServer::stop));
     SourceMetrics metrics = PrometheusSourceMetrics.defaultRegistryInstance();
     metrics.registerTopics(userConfig.getTopicNames());
+    PartitionIdMapper partitionIdMapper = buildPartitionIdMapper(admin, userConfig);
 
     if (SCHEMA_TYPE_AVRO.equals(userConfig.getSchemaType())) {
       new KafkaSourcer<GenericRecord>(
-              userConfig, admin, AvroFormat.forSource(), consumerConfig::kafkaAvroConsumer, metrics)
+              userConfig,
+              admin,
+              AvroFormat.forSource(),
+              consumerConfig::kafkaAvroConsumer,
+              metrics,
+              partitionIdMapper)
           .startConsumer();
     } else {
       // json or raw: values are forwarded downstream as-is
@@ -114,15 +121,34 @@ public class KafkaApplication {
               admin,
               new ByteArrayFormat(),
               consumerConfig::kafkaByteArrayConsumer,
-              metrics)
+              metrics,
+              partitionIdMapper)
           .startConsumer();
     }
+  }
+
+  /**
+   * Builds the partition ID map from the topics' current partition counts, or returns null in
+   * single-topic mode, where the bare Kafka partition is already the Numaflow partition ID.
+   *
+   * <p>Staying off the map in single-topic mode is what keeps an existing deployment's partition
+   * IDs unchanged on upgrade, and keeps tolerating a topic that has not been created yet.
+   */
+  private static PartitionIdMapper buildPartitionIdMapper(Admin admin, UserConfig userConfig)
+      throws Exception {
+    if (!userConfig.isMultiTopic()) {
+      return null;
+    }
+    PartitionIdMapper partitionIdMapper =
+        PartitionIdMapper.of(admin.partitionCounts(userConfig.getTopicNames()));
+    log.info("Partition ID map: {}", partitionIdMapper);
+    return partitionIdMapper;
   }
 
   private static void startProducer(Map<String, String> argMap, UserConfig userConfig)
       throws Exception {
     if (userConfig.isMultiTopic()) {
-      // Multi-topic is a source-only feature; the sink has no rule for choosing a topic per message.
+      // Multi-topic is source-only; the sink has no rule for choosing a topic per message.
       throw new IllegalArgumentException(
           "--topicNames is not supported in producer mode, use --topicName");
     }

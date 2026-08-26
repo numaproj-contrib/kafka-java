@@ -35,44 +35,56 @@ public class AdminTest {
   private final AdminClient adminClientMock = mock(AdminClient.class);
 
   private static final String TEST_TOPIC = "test-topic";
+  private static final String OTHER_TOPIC = "other-topic";
   private static final String TEST_GROUP_ID = "test-group-id";
 
   private Admin underTest;
 
   @BeforeEach
   public void setUp() {
+    // Stubbed before the Admin is built: it reads the topics once, in its constructor.
+    when(userConfigMock.getTopicNames()).thenReturn(List.of(TEST_TOPIC));
     underTest = new Admin(userConfigMock, TEST_GROUP_ID, adminClientMock);
-    when(userConfigMock.getTopicName()).thenReturn(TEST_TOPIC);
   }
 
   @Test
   public void getPendingMessages_success() {
     try {
-      List<TopicPartition> topicPartitionList = generateTopicPartitions();
-      Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap =
-          generateTopicPartitionOffsetMetadata(topicPartitionList);
-      Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo>
-          topicPartitionListOffsetsResultInfoMap =
-              generateListOffsetsResultInfo(topicPartitionList);
-      ListOffsetsResult listOffsetsResultMock = Mockito.mock(ListOffsetsResult.class);
-      when(adminClientMock.listOffsets(any())).thenReturn(listOffsetsResultMock);
-      KafkaFuture<Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo>> mapKafkaFutureMock =
-          Mockito.mock(KafkaFuture.class);
-      when(listOffsetsResultMock.all()).thenReturn(mapKafkaFutureMock);
-      ListConsumerGroupOffsetsResult listConsumerGroupOffsetsResultMock =
-          Mockito.mock(ListConsumerGroupOffsetsResult.class);
-      KafkaFuture<Map<TopicPartition, OffsetAndMetadata>> kafkaFutureMock =
-          Mockito.mock(KafkaFuture.class);
-      when(kafkaFutureMock.get()).thenReturn(topicPartitionOffsetAndMetadataMap);
-      when(mapKafkaFutureMock.get()).thenReturn(topicPartitionListOffsetsResultInfoMap);
-      when(adminClientMock.listConsumerGroupOffsets(eq(TEST_GROUP_ID)))
-          .thenReturn(listConsumerGroupOffsetsResultMock);
-      when(listConsumerGroupOffsetsResultMock.partitionsToOffsetAndMetadata())
-          .thenReturn(kafkaFutureMock);
+      stubConsumerGroupOffsets(generateTopicPartitions());
 
       long pendingMessages = underTest.getPendingMessages();
       // 100 + 100 + 100 - 10 - 10 - 10 = 270
       assertEquals(270, pendingMessages);
+    } catch (Exception e) {
+      fail();
+    }
+  }
+
+  @Test
+  public void getPendingMessages_multipleTopics_sumsTheLagAcrossAllOfThem() {
+    try {
+      when(userConfigMock.getTopicNames()).thenReturn(List.of(TEST_TOPIC, OTHER_TOPIC));
+      underTest = new Admin(userConfigMock, TEST_GROUP_ID, adminClientMock);
+      stubConsumerGroupOffsets(
+          List.of(new TopicPartition(TEST_TOPIC, 1), new TopicPartition(OTHER_TOPIC, 2)));
+
+      // (101 - 11) + (102 - 12) = 180
+      assertEquals(180, underTest.getPendingMessages());
+    } catch (Exception e) {
+      fail();
+    }
+  }
+
+  @Test
+  public void getPendingMessages_topicInTheGroupButNotConfigured_isExcluded() {
+    try {
+      // A consumer group outlives a config change, so it can still hold offsets for a topic this
+      // source no longer reads; counting those would overstate the backlog and over-scale.
+      stubConsumerGroupOffsets(
+          List.of(new TopicPartition(TEST_TOPIC, 1), new TopicPartition(OTHER_TOPIC, 2)));
+
+      // Only test-topic partition 1 counts: 101 - 11 = 90.
+      assertEquals(90, underTest.getPendingMessages());
     } catch (Exception e) {
       fail();
     }
@@ -88,6 +100,37 @@ public class AdminTest {
     } catch (Exception e) {
       fail();
     }
+  }
+
+  /**
+   * Stubs the group as holding a committed offset on each of {@code topicPartitionList}.
+   * listOffsets answers only for the partitions it was actually asked about, so the topic filter
+   * under test genuinely decides what gets summed.
+   */
+  private void stubConsumerGroupOffsets(List<TopicPartition> topicPartitionList) throws Exception {
+    Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap =
+        generateTopicPartitionOffsetMetadata(topicPartitionList);
+    Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> latestOffsets =
+        generateListOffsetsResultInfo(topicPartitionList);
+
+    ListOffsetsResult listOffsetsResultMock = Mockito.mock(ListOffsetsResult.class);
+    when(adminClientMock.listOffsets(any()))
+        .thenAnswer(
+            invocation -> {
+              Map<TopicPartition, ?> requested = invocation.getArgument(0);
+              Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo> answered =
+                  new HashMap<>(latestOffsets);
+              answered.keySet().retainAll(requested.keySet());
+              when(listOffsetsResultMock.all()).thenReturn(KafkaFuture.completedFuture(answered));
+              return listOffsetsResultMock;
+            });
+
+    ListConsumerGroupOffsetsResult listConsumerGroupOffsetsResultMock =
+        Mockito.mock(ListConsumerGroupOffsetsResult.class);
+    when(adminClientMock.listConsumerGroupOffsets(eq(TEST_GROUP_ID)))
+        .thenReturn(listConsumerGroupOffsetsResultMock);
+    when(listConsumerGroupOffsetsResultMock.partitionsToOffsetAndMetadata())
+        .thenReturn(KafkaFuture.completedFuture(topicPartitionOffsetAndMetadataMap));
   }
 
   private Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo>

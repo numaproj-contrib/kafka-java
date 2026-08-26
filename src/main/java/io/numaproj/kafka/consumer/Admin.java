@@ -4,6 +4,7 @@ import io.numaproj.kafka.config.UserConfig;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
@@ -21,14 +22,16 @@ public class Admin {
   // https://github.com/numaproj/numaflow/blob/main/pkg/isb/interfaces.go#L31
   static final long PendingNotAvailable = Long.MIN_VALUE;
 
-  private final UserConfig userConfig;
   private final String consumerGroupId;
   private final AdminClient adminClient;
+  // Every configured topic; the consumer group's offsets cover all of them and the lag is summed
+  // across the lot, so a MonoVertex scales on its total backlog.
+  private final Set<String> topicNames;
 
   public Admin(UserConfig userConfig, String consumerGroupId, AdminClient adminClient) {
-    this.userConfig = userConfig;
     this.consumerGroupId = consumerGroupId;
     this.adminClient = adminClient;
+    this.topicNames = Set.copyOf(userConfig.getTopicNames());
   }
 
   public long getPendingMessages() {
@@ -41,7 +44,8 @@ public class Admin {
           listConsumerGroupOffsetsResult.partitionsToOffsetAndMetadata().get();
       topicPartitionOffsetAndMetadataMap.forEach(
           (k, v) -> {
-            if (userConfig.getTopicName().equals(k.topic())) {
+            // The group may hold offsets for topics this source no longer consumes; skip those.
+            if (topicNames.contains(k.topic())) {
               topicPartitionOffsetSpecMap.put(k, OffsetSpec.latest());
             }
           });
