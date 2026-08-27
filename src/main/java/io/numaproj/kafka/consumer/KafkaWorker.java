@@ -113,9 +113,9 @@ public class KafkaWorker<V> implements Runnable {
           e.topicPartition().partition(),
           e.offset(),
           CommonUtils.sanitizeFailure(e.getCause() != null ? e.getCause() : e));
-      // Kafka 4.0 caches the exception and does not advance nextFetchOffset, so a re-poll at the
-      // same position rethrows without invoking the deserializer again. Seeking past the record
-      // clears the cached fetch.
+      // The consumer throws only once the batch it would return is empty, so every good record
+      // before this offset was already handed back by an earlier poll and none is dropped here.
+      // It then retries this same offset on every poll, so seek past it to make progress.
       consumer.seek(e.topicPartition(), e.offset() + 1);
       // Nothing to hand over: the next read resumes past the drop.
       consumerRecordList = List.of();

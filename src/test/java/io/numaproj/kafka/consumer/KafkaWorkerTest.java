@@ -189,6 +189,31 @@ class KafkaWorkerTest {
   }
 
   @Test
+  void poll_whenABatchEndsInABadRecord_thenTheGoodRecordsArriveBeforeTheSkip() throws Exception {
+    // The consumer holds the failure back until it has no records left to return, so a batch of
+    // [100, 101, 102, 103] whose last record is undeserializable arrives as [100, 101, 102]
+    // followed by a throw for 103. The empty batch the skip hands back costs no good record.
+    when(consumer.poll(any()))
+        .thenReturn(records(100L, "a", "b", "c"))
+        .thenThrow(deserializationException(103L, new RuntimeException("bad")))
+        .thenReturn(records(104L, "d"));
+    KafkaWorker<byte[]> skipWorker = worker(OnError.SKIP);
+    Thread skipThread = new Thread(skipWorker);
+    skipThread.start();
+
+    List<ConsumerRecord<String, byte[]>> good = skipWorker.poll(1000);
+    List<ConsumerRecord<String, byte[]>> skipped = skipWorker.poll(1000);
+    List<ConsumerRecord<String, byte[]>> resumed = skipWorker.poll(1000);
+
+    assertEquals(List.of(100L, 101L, 102L), good.stream().map(ConsumerRecord::offset).toList());
+    assertEquals(List.of(), skipped);
+    assertEquals(List.of(104L), resumed.stream().map(ConsumerRecord::offset).toList());
+    verify(consumer).seek(new TopicPartition(TOPIC, 1), 104L);
+    verify(metrics, times(1)).recordSkipped();
+    skipThread.interrupt();
+  }
+
+  @Test
   void commit_delegatesToConsumer() throws Exception {
     thread.start();
     worker.commit();
@@ -206,12 +231,16 @@ class KafkaWorkerTest {
   }
 
   private static ConsumerRecords<String, byte[]> records(String... values) {
+    return records(0L, values);
+  }
+
+  private static ConsumerRecords<String, byte[]> records(long firstOffset, String... values) {
     List<ConsumerRecord<String, byte[]>> list = new ArrayList<>();
     for (int i = 0; i < values.length; i++) {
       byte[] value = values[i] == null ? null : values[i].getBytes();
       list.add(
           new ConsumerRecord<>(
-              TOPIC, 1, i, 0L, TimestampType.CREATE_TIME, 0, 0, "k" + i, value,
+              TOPIC, 1, firstOffset + i, 0L, TimestampType.CREATE_TIME, 0, 0, "k" + i, value,
               new RecordHeaders(), Optional.empty()));
     }
     return new ConsumerRecords<>(Map.of(new TopicPartition(TOPIC, 1), list));
