@@ -108,6 +108,11 @@ Once the pipeline is running you should see JSON-encoded Avro records in the sin
 Payload -  {"Name":"John","Age":30}
 ```
 
+### Handling records that fail to be read
+
+By default a record that fails to be read crashes the vertex. Set
+[`onError: skip`](../on-error.md) in `user.configuration` to drop and count it instead.
+
 ### Assuming an IAM role
 
 If the pod's base credentials do not have direct Glue access, add `assumeRoleArn` to `consumer.properties`:

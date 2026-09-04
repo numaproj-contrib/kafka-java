@@ -3,7 +3,9 @@ package io.numaproj.kafka;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.google.common.annotations.VisibleForTesting;
 import io.numaproj.kafka.config.ConsumerConfig;
+import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.config.ProducerConfig;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.consumer.Admin;
@@ -11,6 +13,9 @@ import io.numaproj.kafka.consumer.KafkaSourcer;
 import io.numaproj.kafka.format.AvroFormat;
 import io.numaproj.kafka.format.ByteArrayFormat;
 import io.numaproj.kafka.format.JsonFormat;
+import io.numaproj.kafka.metrics.MetricsServer;
+import io.numaproj.kafka.metrics.PrometheusSourceMetrics;
+import io.numaproj.kafka.metrics.SourceMetrics;
 import io.numaproj.kafka.producer.KafkaSinker;
 import io.numaproj.kafka.schema.Registry;
 import java.io.File;
@@ -34,6 +39,7 @@ public class KafkaApplication {
   private static final String KEY_SCHEMA_TYPE = "schemaType";
   private static final String KEY_SCHEMA_SUBJECT = "schemaSubject";
   private static final String KEY_SCHEMA_VERSION = "schemaVersion";
+  private static final String KEY_ON_ERROR = "onError";
 
   private static final String HANDLER_CONSUMER = "consumer";
   private static final String HANDLER_PRODUCER = "producer";
@@ -85,15 +91,22 @@ public class KafkaApplication {
     String groupId = consumerConfig.consumerGroupId();
     var adminClient = consumerConfig.kafkaAdminClient();
     Admin admin = new Admin(userConfig, groupId, adminClient);
+    MetricsServer metricsServer = MetricsServer.start();
+    Runtime.getRuntime().addShutdownHook(new Thread(metricsServer::stop));
+    SourceMetrics metrics = PrometheusSourceMetrics.defaultRegistryInstance();
 
     if (SCHEMA_TYPE_AVRO.equals(userConfig.getSchemaType())) {
       new KafkaSourcer<GenericRecord>(
-              userConfig, admin, AvroFormat.forSource(), consumerConfig::kafkaAvroConsumer)
+              userConfig, admin, AvroFormat.forSource(), consumerConfig::kafkaAvroConsumer, metrics)
           .startConsumer();
     } else {
       // json or raw: values are forwarded downstream as-is
       new KafkaSourcer<byte[]>(
-              userConfig, admin, new ByteArrayFormat(), consumerConfig::kafkaByteArrayConsumer)
+              userConfig,
+              admin,
+              new ByteArrayFormat(),
+              consumerConfig::kafkaByteArrayConsumer,
+              metrics)
           .startConsumer();
     }
   }
@@ -193,7 +206,8 @@ public class KafkaApplication {
     return jsonSchema;
   }
 
-  private static UserConfig buildUserConfig(Map<String, String> argMap) {
+  @VisibleForTesting
+  static UserConfig buildUserConfig(Map<String, String> argMap) {
     String topicName = argMap.get(KEY_TOPIC_NAME);
     if (topicName == null || topicName.isBlank()) {
       throw new IllegalArgumentException("--topicName is required");
@@ -216,6 +230,7 @@ public class KafkaApplication {
         .schemaType(schemaType)
         .schemaSubject(schemaSubject)
         .schemaVersion(schemaVersion)
+        .onError(OnError.from(argMap.get(KEY_ON_ERROR)))
         .build();
   }
 

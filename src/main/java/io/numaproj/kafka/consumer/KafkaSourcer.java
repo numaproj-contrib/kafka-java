@@ -2,9 +2,11 @@ package io.numaproj.kafka.consumer;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.numaproj.kafka.common.CommonUtils;
+import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.format.FormatException;
 import io.numaproj.kafka.format.KafkaFormat;
+import io.numaproj.kafka.metrics.SourceMetrics;
 import io.numaproj.numaflow.sourcer.*;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +14,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -39,6 +42,7 @@ public class KafkaSourcer<V> extends Sourcer {
   private final Admin admin;
   private final KafkaFormat<V> format;
   private final ConsumerFactory<V> consumerFactory;
+  private final SkippedRecordHandler skippedRecordHandler;
 
   // The worker and its thread are lazily initialized on the first read() call because the Numaflow
   // batch size (used to set max.poll.records) is not known until the first ReadRequest arrives.
@@ -53,11 +57,14 @@ public class KafkaSourcer<V> extends Sourcer {
       UserConfig userConfig,
       Admin admin,
       KafkaFormat<V> format,
-      ConsumerFactory<V> consumerFactory) {
+      ConsumerFactory<V> consumerFactory,
+      SourceMetrics metrics) {
     this.userConfig = userConfig;
     this.admin = admin;
     this.format = format;
     this.consumerFactory = consumerFactory;
+    // Shared with the worker so a drop is counted and logged identically at both read-path stages.
+    this.skippedRecordHandler = new SkippedRecordHandler(metrics);
   }
 
   public void startConsumer() throws Exception {
@@ -74,7 +81,7 @@ public class KafkaSourcer<V> extends Sourcer {
         "Initializing consumer worker with batchSize={} timeoutMs={}",
         batchSize,
         request.getTimeout().toMillis());
-    worker = new KafkaWorker<>(userConfig, consumerFactory.create(batchSize));
+    worker = new KafkaWorker<>(userConfig, consumerFactory.create(batchSize), skippedRecordHandler);
     workerThread = new Thread(worker, "consumerWorkerThread");
     workerThread.start();
   }
@@ -98,7 +105,11 @@ public class KafkaSourcer<V> extends Sourcer {
     try {
       consumerRecordList = worker.poll(request.getTimeout().toMillis());
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       kill(new RuntimeException(e));
+      return;
+    } catch (RuntimeException e) {
+      kill(e);
       return;
     }
     if (consumerRecordList == null) {
@@ -106,13 +117,30 @@ public class KafkaSourcer<V> extends Sourcer {
     }
 
     int sent = 0;
-    for (ConsumerRecord<String, V> consumerRecord : consumerRecordList) {
-      if (consumerRecord == null) {
-        continue;
+    try {
+      for (ConsumerRecord<String, V> consumerRecord : consumerRecordList) {
+        if (consumerRecord == null) {
+          continue;
+        }
+        if (consumerRecord.value() == null) {
+          // A Kafka tombstone: nothing to forward downstream.
+          skippedRecordHandler.handleTombstone();
+          continue;
+        }
+        Optional<byte[]> payload = toPayload(consumerRecord);
+        if (payload.isEmpty()) {
+          // Not tracked: Numaflow never received this record, so no ack will reference it. The
+          // committed offset is unaffected - commitAsync() commits the consumer's position,
+          // which is already past this record.
+          continue;
+        }
+        observer.send(toMessage(consumerRecord, payload.get()));
+        trackReadOffset(consumerRecord);
+        sent++;
       }
-      observer.send(toMessage(consumerRecord));
-      trackReadOffset(consumerRecord);
-      sent++;
+    } catch (RuntimeException e) {
+      kill(e);
+      return;
     }
     log.debug(
         "BatchRead summary: requested:{} sent:{} partitions:{} readTopicPartitionOffsetMap:{}",
@@ -122,7 +150,31 @@ public class KafkaSourcer<V> extends Sourcer {
         readTopicPartitionOffsetMap);
   }
 
-  private Message toMessage(ConsumerRecord<String, V> consumerRecord) {
+  /**
+   * Converts a record's value to a payload, applying {@code onError} on failure.
+   *
+   * @return the payload, or empty if the record was dropped under {@code onError: skip}
+   * @throws RuntimeException if the value cannot be converted and {@code onError} is not {@code
+   *     skip}
+   */
+  private Optional<byte[]> toPayload(ConsumerRecord<String, V> consumerRecord) {
+    try {
+      return Optional.of(format.toPayload(consumerRecord.value()));
+    } catch (FormatException e) {
+      if (userConfig.getOnError() != OnError.SKIP) {
+        throw new RuntimeException(
+            "Failed to convert the record to a payload: "
+                + SkippedRecordHandler.coordinates(
+                    consumerRecord.topic(), consumerRecord.partition(), consumerRecord.offset()),
+            e);
+      }
+      skippedRecordHandler.handleSkipped(
+          consumerRecord.topic(), consumerRecord.partition(), consumerRecord.offset(), e);
+      return Optional.empty();
+    }
+  }
+
+  private static <V> Message toMessage(ConsumerRecord<String, V> consumerRecord, byte[] payload) {
     Map<String, String> kafkaHeaders = new HashMap<>();
     for (Header header : consumerRecord.headers()) {
       kafkaHeaders.put(header.key(), new String(header.value(), StandardCharsets.UTF_8));
@@ -132,14 +184,6 @@ public class KafkaSourcer<V> extends Sourcer {
     kafkaHeaders.put(KAFKA_TOPIC_HEADER, consumerRecord.topic());
     // TODO - Do we need to add cluster ID to the offset value? For now this is good enough.
     String offsetValue = consumerRecord.topic() + ":" + consumerRecord.offset();
-    byte[] payload;
-    try {
-      payload = format.toPayload(consumerRecord.value());
-    } catch (FormatException e) {
-      String errMsg = "Failed to convert the record to a payload: " + consumerRecord;
-      log.error(errMsg, e);
-      throw new RuntimeException(errMsg, e);
-    }
     return new Message(
         payload,
         new Offset(offsetValue.getBytes(StandardCharsets.UTF_8), consumerRecord.partition()),
@@ -180,7 +224,10 @@ public class KafkaSourcer<V> extends Sourcer {
     try {
       worker.commit();
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       kill(new RuntimeException(e));
+    } catch (RuntimeException e) {
+      kill(e);
     }
   }
 
@@ -205,6 +252,7 @@ public class KafkaSourcer<V> extends Sourcer {
     return worker == null ? List.of() : worker.getPartitions();
   }
 
+  /** Logs the exception and exits with code 100, so Kubernetes restarts the pod as a crash. */
   public void kill(Exception e) {
     log.error("Received kill signal, shutting down the sourcer", e);
     System.exit(100);

@@ -34,4 +34,13 @@ public class CommonUtils {
     }
     return null;
   }
+
+  /** Returns a loggable copy of the failure chain: class names and stack traces, no messages. */
+  public static Throwable sanitizeFailure(Throwable failure) {
+    Throwable cause = failure.getCause();
+    Throwable sanitized =
+        new Throwable(failure.getClass().getName(), cause == null ? null : sanitizeFailure(cause));
+    sanitized.setStackTrace(failure.getStackTrace());
+    return sanitized;
+  }
 }

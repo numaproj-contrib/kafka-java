@@ -32,3 +32,6 @@ data:
     # raw: the decrypted bytes are forwarded as they are, with no deserialization step. Decryption
     # is configured the same way for any other schemaType.
     schemaType: raw
+    # Optional: fail (default) crashes the vertex on a record that fails to be read;
+    # skip drops the record and continues. See docs/source/on-error.md.
+    # onError: fail

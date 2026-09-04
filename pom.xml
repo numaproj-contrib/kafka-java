@@ -157,6 +157,25 @@
             <version>${lombok.version}</version>
             <optional>true</optional>
         </dependency>
+        <!-- Prometheus metrics exposition over HTTP. exposition-formats is excluded: it carries a
+             shaded protobuf for the deprecated protobuf exposition format; exposition-textformats
+             remains and is all Prometheus scraping needs. Zero third-party transitives otherwise. -->
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>prometheus-metrics-core</artifactId>
+            <version>1.8.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.prometheus</groupId>
+                    <artifactId>prometheus-metrics-exposition-formats</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>prometheus-metrics-exporter-httpserver</artifactId>
+            <version>1.8.0</version>
+        </dependency>
         <!-- Test dependencies -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -230,6 +249,11 @@
                         --add-opens java.base/java.io=ALL-UNNAMED
                         --add-opens java.base/java.nio=ALL-UNNAMED
                     </argLine>
+                    <!-- Disable the metrics HTTP server during unit tests: KafkaApplicationTest calls
+                         main() several times in the same JVM, and a fixed port cannot be rebound. -->
+                    <environmentVariables>
+                        <KAFKA_JAVA_METRICS_PORT>0</KAFKA_JAVA_METRICS_PORT>
+                    </environmentVariables>
                 </configuration>
             </plugin>
             <plugin>
@@ -283,6 +307,9 @@
                                 <mainClass>
                                     io.numaproj.kafka.KafkaApplication
                                 </mainClass>
+                                <ports>
+                                    <port>9091</port>
+                                </ports>
                                 <jvmFlags>
                                     <jvmFlag>-XX:+UnlockExperimentalVMOptions</jvmFlag>
                                     <jvmFlag>-XX:MaxRAMPercentage=70</jvmFlag>

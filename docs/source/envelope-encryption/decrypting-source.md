@@ -95,12 +95,14 @@ To decrypt Avro instead, add the registry configuration from the [Avro](../avro/
 
 ### Failure behavior
 
-The source **fails fast** (logs a clear error and exits, so the pod restarts) on any unrecoverable
-condition: a malformed key ARN at startup; or, per message, a value that is not a valid envelope, an
-unsupported `alg`, a KMS `Decrypt` failure (including ciphertext wrapped under a different key), or an
-authentication-tag failure (tampering / wrong key). A poison or tampered message will therefore
-crash-loop the vertex until its offset is advanced or the message is removed. Plaintext keys and
-decrypted payloads are never logged.
+By default the source **fails fast** (logs a clear error and exits, so the pod restarts) on any
+unrecoverable condition: a malformed key ARN at startup; or, per message, a value that is not a valid
+envelope, an unsupported `alg`, a KMS `Decrypt` failure (including ciphertext wrapped under a
+different key), or an authentication-tag failure (tampering / wrong key). A poison or tampered message
+will therefore crash-loop the vertex until its offset is advanced or the message is removed. Plaintext
+keys and decrypted payloads are never logged.
+
+Set [`onError: skip`](../on-error.md) to drop and count such a message instead of crash-looping.
 
 > **Producer responsibility — nonce uniqueness.** AES-256-GCM is only secure if the producer never
 > reuses a nonce under the same DEK. Reuse is catastrophic: it exposes the XOR of the affected

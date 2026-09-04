@@ -3,16 +3,29 @@ package io.numaproj.kafka.consumer;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import io.numaproj.kafka.config.OnError;
+import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.format.ByteArrayFormat;
+import io.numaproj.kafka.format.FormatException;
+import io.numaproj.kafka.format.KafkaFormat;
+import io.numaproj.kafka.metrics.SourceMetrics;
 import io.numaproj.numaflow.sourcer.*;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.slf4j.LoggerFactory;
 
 class KafkaSourcerTest {
 
@@ -24,6 +37,7 @@ class KafkaSourcerTest {
   private static final String TOPIC_HEADER = "X-NF-Kafka-TopicName";
 
   private final Admin admin = mock(Admin.class);
+  private final SourceMetrics metrics = mock(SourceMetrics.class);
   @SuppressWarnings("unchecked")
   private final KafkaWorker<byte[]> worker = mock(KafkaWorker.class);
   private final OutputObserver observer = mock(OutputObserver.class);
@@ -32,18 +46,40 @@ class KafkaSourcerTest {
 
   @BeforeEach
   void setUp() {
-    underTest =
-        Mockito.spy(new KafkaSourcer<>(null, admin, new ByteArrayFormat(), batchSize -> null));
+    underTest = sourcer(new ByteArrayFormat(), OnError.FAIL, worker);
+  }
+
+  /** A mocked UserConfig, stubbed only with the {@code onError} the sourcer reads on a failure. */
+  private static UserConfig userConfig(OnError onError) {
+    UserConfig userConfig = mock(UserConfig.class);
+    when(userConfig.getOnError()).thenReturn(onError);
+    return userConfig;
+  }
+
+  private KafkaSourcer<byte[]> sourcer(
+      KafkaFormat<byte[]> format, OnError onError, KafkaWorker<byte[]> worker) {
+    KafkaSourcer<byte[]> sourcer =
+        Mockito.spy(
+            new KafkaSourcer<>(userConfig(onError), admin, format, batchSize -> null, metrics));
     Thread aliveThread = mock(Thread.class);
     when(aliveThread.isAlive()).thenReturn(true);
-    underTest.setWorker(worker, aliveThread);
+    sourcer.setWorker(worker, aliveThread);
+    return sourcer;
   }
 
   private static ReadRequest readRequest(long count) {
+    return readRequest(count, 100);
+  }
+
+  private static ReadRequest readRequest(long count, long timeoutMs) {
     ReadRequest request = mock(ReadRequest.class);
     when(request.getCount()).thenReturn(count);
-    when(request.getTimeout()).thenReturn(Duration.ofMillis(100));
+    when(request.getTimeout()).thenReturn(Duration.ofMillis(timeoutMs));
     return request;
+  }
+
+  private static ConsumerRecord<String, byte[]> tombstone(long offset) {
+    return new ConsumerRecord<>(TOPIC, 1, offset, "key", null);
   }
 
   private static ConsumerRecord<String, byte[]> record(long offset) {
@@ -111,6 +147,67 @@ class KafkaSourcerTest {
   }
 
   @Test
+  void read_whenFormatFailsAndOnErrorFail_thenKillsWithFailureIdentifyingRecordByCoordinatesOnly()
+      throws Exception {
+    KafkaSourcer<byte[]> sourcer = sourcer(failingFormat(), OnError.FAIL, worker);
+    ConsumerRecord<String, byte[]> sensitiveRecord =
+        new ConsumerRecord<>(TOPIC, 1, 42L, "key", "super-secret-value".getBytes());
+    when(worker.poll(anyLong())).thenReturn(List.of(sensitiveRecord));
+    doNothing().when(sourcer).kill(any());
+
+    sourcer.read(readRequest(1), observer);
+
+    verify(observer, never()).send(any());
+    ArgumentCaptor<Exception> captor = ArgumentCaptor.forClass(Exception.class);
+    verify(sourcer).kill(captor.capture());
+    String message = captor.getValue().getMessage();
+    assertTrue(message.contains("offset:42"));
+    assertFalse(message.contains("ConsumerRecord"));
+    assertFalse(message.contains("super-secret-value"));
+  }
+
+  @Test
+  void read_whenFormatFailsAndOnErrorSkip_thenDropsWithoutSendingOrKilling() throws Exception {
+    KafkaSourcer<byte[]> sourcer = sourcer(failingFormat(), OnError.SKIP, worker);
+    when(worker.poll(anyLong())).thenReturn(List.of(record(7)));
+    doNothing().when(sourcer).kill(any());
+
+    sourcer.read(readRequest(1), observer);
+
+    verify(observer, never()).send(any());
+    verify(sourcer, never()).kill(any());
+  }
+
+  @SuppressWarnings("unchecked")
+  private static KafkaFormat<byte[]> failingFormat() {
+    KafkaFormat<byte[]> format = mock(KafkaFormat.class);
+    try {
+      when(format.toPayload(any())).thenThrow(new FormatException("boom"));
+    } catch (FormatException e) {
+      throw new RuntimeException(e);
+    }
+    return format;
+  }
+
+  @Test
+  void read_tombstone_isCountedAndNotForwarded() throws Exception {
+    when(worker.poll(anyLong())).thenReturn(List.of(record(5), tombstone(6), record(7)));
+
+    underTest.read(readRequest(3), observer);
+
+    verify(observer, times(2)).send(any(Message.class));
+    verify(metrics, times(1)).recordSkipped();
+  }
+
+  @Test
+  void read_whenPollThrowsRuntimeException_thenKills() throws Exception {
+    when(worker.poll(anyLong())).thenThrow(new RuntimeException("boom"));
+    doNothing().when(underTest).kill(any());
+    underTest.read(readRequest(1), observer);
+    verify(underTest).kill(any(RuntimeException.class));
+  }
+
+  @Test
   void read_whenWorkerThreadDead_thenKills() {
     Thread deadThread = mock(Thread.class);
     when(deadThread.isAlive()).thenReturn(false);
@@ -163,5 +260,101 @@ class KafkaSourcerTest {
         return List.of(offset);
       }
     };
+  }
+
+  private static AckRequest ackRequest(int partition, long... offsets) {
+    List<Offset> acked = new ArrayList<>();
+    for (long offset : offsets) {
+      acked.add(
+          new Offset((TOPIC + ":" + offset).getBytes(StandardCharsets.UTF_8), partition));
+    }
+    return () -> acked;
+  }
+
+  /** Fails to convert the record whose value is {@code "bad"}, and converts anything else. */
+  @SuppressWarnings("unchecked")
+  private static KafkaFormat<byte[]> formatFailingOnBadValue() {
+    KafkaFormat<byte[]> format = mock(KafkaFormat.class);
+    try {
+      when(format.toPayload(any()))
+          .thenAnswer(
+              invocation -> {
+                byte[] value = invocation.getArgument(0);
+                if ("bad".equals(new String(value, StandardCharsets.UTF_8))) {
+                  throw new FormatException("boom");
+                }
+                return value;
+              });
+    } catch (FormatException e) {
+      throw new RuntimeException(e);
+    }
+    return format;
+  }
+
+  private static ConsumerRecord<String, byte[]> record(long offset, String value) {
+    return new ConsumerRecord<>(TOPIC, 1, offset, "key", value.getBytes(StandardCharsets.UTF_8));
+  }
+
+  private static List<ILoggingEvent> captureErrors(Runnable action) {
+    Logger logger = (Logger) LoggerFactory.getLogger(KafkaSourcer.class);
+    ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    appender.start();
+    logger.addAppender(appender);
+    try {
+      action.run();
+    } finally {
+      logger.detachAppender(appender);
+    }
+    return appender.list.stream().filter(e -> e.getLevel() == Level.ERROR).toList();
+  }
+
+  @Test
+  void read_whenRecordSkipped_thenAckOfTheForwardedOffsetStaysInSync() throws Exception {
+    KafkaSourcer<byte[]> sourcer = sourcer(formatFailingOnBadValue(), OnError.SKIP, worker);
+    // The skipped record sits at the higher offset, so tracking it would leave the read map ahead
+    // of anything Numaflow can ack.
+    when(worker.poll(anyLong())).thenReturn(List.of(record(5, "good"), record(6, "bad")));
+
+    sourcer.read(readRequest(2), observer);
+
+    verify(observer, times(1)).send(any(Message.class));
+    // Numaflow acks only offset 5, the one record it received.
+    List<ILoggingEvent> errors = captureErrors(() -> sourcer.ack(ackRequest(1, 5L)));
+    assertEquals(List.of(), errors, "read and ack must agree when a record is skipped");
+    verify(worker).commit();
+  }
+
+  @Test
+  void ack_whenReadOffsetIsAheadOfTheAckedOffset_thenReportsOutOfSync() {
+    // The state that tracking a skipped record would produce: read at offset 6, but Numaflow can
+    // only ack offset 5, the last record it actually received.
+    underTest.setReadTopicPartitionOffsetMap(new HashMap<>(Map.of(TOPIC + ":1", 6L)));
+
+    List<ILoggingEvent> errors = captureErrors(() -> underTest.ack(ackRequest(1, 5L)));
+
+    assertEquals(1, errors.size());
+    assertTrue(errors.get(0).getFormattedMessage().contains("READ AND ACK ARE NOT IN SYNC"));
+  }
+
+  @Test
+  void read_whenABatchIsFullySkipped_thenTheFollowingBatchAckCommitsPastIt() throws Exception {
+    KafkaSourcer<byte[]> sourcer = sourcer(formatFailingOnBadValue(), OnError.SKIP, worker);
+
+    // Nothing is forwarded, so no ack arrives: Numaflow only acks offsets it received, and so the
+    // consumer position past offset 6 stays uncommitted for now.
+    when(worker.poll(anyLong())).thenReturn(List.of(record(6, "bad")));
+    sourcer.read(readRequest(1), observer);
+
+    verify(observer, never()).send(any());
+    verify(worker, never()).commit();
+
+    // The next batch carries a readable record, and its ack commits the position - by then already
+    // past offset 6.
+    when(worker.poll(anyLong())).thenReturn(List.of(record(7, "good")));
+    sourcer.read(readRequest(1), observer);
+
+    List<ILoggingEvent> errors = captureErrors(() -> sourcer.ack(ackRequest(1, 7L)));
+    assertEquals(List.of(), errors);
+    verify(worker).commit();
   }
 }

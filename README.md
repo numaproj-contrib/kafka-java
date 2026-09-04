@@ -25,6 +25,9 @@ opt-in and composes with any of the above `schemaType`s. See an example [here](d
 In all of the above cases, the source sets the Kafka topic a record was read from on the Numaflow message headers, so a
 downstream vertex can tell which topic it came from. See [message headers](docs/source/message-headers.md).
 
+In all of the above cases, a record the source cannot read crashes the vertex by default. Set
+[`onError: skip`](docs/source/on-error.md) to drop and count it instead.
+
 ### Write data to Kafka
 
 Use Case 4: Write data to Kafka with an Avro schema registered in the Confluent Schema Registry. See an
@@ -43,6 +46,11 @@ opt-in and composes with any of the above `schemaType`s. See an example [here](d
 
 In all of the above cases, the sink copies the Numaflow message headers onto the Kafka record it
 produces, so headers set upstream reach the destination topic. No configuration is required.
+
+### Metrics
+
+The source exposes Prometheus metrics over HTTP. See [source metrics](docs/metrics/source-metrics.md)
+for the metric list and scrape configuration.
 
 ## Upgrading from a Spring Boot version?
 

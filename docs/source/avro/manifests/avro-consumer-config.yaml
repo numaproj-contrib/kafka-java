@@ -26,3 +26,6 @@ data:
   user.configuration: |
     topicName: numagen-avro
     schemaType: avro
+    # Optional: fail (default) crashes the vertex on a record that fails to be read;
+    # skip drops the record and continues. See docs/source/on-error.md.
+    # onError: fail

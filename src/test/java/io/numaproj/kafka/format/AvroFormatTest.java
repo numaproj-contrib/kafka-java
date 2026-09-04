@@ -35,6 +35,23 @@ class AvroFormatTest {
   }
 
   @Test
+  void toPayload_typeMismatch_throwsFormatExceptionNotRawRuntimeException() {
+    // A malformed record surfaces as a RuntimeException (AvroTypeException), not an IOException,
+    // and must still be reported as a FormatException so that onError governs it.
+    GenericRecord record = new GenericData.Record(SCHEMA);
+    record.put("name", 12345); // schema declares "name" as a string
+
+    FormatException e =
+        assertThrows(FormatException.class, () -> AvroFormat.forSource().toPayload(record));
+    // The cause is stripped to class name + stack trace: AvroTypeException's message embeds the
+    // offending datum, which for the encrypted path would leak decrypted field values into logs.
+    assertNotNull(e.getCause());
+    assertTrue(e.getCause().getMessage().endsWith("Exception"), "cause message must be a class name");
+    assertFalse(e.getCause().getMessage().contains("12345"));
+    assertTrue(e.getCause().getStackTrace().length > 0);
+  }
+
+  @Test
   void forSink_nullSchema_rejected() {
     assertThrows(IllegalArgumentException.class, () -> AvroFormat.forSink(null));
   }
