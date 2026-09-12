@@ -106,6 +106,22 @@ class KafkaSourcerTest {
   }
 
   @Test
+  void read_whenHeaderValueIsNull_thenKeyIsKeptAsEmptyString() throws Exception {
+    ConsumerRecord<String, byte[]> record = record(1);
+    record.headers().add("flag", null);
+    when(worker.poll(anyLong())).thenReturn(List.of(record));
+
+    underTest.read(readRequest(1), observer);
+
+    verify(observer)
+        .send(
+            argThat(
+                message ->
+                    message.getHeaders().containsKey("flag")
+                        && "".equals(message.getHeaders().get("flag"))));
+  }
+
+  @Test
   void read_setsTopicHeader() throws Exception {
     when(worker.poll(anyLong())).thenReturn(List.of(record(1)));
 

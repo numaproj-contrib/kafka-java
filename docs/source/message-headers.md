@@ -6,6 +6,18 @@ For every record it reads, the Kafka source copies the record's own Kafka header
 message, and additionally sets `X-NF-Kafka-TopicName`. Numaflow preserves message headers across
 vertices, so any downstream user-defined vertex or sink can read them.
 
+### Headers with a null value
+
+A Kafka header value is nullable on the wire, and some producers use a null value to mark a header
+whose presence is itself the signal. Numaflow message headers travel over gRPC as a protobuf
+`map<string, string>`, whose values cannot be null, so the null has to become something else.
+
+The source keeps the key and surfaces the value as an empty string. A header with a null value and
+one with a zero-length value are therefore indistinguishable downstream. That is a deliberate
+trade-off: the alternative is to drop the header entirely, which would lose the one thing such a
+header is usually meant to convey - that the key is there. An ambiguity between null and empty costs
+less than silently discarding the signal.
+
 ### `X-NF-Kafka-TopicName`
 
 The name of the Kafka topic the record was read from.
