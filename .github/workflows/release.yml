@@ -6,8 +6,7 @@ name: Release
 # version bump releases it and every other push is a no-op. Can also be run by hand from the Actions
 # tab, to retry a failed push.
 #
-# Requires two repository secrets, QUAY_USERNAME and QUAY_PASSWORD: a quay.io robot account under
-# the numaio org with write on numaflow-java/kafka-java only, never a personal password.
+# Pushes as the QUAYIO_USERNAME / QUAYIO_PASSWORD organization secrets.
 
 on:
   push:
@@ -60,8 +59,8 @@ jobs:
             -Djib.to.auth.username="$QUAY_USERNAME" \
             -Djib.to.auth.password="$QUAY_PASSWORD"
         env:
-          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
-          QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+          QUAY_USERNAME: ${{ secrets.QUAYIO_USERNAME }}
+          QUAY_PASSWORD: ${{ secrets.QUAYIO_PASSWORD }}
 
       - name: Tag the commit
         if: steps.check.outputs.publish == 'true'
