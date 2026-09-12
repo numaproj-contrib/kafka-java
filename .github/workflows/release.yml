@@ -1,0 +1,82 @@
+name: Release
+
+# Publishes the image to quay.io and tags the commit.
+#
+# Publishes when <image.tag> in pom.xml names a version that has no git tag yet, so merging a
+# version bump releases it and every other push is a no-op. Can also be run by hand from the Actions
+# tab, to retry a failed push.
+#
+# Requires two repository secrets, QUAY_USERNAME and QUAY_PASSWORD: a quay.io robot account under
+# the numaio org with write on numaflow-java/kafka-java only, never a personal password.
+
+on:
+  push:
+    branches: [main]
+    paths: ['pom.xml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Decide whether to publish
+        id: check
+        run: |
+          set -euo pipefail
+          TAG=$(mvn help:evaluate -Dexpression=image.tag -q -DforceStdout | tr -d '\n')
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          # An existing tag means this version was already published; anything else is a new
+          # version to release.
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "$TAG is already released - nothing to do"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "releasing $TAG"
+          fi
+
+      - name: Run tests
+        if: steps.check.outputs.publish == 'true'
+        run: mvn -B test
+
+      - name: Build and push image to quay.io
+        if: steps.check.outputs.publish == 'true'
+        run: |
+          mvn -B compile jib:build \
+            -Djib.to.auth.username="$QUAY_USERNAME" \
+            -Djib.to.auth.password="$QUAY_PASSWORD"
+        env:
+          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+          QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Tag the commit
+        if: steps.check.outputs.publish == 'true'
+        run: |
+          TAG="${{ steps.check.outputs.tag }}"
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub release
+        if: steps.check.outputs.publish == 'true'
+        run: |
+          TAG="${{ steps.check.outputs.tag }}"
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --generate-notes \
+            --verify-tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
