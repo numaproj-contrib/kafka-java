@@ -177,7 +177,14 @@ public class KafkaSourcer<V> extends Sourcer {
   private static <V> Message toMessage(ConsumerRecord<String, V> consumerRecord, byte[] payload) {
     Map<String, String> kafkaHeaders = new HashMap<>();
     for (Header header : consumerRecord.headers()) {
-      kafkaHeaders.put(header.key(), new String(header.value(), StandardCharsets.UTF_8));
+      // A header value is nullable on the wire - producers use a null value to mark a key whose
+      // presence is itself the signal. Surface it as an empty string: these headers travel to
+      // Numaflow as a protobuf map<string, string>, which rejects a null value, and keeping the
+      // key preserves more than dropping the header would. Null and zero-length values are
+      // therefore indistinguishable downstream.
+      byte[] value = header.value();
+      kafkaHeaders.put(
+          header.key(), value == null ? "" : new String(value, StandardCharsets.UTF_8));
     }
     // Set after the record's own headers so a producer-supplied header of the same name cannot
     // shadow the actual topic.
