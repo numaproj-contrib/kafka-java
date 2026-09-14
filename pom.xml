@@ -292,6 +292,48 @@
                 <groupId>com.google.cloud.tools</groupId>
                 <artifactId>jib-maven-plugin</artifactId>
                 <version>3.4.5</version>
+                <!-- Plugin-level so that both the `package`-bound dockerBuild below and a direct
+                     `mvn jib:build` (used by the release workflow to push straight to quay.io) see
+                     the same image definition. Execution-scoped configuration would not apply to a
+                     goal invoked from the command line. -->
+                <configuration>
+                    <from>
+                        <image>eclipse-temurin:25-jre</image>
+                    </from>
+                    <container>
+                        <mainClass>
+                            io.numaproj.kafka.KafkaApplication
+                        </mainClass>
+                        <ports>
+                            <port>9091</port>
+                        </ports>
+                        <jvmFlags>
+                            <jvmFlag>-XX:+UnlockExperimentalVMOptions</jvmFlag>
+                            <jvmFlag>-XX:MaxRAMPercentage=70</jvmFlag>
+                            <jvmFlag>-XX:+UseG1GC</jvmFlag>
+                            <jvmFlag>-XX:+ParallelRefProcEnabled</jvmFlag>
+                            <jvmFlag>-XX:MaxGCPauseMillis=200</jvmFlag>
+                            <jvmFlag>-XX:+DisableExplicitGC</jvmFlag>
+                            <jvmFlag>-XX:+AlwaysPreTouch</jvmFlag>
+                            <jvmFlag>-XX:G1HeapWastePercent=5</jvmFlag>
+                            <jvmFlag>-XX:G1MixedGCCountTarget=4</jvmFlag>
+                            <jvmFlag>-XX:InitiatingHeapOccupancyPercent=15</jvmFlag>
+                            <jvmFlag>-XX:G1RSetUpdatingPauseTimePercent=5</jvmFlag>
+                            <jvmFlag>-XX:G1NewSizePercent=30</jvmFlag>
+                            <jvmFlag>-XX:G1MaxNewSizePercent=40</jvmFlag>
+                            <jvmFlag>-XX:G1HeapRegionSize=8M</jvmFlag>
+                            <jvmFlag>-XX:G1ReservePercent=20</jvmFlag>
+                            <jvmFlag>-XX:SurvivorRatio=32</jvmFlag>
+                            <jvmFlag>-XX:+PerfDisableSharedMem</jvmFlag>
+                            <jvmFlag>-XX:MaxTenuringThreshold=1</jvmFlag>
+                        </jvmFlags>
+                    </container>
+                    <to>
+                        <image>
+                            quay.io/numaio/numaflow-java/${project.artifactId}:${image.tag}
+                        </image>
+                    </to>
+                </configuration>
                 <executions>
                     <execution>
                         <id>image-build</id>
@@ -299,44 +341,6 @@
                         <goals>
                             <goal>dockerBuild</goal>
                         </goals>
-                        <configuration>
-                            <from>
-                                <image>eclipse-temurin:25-jre</image>
-                            </from>
-                            <container>
-                                <mainClass>
-                                    io.numaproj.kafka.KafkaApplication
-                                </mainClass>
-                                <ports>
-                                    <port>9091</port>
-                                </ports>
-                                <jvmFlags>
-                                    <jvmFlag>-XX:+UnlockExperimentalVMOptions</jvmFlag>
-                                    <jvmFlag>-XX:MaxRAMPercentage=70</jvmFlag>
-                                    <jvmFlag>-XX:+UseG1GC</jvmFlag>
-                                    <jvmFlag>-XX:+ParallelRefProcEnabled</jvmFlag>
-                                    <jvmFlag>-XX:MaxGCPauseMillis=200</jvmFlag>
-                                    <jvmFlag>-XX:+DisableExplicitGC</jvmFlag>
-                                    <jvmFlag>-XX:+AlwaysPreTouch</jvmFlag>
-                                    <jvmFlag>-XX:G1HeapWastePercent=5</jvmFlag>
-                                    <jvmFlag>-XX:G1MixedGCCountTarget=4</jvmFlag>
-                                    <jvmFlag>-XX:InitiatingHeapOccupancyPercent=15</jvmFlag>
-                                    <jvmFlag>-XX:G1RSetUpdatingPauseTimePercent=5</jvmFlag>
-                                    <jvmFlag>-XX:G1NewSizePercent=30</jvmFlag>
-                                    <jvmFlag>-XX:G1MaxNewSizePercent=40</jvmFlag>
-                                    <jvmFlag>-XX:G1HeapRegionSize=8M</jvmFlag>
-                                    <jvmFlag>-XX:G1ReservePercent=20</jvmFlag>
-                                    <jvmFlag>-XX:SurvivorRatio=32</jvmFlag>
-                                    <jvmFlag>-XX:+PerfDisableSharedMem</jvmFlag>
-                                    <jvmFlag>-XX:MaxTenuringThreshold=1</jvmFlag>
-                                </jvmFlags>
-                            </container>
-                            <to>
-                                <image>
-                                    quay.io/numaio/numaflow-java/${project.artifactId}:${image.tag}
-                                </image>
-                            </to>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>

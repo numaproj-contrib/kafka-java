@@ -1,32 +1,23 @@
 # Release Guide
 
-## Prerequisites
+A release is an image pushed to `quay.io/numaio/numaflow-java/kafka-java:<version>`.
 
-- Java 21 (`export JAVA_HOME=$(/usr/libexec/java_home -v 21)`)
-- Maven (`mvn -version`)
-- Docker logged in to quay.io (`docker login quay.io` with encrypted CLI password from quay.io Account Settings)
-- Write access to the `numaio` org on quay.io
+## Releasing
 
-## Steps
+```bash
+./hack/bump-version.sh v0.5.7
+git checkout -b release-v0.5.7
+git commit -am "chore: release v0.5.7"
+gh pr create --fill
+```
 
-1. **Bump the version** — update `v0.5.x` to the new version in:
-   - `pom.xml` (Jib `<to><image>` tag)
-   - All `docs/**/manifests/*.yaml` files
+Merging the PR publishes the image, tags the commit, and drafts the GitHub release.
 
-2. **Build the image**
-   ```bash
-   mvn package -DskipTests
-   ```
+## Publishing by hand
 
-3. **Push to quay.io** (Jib builds the image with the correct tag — no separate tag step needed)
-   ```bash
-   docker push quay.io/numaio/numaflow-java/kafka-java:<version>
-   ```
-
-4. **Create and push git tag**
-   ```bash
-   git tag <version>
-   git push origin <version>
-   ```
-
-5. **Commit and push code changes**
+```bash
+mvn compile jib:build \
+  -Djib.to.auth.username=<robot-user> \
+  -Djib.to.auth.password=<robot-token>
+git tag v0.5.7 && git push origin v0.5.7
+```
