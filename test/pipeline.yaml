@@ -25,7 +25,9 @@ spec:
             # (see .github/workflows/e2e-test.yml). Not pulled from a registry.
             image: kafka-java:e2e
             args: ["--config=/conf/user.configuration.yaml", "--consumer.properties.path=/conf/consumer.properties"]
-            imagePullPolicy: Never
+            # IfNotPresent (not Never): uses the image imported into k3d, and since
+            # kafka-java:e2e exists in no registry it will never attempt a pull anyway.
+            imagePullPolicy: IfNotPresent
             volumeMounts:
               - name: kafka-config-volume
                 mountPath: /conf

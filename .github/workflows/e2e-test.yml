@@ -29,8 +29,12 @@ jobs:
         run: k3d cluster create test-cluster --agents 1
 
       - name: Load image into k3d
-        run: k3d image import quay.io/numaio/numaflow-java/kafka-java:$(mvn help:evaluate -Dexpression=image.tag -q -DforceStdout | tr -d '\n') -c test-cluster
-        # Avoids needing to push to a registry — image is loaded directly into the cluster
+        # Retag the freshly built image to a stable local name and import it directly
+        # into the cluster — avoids needing to push to (or pull from) a registry.
+        run: |
+          IMAGE_TAG=$(mvn help:evaluate -Dexpression=image.tag -q -DforceStdout | tr -d '\n')
+          docker tag quay.io/numaio/numaflow-java/kafka-java:$IMAGE_TAG kafka-java:e2e
+          k3d image import kafka-java:e2e -c test-cluster
 
       - name: Install Numaflow
         run: |
@@ -79,10 +83,7 @@ jobs:
 
       - name: Deploy pipeline
         run: |
-          # Use the locally built image tag, not the quay.io remote
-          IMAGE_TAG=$(mvn help:evaluate -Dexpression=image.tag -q -DforceStdout | tr -d '\n')
-          sed "s|quay.io/numaio/numaflow-java/kafka-java:.*|quay.io/numaio/numaflow-java/kafka-java:$IMAGE_TAG|g" test/pipeline.yaml \
-            | kubectl apply -f -
+          kubectl apply -f test/pipeline.yaml
           kubectl apply -f test/pipeline-config.yaml
           kubectl wait --for=condition=Ready pod \
             -l numaflow.numaproj.io/pipeline-name=test-kafka-pipeline \
