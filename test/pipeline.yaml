@@ -21,9 +21,11 @@ spec:
       source:
         udsource:
           container:
-            image: quay.io/numaio/numaflow-java/kafka-java:v0.5.7
+            # Local image built and imported into the cluster by the e2e workflow
+            # (see .github/workflows/e2e-test.yml). Not pulled from a registry.
+            image: kafka-java:e2e
             args: ["--config=/conf/user.configuration.yaml", "--consumer.properties.path=/conf/consumer.properties"]
-            imagePullPolicy: IfNotPresent
+            imagePullPolicy: Never
             volumeMounts:
               - name: kafka-config-volume
                 mountPath: /conf

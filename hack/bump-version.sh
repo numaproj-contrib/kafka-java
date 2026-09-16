@@ -5,7 +5,7 @@
 #
 # The Maven <version> is deliberately left alone: it is 0.0.1-SNAPSHOT and nothing consumes it. The
 # tag that matters is <image.tag> in pom.xml, which names the image pushed to quay.io; the manifests
-# under docs/ and test/ pin that same tag so the documented pipelines pull what was released.
+# under docs/ pin that same tag so the documented pipelines pull what was released.
 #
 # This only edits files. Commit the result, open a PR, and merging it publishes the image - see
 # RELEASE.md.
