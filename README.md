@@ -22,6 +22,9 @@ example [here](docs/source/non-avro/non-avro-source.md).
 Use Case 7: Read data from Kafka whose values are envelope-encrypted (AWS KMS + AES-256-GCM). Decryption is
 opt-in and composes with any of the above `schemaType`s. See an example [here](docs/source/envelope-encryption/decrypting-source.md).
 
+In all of the above cases, the source can read from **multiple topics on the same cluster** by
+setting `topicName` to a comma-separated list. See [multi-topic](docs/source/multi-topic.md).
+
 In all of the above cases, the source sets the Kafka topic a record was read from on the Numaflow message headers, so a
 downstream vertex can tell which topic it came from. See [message headers](docs/source/message-headers.md).
 

@@ -46,7 +46,7 @@ class KafkaWorkerTest {
 
   private KafkaWorker<byte[]> worker(OnError onError, SkippedRecordHandler handler) {
     UserConfig userConfig = mock(UserConfig.class);
-    when(userConfig.getTopicName()).thenReturn(TOPIC);
+    when(userConfig.getTopics()).thenReturn(List.of(TOPIC));
     when(userConfig.getOnError()).thenReturn(onError);
     return new KafkaWorker<>(userConfig, consumer, handler);
   }
@@ -228,6 +228,42 @@ class KafkaWorkerTest {
                 new TopicPartition("other", 9)));
 
     assertEquals(Set.of(1, 3), new HashSet<>(worker.getPartitions()));
+  }
+
+  @Test
+  void run_subscribesToAllConfiguredTopics() throws Exception {
+    UserConfig userConfig = mock(UserConfig.class);
+    when(userConfig.getTopics()).thenReturn(List.of("topic-a", "topic-b"));
+    KafkaWorker<byte[]> multiWorker =
+        new KafkaWorker<>(userConfig, consumer, new SkippedRecordHandler(metrics));
+    Thread multiThread = new Thread(multiWorker);
+    multiThread.start();
+
+    // commit() blocks until the worker thread has processed a task, by which point run() has
+    // already subscribed.
+    multiWorker.commit();
+
+    verify(consumer).subscribe(List.of("topic-a", "topic-b"));
+    multiThread.interrupt();
+  }
+
+  @Test
+  void getPartitions_acrossMultipleTopics_returnsDistinctPartitionNumbers() {
+    // Two topics both number partitions from 0; until §4 normalization, the raw numbers collide and
+    // are reported deduplicated.
+    UserConfig userConfig = mock(UserConfig.class);
+    when(userConfig.getTopics()).thenReturn(List.of("topic-a", "topic-b"));
+    KafkaWorker<byte[]> multiWorker =
+        new KafkaWorker<>(userConfig, consumer, new SkippedRecordHandler(metrics));
+    when(consumer.assignment())
+        .thenReturn(
+            Set.of(
+                new TopicPartition("topic-a", 0),
+                new TopicPartition("topic-a", 1),
+                new TopicPartition("topic-b", 0),
+                new TopicPartition("other", 9)));
+
+    assertEquals(Set.of(0, 1), new HashSet<>(multiWorker.getPartitions()));
   }
 
   private static ConsumerRecords<String, byte[]> records(String... values) {

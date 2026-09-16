@@ -56,7 +56,7 @@ public class KafkaWorker<V> implements Runnable {
   public void run() {
     log.info("Consumer worker is running...");
     try {
-      consumer.subscribe(List.of(userConfig.getTopicName()));
+      consumer.subscribe(userConfig.getTopics());
       boolean keepRunning = true;
       while (keepRunning) {
         OperationRequest request = taskQueue.take();
@@ -170,13 +170,19 @@ public class KafkaWorker<V> implements Runnable {
   }
 
   /**
-   * @return the partitions of the configured topic currently assigned to this consumer
+   * @return the partitions of the configured topic(s) currently assigned to this consumer,
+   *     deduplicated. In multi-topic mode the raw Kafka partition numbers can collide across topics
+   *     (every topic numbers from 0); normalizing them into globally unique IDs is deferred to
+   *     partition-ID normalization (§4). Until then these IDs are correct for offset commits but not
+   *     for watermark tracking, so multi-topic is intended for map/flatmap pipelines.
    */
   public List<Integer> getPartitions() {
+    List<String> topics = userConfig.getTopics();
     List<Integer> partitions =
         consumer.assignment().stream()
-            .filter(p -> p.topic().equals(userConfig.getTopicName()))
+            .filter(p -> topics.contains(p.topic()))
             .map(TopicPartition::partition)
+            .distinct()
             .collect(Collectors.toList());
     log.debug("Partitions: {}", partitions);
     return partitions;

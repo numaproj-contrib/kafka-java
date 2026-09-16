@@ -212,6 +212,12 @@ public class KafkaApplication {
     if (topicName == null || topicName.isBlank()) {
       throw new IllegalArgumentException("--topicName is required");
     }
+    // topicName may be a comma-separated list of topics on the same cluster; ensure it resolves to
+    // at least one non-empty topic (rejects values like "," or " , ").
+    if (UserConfig.builder().topicName(topicName).build().getTopics().isEmpty()) {
+      throw new IllegalArgumentException(
+          "--topicName must contain at least one non-empty topic, got: " + topicName);
+    }
     String schemaType = argMap.get(KEY_SCHEMA_TYPE);
     if (schemaType == null || schemaType.isBlank()) {
       throw new IllegalArgumentException(

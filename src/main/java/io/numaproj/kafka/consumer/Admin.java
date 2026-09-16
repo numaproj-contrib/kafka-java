@@ -2,6 +2,7 @@ package io.numaproj.kafka.consumer;
 
 import io.numaproj.kafka.config.UserConfig;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -37,9 +38,10 @@ public class Admin {
       Map<TopicPartition, OffsetSpec> topicPartitionOffsetSpecMap = new HashMap<>();
       Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap =
           listConsumerGroupOffsetsResult.partitionsToOffsetAndMetadata().get();
+      List<String> topics = userConfig.getTopics();
       topicPartitionOffsetAndMetadataMap.forEach(
           (k, v) -> {
-            if (userConfig.getTopicName().equals(k.topic())) {
+            if (topics.contains(k.topic())) {
               topicPartitionOffsetSpecMap.put(k, OffsetSpec.latest());
             }
           });
