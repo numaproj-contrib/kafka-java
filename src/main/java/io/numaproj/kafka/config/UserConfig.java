@@ -19,8 +19,8 @@ import lombok.ToString;
 @AllArgsConstructor
 @NoArgsConstructor
 public class UserConfig {
-  // The configured topic(s). A single name behaves as today; a comma-separated list consumes from
-  // multiple topics on the same cluster (see getTopics()).
+  // The configured topic(s): a single name, or a comma-separated list of topics on the same cluster
+  // (see getTopics()).
   private String topicName;
   // TODO - enum for different schema types
   // TODO - technically this field can be derived from schema registry
@@ -38,7 +38,7 @@ public class UserConfig {
   /**
    * Splits {@link #topicName} into the list of topics to consume from. The value is split on commas
    * and each name is trimmed; empty entries are dropped. A single name with no commas yields a
-   * one-element list, so single-topic deployments behave exactly as before.
+   * one-element list.
    *
    * @return the configured topics, or an empty list if {@code topicName} is null or blank
    */
