@@ -26,6 +26,13 @@ changes.
 - All topics share the **same** `schemaType` (all Avro, all JSON, or all raw). Different Avro schemas
   are fine as long as they share the format type and, for Glue, the same AWS region.
 
+### Glue schema registry and envelope encryption
+
+Multi-topic composes with both [Glue](avro-glue/avro-glue-source.md) and
+[envelope encryption](envelope-encryption/decrypting-source.md): both work **per record** (Glue
+resolves each record's schema from its embedded version ID; decryption unwraps each envelope with the
+configured KMS key), so all topics must share the same AWS region and the **same KMS key**.
+
 ### When not to use
 
 - Topics on **different clusters**, using **different format types**, or encrypted under
