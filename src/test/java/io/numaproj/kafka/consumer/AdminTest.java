@@ -11,11 +11,14 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
+import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.TopicPartitionInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -152,6 +155,32 @@ public class AdminTest {
         new TopicPartition(TEST_TOPIC, 1),
         new TopicPartition(TEST_TOPIC, 2),
         new TopicPartition(TEST_TOPIC, 3));
+  }
+
+  @Test
+  public void topicPartitionCounts_returnsPartitionCountPerTopic() throws Exception {
+    DescribeTopicsResult describeResult = Mockito.mock(DescribeTopicsResult.class);
+    when(adminClientMock.describeTopics(any(Collection.class))).thenReturn(describeResult);
+    KafkaFuture<Map<String, TopicDescription>> future = Mockito.mock(KafkaFuture.class);
+    when(describeResult.allTopicNames()).thenReturn(future);
+    when(future.get())
+        .thenReturn(
+            Map.of(
+                TEST_TOPIC, topicDescription(TEST_TOPIC, 3),
+                TEST_TOPIC_2, topicDescription(TEST_TOPIC_2, 1)));
+
+    Map<String, Integer> counts =
+        underTest.topicPartitionCounts(List.of(TEST_TOPIC, TEST_TOPIC_2));
+
+    assertEquals(Map.of(TEST_TOPIC, 3, TEST_TOPIC_2, 1), counts);
+  }
+
+  private static TopicDescription topicDescription(String topic, int partitions) {
+    List<TopicPartitionInfo> partitionInfos = new ArrayList<>();
+    for (int i = 0; i < partitions; i++) {
+      partitionInfos.add(new TopicPartitionInfo(i, null, List.of(), List.of()));
+    }
+    return new TopicDescription(topic, false, partitionInfos);
   }
 
   @Test

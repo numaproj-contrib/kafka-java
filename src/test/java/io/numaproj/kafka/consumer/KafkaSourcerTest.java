@@ -49,9 +49,13 @@ class KafkaSourcerTest {
     underTest = sourcer(new ByteArrayFormat(), OnError.FAIL, worker);
   }
 
-  /** A mocked UserConfig, stubbed only with the {@code onError} the sourcer reads on a failure. */
+  /**
+   * A mocked UserConfig stubbed with the single configured topic (used to build the partition-ID
+   * mapper) and the {@code onError} the sourcer reads on a failure.
+   */
   private static UserConfig userConfig(OnError onError) {
     UserConfig userConfig = mock(UserConfig.class);
+    when(userConfig.getTopics()).thenReturn(List.of(TOPIC));
     when(userConfig.getOnError()).thenReturn(onError);
     return userConfig;
   }
@@ -129,6 +133,28 @@ class KafkaSourcerTest {
 
     verify(observer)
         .send(argThat(message -> TOPIC.equals(message.getHeaders().get(TOPIC_HEADER))));
+  }
+
+  @Test
+  void read_normalizesOffsetPartitionIdAcrossTopics() throws Exception {
+    // A sourcer configured with two topics; records from the second topic get IDs from its block.
+    UserConfig multiConfig = mock(UserConfig.class);
+    when(multiConfig.getTopics()).thenReturn(List.of("test-topic", "z-topic"));
+    when(multiConfig.getOnError()).thenReturn(OnError.FAIL);
+    KafkaSourcer<byte[]> multiSourcer =
+        Mockito.spy(
+            new KafkaSourcer<>(multiConfig, admin, new ByteArrayFormat(), batchSize -> null, metrics));
+    Thread aliveThread = mock(Thread.class);
+    when(aliveThread.isAlive()).thenReturn(true);
+    multiSourcer.setWorker(worker, aliveThread);
+    // z-topic is topicIndex 1 (alphabetical), so partition 2 → 1 * 256 + 2 = 258.
+    ConsumerRecord<String, byte[]> record =
+        new ConsumerRecord<>("z-topic", 2, 7L, "key", "value".getBytes());
+    when(worker.poll(anyLong())).thenReturn(List.of(record));
+
+    multiSourcer.read(readRequest(1), observer);
+
+    verify(observer).send(argThat(message -> message.getOffset().getPartitionId() == 258));
   }
 
   @Test
