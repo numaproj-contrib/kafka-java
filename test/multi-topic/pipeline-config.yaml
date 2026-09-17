@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: multi-topic-consumer-config
+  namespace: default
+data:
+  consumer.properties: |
+    bootstrap.servers=kafka.kafka.svc.cluster.local:9092
+    security.protocol=PLAINTEXT
+    client.dns.lookup=use_all_dns_ips
+    session.timeout.ms=45000
+    retries=0
+    group.id=multi-topic-group
+  user.configuration: |
+    topicName: multi-topic-a, multi-topic-b, multi-topic-c
+    schemaType: raw
