@@ -1,6 +1,8 @@
 package io.numaproj.kafka.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -39,5 +41,38 @@ class UserConfigTest {
   @Test
   void getTopics_onlyCommas_returnsEmptyList() {
     assertEquals(List.of(), UserConfig.builder().topicName(" , , ").build().getTopics());
+  }
+
+  @Test
+  void getTopics_returnsUnmodifiableList() {
+    List<String> topics = UserConfig.builder().topicName("topic-a, topic-b").build().getTopics();
+    assertThrows(UnsupportedOperationException.class, () -> topics.add("topic-c"));
+  }
+
+  @Test
+  void validate_validConfig_doesNotThrow() {
+    assertDoesNotThrow(
+        () -> UserConfig.builder().topicName("topic-a, topic-b").schemaType("raw").build().validate());
+  }
+
+  @Test
+  void validate_blankTopicName_throws() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> UserConfig.builder().schemaType("raw").build().validate());
+  }
+
+  @Test
+  void validate_topicNameWithNoRealTopics_throws() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> UserConfig.builder().topicName(" , ").schemaType("raw").build().validate());
+  }
+
+  @Test
+  void validate_blankSchemaType_throws() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> UserConfig.builder().topicName("topic-a").build().validate());
   }
 }

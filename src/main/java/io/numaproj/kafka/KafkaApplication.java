@@ -208,22 +208,8 @@ public class KafkaApplication {
 
   @VisibleForTesting
   static UserConfig buildUserConfig(Map<String, String> argMap) {
-    String topicName = argMap.get(KEY_TOPIC_NAME);
-    if (topicName == null || topicName.isBlank()) {
-      throw new IllegalArgumentException("--topicName is required");
-    }
-    // topicName may be a comma-separated list of topics on the same cluster; ensure it resolves to
-    // at least one non-empty topic (rejects values like "," or " , ").
-    if (UserConfig.builder().topicName(topicName).build().getTopics().isEmpty()) {
-      throw new IllegalArgumentException(
-          "--topicName must contain at least one non-empty topic, got: " + topicName);
-    }
-    String schemaType = argMap.get(KEY_SCHEMA_TYPE);
-    if (schemaType == null || schemaType.isBlank()) {
-      throw new IllegalArgumentException(
-          "--schemaType is required (avro, json, or raw)");
-    }
-    String schemaSubject = argMap.getOrDefault(KEY_SCHEMA_SUBJECT, "");
+    // Raw-string parsing that must happen before the object exists stays here; field invariants are
+    // enforced by UserConfig.validate() below.
     int schemaVersion;
     try {
       schemaVersion = Integer.parseInt(argMap.getOrDefault(KEY_SCHEMA_VERSION, "0"));
@@ -231,13 +217,16 @@ public class KafkaApplication {
       throw new IllegalArgumentException(
           "--schemaVersion must be an integer, got: " + argMap.get(KEY_SCHEMA_VERSION), e);
     }
-    return UserConfig.builder()
-        .topicName(topicName)
-        .schemaType(schemaType)
-        .schemaSubject(schemaSubject)
-        .schemaVersion(schemaVersion)
-        .onError(OnError.from(argMap.get(KEY_ON_ERROR)))
-        .build();
+    UserConfig userConfig =
+        UserConfig.builder()
+            .topicName(argMap.get(KEY_TOPIC_NAME))
+            .schemaType(argMap.get(KEY_SCHEMA_TYPE))
+            .schemaSubject(argMap.getOrDefault(KEY_SCHEMA_SUBJECT, ""))
+            .schemaVersion(schemaVersion)
+            .onError(OnError.from(argMap.get(KEY_ON_ERROR)))
+            .build();
+    userConfig.validate();
+    return userConfig;
   }
 
   private static Map<String, String> parseArgs(String[] args) {

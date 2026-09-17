@@ -40,7 +40,8 @@ public class UserConfig {
    * and each name is trimmed; empty entries are dropped. A single name with no commas yields a
    * one-element list.
    *
-   * @return the configured topics, or an empty list if {@code topicName} is null or blank
+   * @return the configured topics as an unmodifiable list, or an empty list if {@code topicName} is
+   *     null or blank
    */
   public List<String> getTopics() {
     if (topicName == null || topicName.isBlank()) {
@@ -49,6 +50,27 @@ public class UserConfig {
     return Arrays.stream(topicName.split(","))
         .map(String::trim)
         .filter(s -> !s.isEmpty())
-        .collect(Collectors.toList());
+        .collect(Collectors.toUnmodifiableList());
+  }
+
+  /**
+   * Enforces the required-field invariants shared by the source and sink. Raw-string parsing (e.g.
+   * {@code schemaVersion}, {@code onError}) is done by the caller before the object is built.
+   *
+   * @throws IllegalArgumentException if any invariant is violated
+   */
+  public void validate() {
+    if (topicName == null || topicName.isBlank()) {
+      throw new IllegalArgumentException("--topicName is required");
+    }
+    // topicName may be a comma-separated list of topics on the same cluster; ensure it resolves to
+    // at least one non-empty topic (rejects values like "," or " , ").
+    if (getTopics().isEmpty()) {
+      throw new IllegalArgumentException(
+          "--topicName must contain at least one non-empty topic, got: " + topicName);
+    }
+    if (schemaType == null || schemaType.isBlank()) {
+      throw new IllegalArgumentException("--schemaType is required (avro, json, or raw)");
+    }
   }
 }
