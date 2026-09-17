@@ -132,10 +132,7 @@ jobs:
 
       - name: Deploy multi-topic pipeline
         run: |
-          # Use the locally built image tag, not the quay.io remote
-          IMAGE_TAG=$(mvn help:evaluate -Dexpression=image.tag -q -DforceStdout | tr -d '\n')
-          sed "s|quay.io/numaio/numaflow-java/kafka-java:.*|quay.io/numaio/numaflow-java/kafka-java:$IMAGE_TAG|g" test/multi-topic/pipeline.yaml \
-            | kubectl apply -f -
+          kubectl apply -f test/multi-topic/pipeline.yaml
           kubectl apply -f test/multi-topic/pipeline-config.yaml
           kubectl wait --for=condition=Ready pod \
             -l numaflow.numaproj.io/pipeline-name=test-multi-topic-pipeline \
