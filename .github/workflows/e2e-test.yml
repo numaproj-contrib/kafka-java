@@ -83,8 +83,8 @@ jobs:
 
       - name: Deploy pipeline
         run: |
-          kubectl apply -f test/pipeline.yaml
-          kubectl apply -f test/pipeline-config.yaml
+          kubectl apply -f test/single-topic/pipeline.yaml
+          kubectl apply -f test/single-topic/pipeline-config.yaml
           kubectl wait --for=condition=Ready pod \
             -l numaflow.numaproj.io/pipeline-name=test-kafka-pipeline \
             -n default --timeout=120s
