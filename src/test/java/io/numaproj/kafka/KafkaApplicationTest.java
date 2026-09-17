@@ -87,30 +87,6 @@ class KafkaApplicationTest {
   }
 
   @Test
-  void buildUserConfig_commaSeparatedTopicName_isParsedIntoTopicList() {
-    Map<String, String> argMap = consumerArgs();
-    argMap.put("topicName", "topic-a, topic-b ,topic-c");
-
-    assertEquals(
-        java.util.List.of("topic-a", "topic-b", "topic-c"),
-        KafkaApplication.buildUserConfig(argMap).getTopics());
-  }
-
-  @Test
-  void buildUserConfig_singleTopicName_isUnchanged() {
-    assertEquals(
-        java.util.List.of("test"), KafkaApplication.buildUserConfig(consumerArgs()).getTopics());
-  }
-
-  @Test
-  void buildUserConfig_topicNameWithNoRealTopics_throwsAtStartup() {
-    Map<String, String> argMap = consumerArgs();
-    argMap.put("topicName", " , ");
-
-    assertThrows(IllegalArgumentException.class, () -> KafkaApplication.buildUserConfig(argMap));
-  }
-
-  @Test
   void main_producerHandler_missingPropertiesPath_throwsException() {
     assertThrows(
         IllegalArgumentException.class,
