@@ -28,6 +28,7 @@ public class AdminTest {
   private final AdminClient adminClientMock = mock(AdminClient.class);
 
   private static final String TEST_TOPIC = "test-topic";
+  private static final String TEST_TOPIC_2 = "test-topic-2";
   private static final String TEST_GROUP_ID = "test-group-id";
 
   private Admin underTest;
@@ -35,7 +36,7 @@ public class AdminTest {
   @BeforeEach
   public void setUp() {
     underTest = new Admin(userConfigMock, TEST_GROUP_ID, adminClientMock);
-    when(userConfigMock.getTopicName()).thenReturn(TEST_TOPIC);
+    when(userConfigMock.getTopics()).thenReturn(List.of(TEST_TOPIC));
   }
 
   @Test
@@ -66,6 +67,53 @@ public class AdminTest {
       long pendingMessages = underTest.getPendingMessages();
       // 100 + 100 + 100 - 10 - 10 - 10 = 270
       assertEquals(270, pendingMessages);
+    } catch (Exception e) {
+      fail();
+    }
+  }
+
+  @Test
+  public void getPendingMessages_aggregatesAcrossConfiguredTopics_andIgnoresOtherTopics() {
+    try {
+      when(userConfigMock.getTopics()).thenReturn(List.of(TEST_TOPIC, TEST_TOPIC_2));
+      // Two configured topics contribute lag; an unrelated topic committed under the same group is
+      // ignored.
+      List<TopicPartition> topicPartitionList =
+          Arrays.asList(
+              new TopicPartition(TEST_TOPIC, 1),
+              new TopicPartition(TEST_TOPIC_2, 1),
+              new TopicPartition("unrelated-topic", 1));
+      Map<TopicPartition, OffsetAndMetadata> topicPartitionOffsetAndMetadataMap =
+          generateTopicPartitionOffsetMetadata(topicPartitionList);
+      Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo>
+          topicPartitionListOffsetsResultInfoMap =
+              generateListOffsetsResultInfo(topicPartitionList);
+      ListOffsetsResult listOffsetsResultMock = Mockito.mock(ListOffsetsResult.class);
+      when(adminClientMock.listOffsets(any())).thenReturn(listOffsetsResultMock);
+      KafkaFuture<Map<TopicPartition, ListOffsetsResult.ListOffsetsResultInfo>> mapKafkaFutureMock =
+          Mockito.mock(KafkaFuture.class);
+      when(listOffsetsResultMock.all()).thenReturn(mapKafkaFutureMock);
+      ListConsumerGroupOffsetsResult listConsumerGroupOffsetsResultMock =
+          Mockito.mock(ListConsumerGroupOffsetsResult.class);
+      KafkaFuture<Map<TopicPartition, OffsetAndMetadata>> kafkaFutureMock =
+          Mockito.mock(KafkaFuture.class);
+      when(kafkaFutureMock.get()).thenReturn(topicPartitionOffsetAndMetadataMap);
+      // Only the two configured topic-partitions are queried for their latest offsets.
+      when(mapKafkaFutureMock.get())
+          .thenReturn(
+              Map.of(
+                  new TopicPartition(TEST_TOPIC, 1),
+                  topicPartitionListOffsetsResultInfoMap.get(new TopicPartition(TEST_TOPIC, 1)),
+                  new TopicPartition(TEST_TOPIC_2, 1),
+                  topicPartitionListOffsetsResultInfoMap.get(new TopicPartition(TEST_TOPIC_2, 1))));
+      when(adminClientMock.listConsumerGroupOffsets(eq(TEST_GROUP_ID)))
+          .thenReturn(listConsumerGroupOffsetsResultMock);
+      when(listConsumerGroupOffsetsResultMock.partitionsToOffsetAndMetadata())
+          .thenReturn(kafkaFutureMock);
+
+      long pendingMessages = underTest.getPendingMessages();
+      // Each partition: latest (partition + 100) - current (partition + 10) = 90. Two topics = 180.
+      assertEquals(180, pendingMessages);
     } catch (Exception e) {
       fail();
     }

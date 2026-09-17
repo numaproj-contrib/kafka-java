@@ -83,8 +83,8 @@ jobs:
 
       - name: Deploy pipeline
         run: |
-          kubectl apply -f test/pipeline.yaml
-          kubectl apply -f test/pipeline-config.yaml
+          kubectl apply -f test/single-topic/pipeline.yaml
+          kubectl apply -f test/single-topic/pipeline-config.yaml
           kubectl wait --for=condition=Ready pod \
             -l numaflow.numaproj.io/pipeline-name=test-kafka-pipeline \
             -n default --timeout=120s
@@ -111,4 +111,65 @@ jobs:
           done
           echo "ERROR: Messages not received in sink after 150s"
           kubectl logs $SINK_POD -n default --all-containers=true | tail -50
+          exit 1
+
+      # ---------------------------------------------------------------------------
+      # Multi-topic scenario, reusing the same cluster, namespace, Numaflow
+      # controller/ISB and Kafka broker as the single-topic test above. It runs as
+      # an independent pipeline (own name, consumer group and topics), so it does
+      # not interfere with the single-topic pipeline already deployed.
+      # ---------------------------------------------------------------------------
+      - name: Create the three multi-topic test topics
+        run: |
+          KAFKA_POD=$(kubectl get pod -n kafka -l app=kafka -o jsonpath='{.items[0].metadata.name}')
+          # multi-topic-a has 2 partitions to also exercise multi-partition consumption
+          kubectl exec -n kafka $KAFKA_POD -- /opt/kafka/bin/kafka-topics.sh \
+            --create --topic multi-topic-a --bootstrap-server localhost:9092 --partitions 2 --replication-factor 1
+          kubectl exec -n kafka $KAFKA_POD -- /opt/kafka/bin/kafka-topics.sh \
+            --create --topic multi-topic-b --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+          kubectl exec -n kafka $KAFKA_POD -- /opt/kafka/bin/kafka-topics.sh \
+            --create --topic multi-topic-c --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+
+      - name: Deploy multi-topic pipeline
+        run: |
+          kubectl apply -f test/multi-topic/pipeline.yaml
+          kubectl apply -f test/multi-topic/pipeline-config.yaml
+          kubectl wait --for=condition=Ready pod \
+            -l numaflow.numaproj.io/pipeline-name=test-multi-topic-pipeline \
+            -n default --timeout=120s
+
+      - name: Produce a distinct message to each multi-topic topic
+        run: |
+          KAFKA_POD=$(kubectl get pod -n kafka -l app=kafka -o jsonpath='{.items[0].metadata.name}')
+          for T in multi-topic-a multi-topic-b multi-topic-c; do
+            kubectl exec -n kafka $KAFKA_POD -- bash -c \
+              "echo 'hello-from-${T}' | /opt/kafka/bin/kafka-console-producer.sh --topic ${T} --bootstrap-server localhost:9092"
+          done
+
+      - name: Assert every topic's record reaches the sink with the correct topic header
+        run: |
+          # Both pipelines have a vertex named "sink", so filter by pipeline-name too.
+          SINK_POD=$(kubectl get pod -n default \
+            -l numaflow.numaproj.io/pipeline-name=test-multi-topic-pipeline,numaflow.numaproj.io/vertex-name=sink \
+            -o jsonpath='{.items[0].metadata.name}')
+          for i in $(seq 1 30); do
+            LOGS=$(kubectl logs $SINK_POD -n default --all-containers=true 2>/dev/null)
+            OK=true
+            for T in multi-topic-a multi-topic-b multi-topic-c; do
+              # A single sink log line must carry both the topic's payload and its source-topic
+              # header (X-NF-Kafka-TopicName), proving the record was merged in from that topic and
+              # tagged correctly.
+              if ! echo "$LOGS" | grep "hello-from-${T}" | grep -q "X-NF-Kafka-TopicName: ${T}"; then
+                OK=false
+              fi
+            done
+            if [ "$OK" = "true" ]; then
+              echo "All three topics' records received with correct X-NF-Kafka-TopicName headers"
+              exit 0
+            fi
+            echo "Waiting for all topics' messages... attempt $i/30"
+            sleep 5
+          done
+          echo "ERROR: not all topics' messages (with correct headers) received in sink after 150s"
+          kubectl logs $SINK_POD -n default --all-containers=true | tail -80
           exit 1

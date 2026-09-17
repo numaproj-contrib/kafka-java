@@ -1,0 +1,42 @@
+apiVersion: numaflow.numaproj.io/v1alpha1
+kind: Pipeline
+metadata:
+  name: test-multi-topic-pipeline
+  namespace: default
+spec:
+  vertices:
+    - name: in
+      volumes:
+        - name: kafka-config-volume
+          configMap:
+            name: multi-topic-consumer-config
+            items:
+              - key: user.configuration
+                path: user.configuration.yaml
+              - key: consumer.properties
+                path: consumer.properties
+      scale:
+        min: 1
+        max: 1
+      source:
+        udsource:
+          container:
+            # Local image built and imported into the cluster by the e2e workflow
+            # (see .github/workflows/e2e-test.yml). Not pulled from a registry.
+            image: kafka-java:e2e
+            args: ["--config=/conf/user.configuration.yaml", "--consumer.properties.path=/conf/consumer.properties"]
+            # IfNotPresent (not Never): uses the image imported into k3d, and since
+            # kafka-java:e2e exists in no registry it will never attempt a pull anyway.
+            imagePullPolicy: IfNotPresent
+            volumeMounts:
+              - name: kafka-config-volume
+                mountPath: /conf
+    - name: sink
+      scale:
+        min: 1
+        max: 1
+      sink:
+        log: {}
+  edges:
+    - from: in
+      to: sink
