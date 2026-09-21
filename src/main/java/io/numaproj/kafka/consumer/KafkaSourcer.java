@@ -251,7 +251,9 @@ public class KafkaSourcer<V> extends Sourcer {
 
   @Override
   public long getPending() {
-    return admin.getPendingMessages();
+    long pendingCount = admin.getPendingMessages();
+    log.debug("Pending message count: {}", pendingCount);
+    return pendingCount;
   }
 
   @Override
