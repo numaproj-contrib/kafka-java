@@ -12,19 +12,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.services.kms.model.KmsException;
 
-class ProcessLifetimeDekGeneratorTest {
+class RotatingDekGeneratorTest {
 
   private final DekGenerator delegate = mock(DekGenerator.class);
 
-  private ProcessLifetimeDekGenerator underTest;
+  private RotatingDekGenerator underTest;
 
   @BeforeEach
   void setUp() {
-    underTest = new ProcessLifetimeDekGenerator(delegate);
+    underTest = new RotatingDekGenerator(delegate);
   }
 
   @Test
-  void generatesOnceAndReusesTheDekForTheProcessLifetime() {
+  void generatesOnceAndReusesTheDekUntilTheThreshold() {
     Dek dek = new Dek(new byte[] {1}, new byte[] {1});
     when(delegate.generate()).thenReturn(dek);
 
@@ -33,6 +33,43 @@ class ProcessLifetimeDekGeneratorTest {
     assertSame(dek, underTest.generate());
 
     verify(delegate, times(1)).generate();
+  }
+
+  @Test
+  void rotatesAfterMaxMessagesPerDek() {
+    Dek first = new Dek(new byte[] {1}, new byte[] {1});
+    Dek second = new Dek(new byte[] {2}, new byte[] {2});
+    when(delegate.generate()).thenReturn(first, second);
+
+    RotatingDekGenerator rotating = new RotatingDekGenerator(delegate, 2);
+
+    // The first DEK is used for exactly maxMessagesPerDek encryptions.
+    assertSame(first, rotating.generate());
+    assertSame(first, rotating.generate());
+    // The next encryption crosses the threshold and rotates to a fresh DEK.
+    assertSame(second, rotating.generate());
+    assertSame(second, rotating.generate());
+
+    verify(delegate, times(2)).generate();
+  }
+
+  @Test
+  void erasesTheSupersededDekPlaintextOnRotation() {
+    Dek first = new Dek(new byte[] {1, 2, 3, 4}, new byte[] {9});
+    Dek second = new Dek(new byte[] {5, 6, 7, 8}, new byte[] {9});
+    when(delegate.generate()).thenReturn(first, second);
+
+    RotatingDekGenerator rotating = new RotatingDekGenerator(delegate, 1);
+    rotating.generate(); // hands out first
+    rotating.generate(); // crosses threshold -> rotates, erasing first
+
+    assertArrayEquals(new byte[4], first.plaintext());
+  }
+
+  @Test
+  void rejectsNonPositiveThreshold() {
+    assertThrows(IllegalArgumentException.class, () -> new RotatingDekGenerator(delegate, 0));
+    assertThrows(IllegalArgumentException.class, () -> new RotatingDekGenerator(delegate, -1));
   }
 
   @Test

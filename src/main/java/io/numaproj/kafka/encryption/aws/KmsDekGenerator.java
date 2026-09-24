@@ -17,8 +17,8 @@ import software.amazon.awssdk.services.kms.model.GenerateDataKeyResponse;
  * into.
  *
  * <p>Owns the KMS client and its {@link AwsCredentials}; {@link #close()} releases both. Does no key
- * reuse — that is backend-agnostic and applied by the core {@code ProcessLifetimeDekGenerator}. The plaintext
- * DEK is never logged.
+ * reuse or rotation — that is backend-agnostic and applied by the core {@code RotatingDekGenerator}.
+ * The plaintext DEK is never logged.
  */
 @Slf4j
 public class KmsDekGenerator implements DekGenerator {
