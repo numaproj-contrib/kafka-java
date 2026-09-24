@@ -54,16 +54,17 @@ class RotatingDekGeneratorTest {
   }
 
   @Test
-  void erasesTheSupersededDekPlaintextOnRotation() {
+  void doesNotEraseTheSupersededDekOnRotation() {
     Dek first = new Dek(new byte[] {1, 2, 3, 4}, new byte[] {9});
     Dek second = new Dek(new byte[] {5, 6, 7, 8}, new byte[] {9});
     when(delegate.generate()).thenReturn(first, second);
 
     RotatingDekGenerator rotating = new RotatingDekGenerator(delegate, 1);
     rotating.generate(); // hands out first
-    rotating.generate(); // crosses threshold -> rotates, erasing first
+    rotating.generate(); // crosses threshold -> rotates to second
 
-    assertArrayEquals(new byte[4], first.plaintext());
+    // An encryption on another thread may still be using first, so its key must stay intact.
+    assertArrayEquals(new byte[] {1, 2, 3, 4}, first.plaintext());
   }
 
   @Test

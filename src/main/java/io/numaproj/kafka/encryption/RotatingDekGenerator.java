@@ -8,8 +8,8 @@ import java.util.Arrays;
  * backend-agnostic. Consumers need no coordination, since every message carries its own wrapped DEK.
  *
  * <p><b>Why the bound matters.</b> {@link PayloadEncryptor} draws a random 96-bit nonce per message.
- * AES-GCM requires a unique nonce for every encryption under a given key; random 96-bit nonces begin
- * to collide (birthday bound) as the number of encryptions under one key approaches ~2^32 (NIST SP
+ * AES-GCM requires a unique nonce for every encryption under a given key; with random 96-bit nonces,
+ * a repeat becomes likely as the number of encryptions under one key approaches ~2^32 (NIST SP
  * 800-38D). A collision under the same key is catastrophic - it leaks the XOR of the affected
  * plaintexts and enables tag forgery. Rotating the DEK after {@code maxMessagesPerDek} encryptions
  * bounds the per-key encryption count, and therefore the collision probability, directly. The hazard
@@ -18,15 +18,16 @@ import java.util.Arrays;
  * <p>Generation is serialized so a burst of concurrent first messages produces one key, not one per
  * thread. There is no retry here: a failed generation fails that message, which Numaflow redelivers.
  *
- * <p>The plaintext of a superseded DEK is erased (zero-filled) on rotation, and the current DEK is
- * erased on {@link #close()}, which runs only after the sinker has terminated - so no encryption can
- * still be using the key. It must never be logged.
+ * <p>The current DEK's plaintext is erased (zero-filled) on {@link #close()}, which runs only after
+ * the sinker has terminated - so no encryption can still be using the key. A superseded DEK is not
+ * erased on rotation, since an in-flight encryption may still be using it (see {@link #rotate()}).
+ * The plaintext must never be logged.
  */
 class RotatingDekGenerator implements DekGenerator {
 
   /**
    * Default rotation threshold: 2^24 (~16.7M) encryptions per DEK. A ~256x margin below the ~2^32
-   * safe ceiling for random 96-bit nonces, so the birthday-collision probability stays negligible.
+   * safe ceiling for random 96-bit nonces, so the chance of a repeated nonce stays negligible.
    * At one KMS GenerateDataKey per rotation, the backend cost is one call per ~16.7M messages.
    */
   static final long DEFAULT_MAX_MESSAGES_PER_DEK = 1L << 24;
@@ -64,9 +65,13 @@ class RotatingDekGenerator implements DekGenerator {
     return current;
   }
 
-  /** Erases the outgoing DEK's plaintext and generates a fresh one, resetting the usage count. */
+  /**
+   * Replaces the current DEK with a fresh one and resets the usage count. The outgoing DEK is not
+   * erased: a caller on another thread may have been handed it just before this rotation and still be
+   * reading its plaintext to encrypt, and zero-filling it would encrypt that message under an all-zero
+   * key. The reference is dropped and the key left for GC.
+   */
   private void rotate() {
-    eraseCurrent();
     current = delegate.generate();
     currentUsageCount = 0;
   }
@@ -77,15 +82,11 @@ class RotatingDekGenerator implements DekGenerator {
       return;
     }
     closed = true;
-    eraseCurrent();
-    delegate.close();
-  }
-
-  /** Best-effort erasure of the held key material rather than leaving it for GC (heap dumps). */
-  private void eraseCurrent() {
     if (current != null) {
+      // Best-effort erasure of the key material rather than leaving it for GC (heap dumps).
       Arrays.fill(current.plaintext(), (byte) 0);
       current = null;
     }
+    delegate.close();
   }
 }
