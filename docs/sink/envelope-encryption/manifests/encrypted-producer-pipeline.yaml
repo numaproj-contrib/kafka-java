@@ -30,7 +30,7 @@ spec:
       sink:
         udsink:
           container:
-            image: quay.io/numaio/numaflow-java/kafka-java:v0.5.7
+            image: quay.io/numaio/numaflow-java/kafka-java:v0.5.8
             args: [ "--config=/conf/user.configuration.yaml", "--producer.properties.path=/conf/producer.properties" ]
             imagePullPolicy: Always
 
