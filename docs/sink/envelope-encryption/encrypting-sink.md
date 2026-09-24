@@ -72,8 +72,9 @@ non-encrypted sink.
 
 ### DEK rotation
 
-One DEK is generated on first use and reused for the lifetime of the process. Rotation happens by
-process restart, so a redeploy rotates it; to rotate without a deployment, restart the producer pod.
+One DEK is generated on first use and reused across messages. After it has encrypted 2²⁴ (~16.7M)
+messages, the sink generates a fresh DEK and uses that for the next 2²⁴, and so on. A restart or
+redeploy also starts a new DEK. Each rotation costs one KMS `GenerateDataKey` call.
 
 Consumers need no coordination for this: every message carries its own `ciphertext_dek`, so a rotation
 is transparent.
@@ -91,10 +92,9 @@ How it is met:
   `SecureRandom`, including when the DEK is reused across messages.
 * Nonces are never derived from message content, and never from a counter that could restart at zero
   after a crash or a rescale.
-A producer process is assumed not to encrypt more than ~2³² messages under one DEK — the bound NIST
-SP 800-38D sets for random 96-bit nonces. With one DEK per process lifetime, that is the total number
-of messages the pod produces between restarts; restart the producer to rotate the key well before it
-could be approached.
+* No DEK encrypts more than 2²⁴ messages (see [DEK rotation](#dek-rotation)). NIST SP 800-38D caps
+  random 96-bit nonces at ~2³² messages per key, so this stays ~256× below that limit and a repeated
+  nonce under the same DEK remains negligibly unlikely. No restart is needed to stay within it.
 
 ### Failure behavior
 

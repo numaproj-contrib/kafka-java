@@ -31,8 +31,9 @@ public final class EnvelopeEncryptionFactory {
     String assumeRoleArn = props.getProperty(AwsCredentials.ASSUME_ROLE_ARN);
     KmsDekGenerator kmsGenerator = KmsDekGenerator.create(keyArn.trim(), assumeRoleArn);
     log.info("Payload envelope encryption enabled (aws-kms)");
-    // One DEK per process lifetime: generated on first use, rotated by restart/redeploy.
+    // One DEK reused across messages, replaced after a fixed number of messages so a nonce is never
+    // likely to repeat under the same key (see RotatingDekGenerator).
     return new PayloadEncryptor(
-        new JsonEnvelopeCodec(), new ProcessLifetimeDekGenerator(kmsGenerator));
+        new JsonEnvelopeCodec(), new RotatingDekGenerator(kmsGenerator));
   }
 }
