@@ -2,19 +2,14 @@ package io.numaproj.kafka.config;
 
 import java.util.Locale;
 
-/** The message format carried over the Kafka topic — governs serializer/deserializer selection. */
+/** The message format of the data carried over the Kafka topic. */
 public enum SchemaType {
   AVRO,
   JSON,
   RAW;
 
   /**
-   * Parses the {@code schemaType} configuration value, case-insensitively.
-   *
-   * @param value the configured value
-   * @return the parsed schema type
-   * @throws IllegalArgumentException if {@code value} is null, blank, or not a recognised type —
-   *     rejecting a typo at startup rather than silently falling back to raw
+   * Parses {@code schemaType} case-insensitively; throws on null, blank, or unrecognised values.
    */
   public static SchemaType from(String value) {
     if (value == null || value.isBlank()) {
