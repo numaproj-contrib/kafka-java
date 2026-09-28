@@ -7,6 +7,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.numaproj.kafka.config.ConsumerConfig;
 import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.config.ProducerConfig;
+import io.numaproj.kafka.config.SchemaType;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.consumer.Admin;
 import io.numaproj.kafka.consumer.KafkaSourcer;
@@ -43,9 +44,6 @@ public class KafkaApplication {
 
   private static final String HANDLER_CONSUMER = "consumer";
   private static final String HANDLER_PRODUCER = "producer";
-  private static final String SCHEMA_TYPE_AVRO = "avro";
-  private static final String SCHEMA_TYPE_JSON = "json";
-
   private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
 
   public static void main(String[] args) throws Exception {
@@ -95,7 +93,7 @@ public class KafkaApplication {
     Runtime.getRuntime().addShutdownHook(new Thread(metricsServer::stop));
     SourceMetrics metrics = PrometheusSourceMetrics.defaultRegistryInstance();
 
-    if (SCHEMA_TYPE_AVRO.equals(userConfig.getSchemaType())) {
+    if (userConfig.getSchemaType() == SchemaType.AVRO) {
       new KafkaSourcer<GenericRecord>(
               userConfig, admin, AvroFormat.forSource(), consumerConfig::kafkaAvroConsumer, metrics)
           .startConsumer();
@@ -120,40 +118,42 @@ public class KafkaApplication {
     }
 
     ProducerConfig producerConfig = new ProducerConfig(producerPropertiesPath);
-    String schemaType = userConfig.getSchemaType();
 
-    if (SCHEMA_TYPE_AVRO.equals(schemaType)) {
-      // The application creates the registry, so it owns closing it once the sinker terminates.
-      Registry registry = producerConfig.schemaRegistry();
-      try {
-        Schema schema = fetchAvroSchema(registry, userConfig);
-        runSinker(
-            new KafkaSinker<>(
-                userConfig, producerConfig.kafkaAvroProducer(), AvroFormat.forSink(schema)));
-      } finally {
-        closeRegistry(registry);
+    switch (userConfig.getSchemaType()) {
+      case AVRO -> {
+        // The application creates the registry, so it owns closing it once the sinker terminates.
+        Registry registry = producerConfig.schemaRegistry();
+        try {
+          Schema schema = fetchAvroSchema(registry, userConfig);
+          runSinker(
+              new KafkaSinker<>(
+                  userConfig, producerConfig.kafkaAvroProducer(), AvroFormat.forSink(schema)));
+        } finally {
+          closeRegistry(registry);
+        }
       }
-    } else if (SCHEMA_TYPE_JSON.equals(schemaType)) {
-      // The Glue-framed contract covers Avro only, and schemaRegistryClient() would fail obscurely
-      // on the absent schema.registry.url; fail with a clear message instead.
-      if (producerConfig.isGlueSchemaRegistry()) {
-        throw new IllegalArgumentException(
-            "schemaType=json is not supported with schema.registry.type=glue; use schemaType=avro");
+      case JSON -> {
+        // The Glue-framed contract covers Avro only, and schemaRegistryClient() would fail obscurely
+        // on the absent schema.registry.url; fail with a clear message instead.
+        if (producerConfig.isGlueSchemaRegistry()) {
+          throw new IllegalArgumentException(
+              "schemaType=json is not supported with schema.registry.type=glue; use schemaType=avro");
+        }
+        Registry registry = producerConfig.schemaRegistry();
+        try {
+          String jsonSchema = fetchJsonSchema(registry, userConfig);
+          runSinker(
+              new KafkaSinker<>(
+                  userConfig, producerConfig.kafkaByteArrayProducer(), new JsonFormat(jsonSchema)));
+        } finally {
+          closeRegistry(registry);
+        }
       }
-      Registry registry = producerConfig.schemaRegistry();
-      try {
-        String jsonSchema = fetchJsonSchema(registry, userConfig);
-        runSinker(
-            new KafkaSinker<>(
-                userConfig, producerConfig.kafkaByteArrayProducer(), new JsonFormat(jsonSchema)));
-      } finally {
-        closeRegistry(registry);
-      }
-    } else {
-      // raw: no schema registry involved
-      runSinker(
-          new KafkaSinker<>(
-              userConfig, producerConfig.kafkaByteArrayProducer(), new ByteArrayFormat()));
+      case RAW ->
+          // no schema registry involved
+          runSinker(
+              new KafkaSinker<>(
+                  userConfig, producerConfig.kafkaByteArrayProducer(), new ByteArrayFormat()));
     }
   }
 
@@ -220,7 +220,7 @@ public class KafkaApplication {
     UserConfig userConfig =
         UserConfig.builder()
             .topicName(argMap.get(KEY_TOPIC_NAME))
-            .schemaType(argMap.get(KEY_SCHEMA_TYPE))
+            .schemaType(SchemaType.from(argMap.get(KEY_SCHEMA_TYPE)))
             .schemaSubject(argMap.getOrDefault(KEY_SCHEMA_SUBJECT, ""))
             .schemaVersion(schemaVersion)
             .onError(OnError.from(argMap.get(KEY_ON_ERROR)))

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.numaproj.kafka.config.OnError;
+import io.numaproj.kafka.config.SchemaType;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -84,6 +85,25 @@ class KafkaApplicationTest {
 
     assertThrows(
         IllegalArgumentException.class, () -> KafkaApplication.buildUserConfig(argMap));
+  }
+
+  @Test
+  void buildUserConfig_schemaTypeInvalid_throwsAtStartup() {
+    Map<String, String> argMap = new HashMap<>();
+    argMap.put("topicName", "test");
+    argMap.put("schemaType", "parquet");
+
+    assertThrows(
+        IllegalArgumentException.class, () -> KafkaApplication.buildUserConfig(argMap));
+  }
+
+  @Test
+  void buildUserConfig_schemaTypeCaseInsensitive_parsedCorrectly() {
+    Map<String, String> argMap = new HashMap<>();
+    argMap.put("topicName", "test");
+    argMap.put("schemaType", "AVRO");
+
+    assertEquals(SchemaType.AVRO, KafkaApplication.buildUserConfig(argMap).getSchemaType());
   }
 
   @Test

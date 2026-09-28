@@ -22,10 +22,9 @@ public class UserConfig {
   // The configured topic(s): a single name, or a comma-separated list of topics on the same cluster
   // (see getTopics()).
   private String topicName;
-  // TODO - enum for different schema types
   // TODO - technically this field can be derived from schema registry
   //  Figure out a way to do that and remove this field.
-  private String schemaType;
+  private SchemaType schemaType;
 
   // optional schema subject and version if user wants to use a specific schema
   private String schemaSubject;
@@ -69,8 +68,8 @@ public class UserConfig {
       throw new IllegalArgumentException(
           "--topicName must contain at least one non-empty topic, got: " + topicName);
     }
-    if (schemaType == null || schemaType.isBlank()) {
-      throw new IllegalArgumentException("--schemaType is required (avro, json, or raw)");
+    if (schemaType == null) {
+      throw new IllegalArgumentException("--schemaType is required. Must be one of: avro, json, raw");
     }
   }
 }

@@ -52,25 +52,25 @@ class UserConfigTest {
   @Test
   void validate_validConfig_doesNotThrow() {
     assertDoesNotThrow(
-        () -> UserConfig.builder().topicName("topic-a, topic-b").schemaType("raw").build().validate());
+        () -> UserConfig.builder().topicName("topic-a, topic-b").schemaType(SchemaType.RAW).build().validate());
   }
 
   @Test
   void validate_blankTopicName_throws() {
     assertThrows(
         IllegalArgumentException.class,
-        () -> UserConfig.builder().schemaType("raw").build().validate());
+        () -> UserConfig.builder().schemaType(SchemaType.RAW).build().validate());
   }
 
   @Test
   void validate_topicNameWithNoRealTopics_throws() {
     assertThrows(
         IllegalArgumentException.class,
-        () -> UserConfig.builder().topicName(" , ").schemaType("raw").build().validate());
+        () -> UserConfig.builder().topicName(" , ").schemaType(SchemaType.RAW).build().validate());
   }
 
   @Test
-  void validate_blankSchemaType_throws() {
+  void validate_nullSchemaType_throws() {
     assertThrows(
         IllegalArgumentException.class,
         () -> UserConfig.builder().topicName("topic-a").build().validate());
