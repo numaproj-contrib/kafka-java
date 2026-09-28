@@ -8,9 +8,7 @@ public enum SchemaType {
   JSON,
   RAW;
 
-  /**
-   * Parses {@code schemaType} case-insensitively; throws on null, blank, or unrecognised values.
-   */
+  /** Parses {@code value} case-insensitively; throws on null, blank, or unrecognised values. */
   public static SchemaType from(String value) {
     if (value == null || value.isBlank()) {
       throw new IllegalArgumentException(
