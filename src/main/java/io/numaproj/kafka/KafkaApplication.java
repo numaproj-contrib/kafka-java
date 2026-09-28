@@ -44,6 +44,7 @@ public class KafkaApplication {
 
   private static final String HANDLER_CONSUMER = "consumer";
   private static final String HANDLER_PRODUCER = "producer";
+
   private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
 
   public static void main(String[] args) throws Exception {
@@ -118,42 +119,40 @@ public class KafkaApplication {
     }
 
     ProducerConfig producerConfig = new ProducerConfig(producerPropertiesPath);
+    SchemaType schemaType = userConfig.getSchemaType();
 
-    switch (userConfig.getSchemaType()) {
-      case AVRO -> {
-        // The application creates the registry, so it owns closing it once the sinker terminates.
-        Registry registry = producerConfig.schemaRegistry();
-        try {
-          Schema schema = fetchAvroSchema(registry, userConfig);
-          runSinker(
-              new KafkaSinker<>(
-                  userConfig, producerConfig.kafkaAvroProducer(), AvroFormat.forSink(schema)));
-        } finally {
-          closeRegistry(registry);
-        }
+    if (schemaType == SchemaType.AVRO) {
+      // The application creates the registry, so it owns closing it once the sinker terminates.
+      Registry registry = producerConfig.schemaRegistry();
+      try {
+        Schema schema = fetchAvroSchema(registry, userConfig);
+        runSinker(
+            new KafkaSinker<>(
+                userConfig, producerConfig.kafkaAvroProducer(), AvroFormat.forSink(schema)));
+      } finally {
+        closeRegistry(registry);
       }
-      case JSON -> {
-        // The Glue-framed contract covers Avro only, and schemaRegistryClient() would fail obscurely
-        // on the absent schema.registry.url; fail with a clear message instead.
-        if (producerConfig.isGlueSchemaRegistry()) {
-          throw new IllegalArgumentException(
-              "schemaType=json is not supported with schema.registry.type=glue; use schemaType=avro");
-        }
-        Registry registry = producerConfig.schemaRegistry();
-        try {
-          String jsonSchema = fetchJsonSchema(registry, userConfig);
-          runSinker(
-              new KafkaSinker<>(
-                  userConfig, producerConfig.kafkaByteArrayProducer(), new JsonFormat(jsonSchema)));
-        } finally {
-          closeRegistry(registry);
-        }
+    } else if (schemaType == SchemaType.JSON) {
+      // The Glue-framed contract covers Avro only, and schemaRegistryClient() would fail obscurely
+      // on the absent schema.registry.url; fail with a clear message instead.
+      if (producerConfig.isGlueSchemaRegistry()) {
+        throw new IllegalArgumentException(
+            "schemaType=json is not supported with schema.registry.type=glue; use schemaType=avro");
       }
-      case RAW ->
-          // no schema registry involved
-          runSinker(
-              new KafkaSinker<>(
-                  userConfig, producerConfig.kafkaByteArrayProducer(), new ByteArrayFormat()));
+      Registry registry = producerConfig.schemaRegistry();
+      try {
+        String jsonSchema = fetchJsonSchema(registry, userConfig);
+        runSinker(
+            new KafkaSinker<>(
+                userConfig, producerConfig.kafkaByteArrayProducer(), new JsonFormat(jsonSchema)));
+      } finally {
+        closeRegistry(registry);
+      }
+    } else {
+      // raw: no schema registry involved
+      runSinker(
+          new KafkaSinker<>(
+              userConfig, producerConfig.kafkaByteArrayProducer(), new ByteArrayFormat()));
     }
   }
 
