@@ -94,11 +94,12 @@ public class KafkaApplication {
     Runtime.getRuntime().addShutdownHook(new Thread(metricsServer::stop));
     SourceMetrics metrics = PrometheusSourceMetrics.defaultRegistryInstance();
 
-    if (userConfig.getSchemaType() == SchemaType.AVRO) {
+    SchemaType schemaType = userConfig.getSchemaType();
+    if (schemaType == SchemaType.AVRO) {
       new KafkaSourcer<GenericRecord>(
               userConfig, admin, AvroFormat.forSource(), consumerConfig::kafkaAvroConsumer, metrics)
           .startConsumer();
-    } else {
+    } else if (schemaType == SchemaType.JSON || schemaType == SchemaType.RAW) {
       // json or raw: values are forwarded downstream as-is
       new KafkaSourcer<byte[]>(
               userConfig,
@@ -107,6 +108,8 @@ public class KafkaApplication {
               consumerConfig::kafkaByteArrayConsumer,
               metrics)
           .startConsumer();
+    } else {
+      throw new IllegalStateException("Unhandled schemaType: " + schemaType);
     }
   }
 
@@ -148,11 +151,13 @@ public class KafkaApplication {
       } finally {
         closeRegistry(registry);
       }
-    } else {
+    } else if (schemaType == SchemaType.RAW) {
       // raw: no schema registry involved
       runSinker(
           new KafkaSinker<>(
               userConfig, producerConfig.kafkaByteArrayProducer(), new ByteArrayFormat()));
+    } else {
+      throw new IllegalStateException("Unhandled schemaType: " + schemaType);
     }
   }
 
