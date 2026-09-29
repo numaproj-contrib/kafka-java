@@ -34,6 +34,7 @@ public class KafkaWorker<V> implements Runnable {
   private final UserConfig userConfig;
   private final KafkaConsumer<String, V> consumer;
   private final SkippedRecordHandler skippedRecordHandler;
+  private final PartitionIdMapper partitionIdMapper;
 
   // A blocking queue used to hand tasks to the consumer thread. It ensures only one of the
   // tasks (POLL/COMMIT/SHUTDOWN) is performed at a time.
@@ -46,10 +47,12 @@ public class KafkaWorker<V> implements Runnable {
   public KafkaWorker(
       UserConfig userConfig,
       KafkaConsumer<String, V> consumer,
-      SkippedRecordHandler skippedRecordHandler) {
+      SkippedRecordHandler skippedRecordHandler,
+      PartitionIdMapper partitionIdMapper) {
     this.userConfig = userConfig;
     this.consumer = consumer;
     this.skippedRecordHandler = skippedRecordHandler;
+    this.partitionIdMapper = partitionIdMapper;
   }
 
   @Override
@@ -170,21 +173,15 @@ public class KafkaWorker<V> implements Runnable {
   }
 
   /**
-   * @return the partitions of the configured topic(s) currently assigned to this consumer,
-   *     deduplicated.
+   * @return the globally unique partition IDs (see {@link PartitionIdMapper}) of the configured
+   *     topic(s) currently assigned to this consumer
    */
   public List<Integer> getPartitions() {
     List<String> topics = userConfig.getTopics();
-    // FIXME: in multi-topic mode the raw Kafka partition numbers can collide across topics (every
-    // topic numbers from 0). Offset commits are unaffected because each offset carries its topic
-    // name and commits to the real Kafka topic-partition, but watermark tracking keys off these IDs
-    // and would conflate colliding partitions. Until they are normalized into globally unique IDs,
-    // multi-topic is intended for map/flatmap pipelines only, not windowing/reduce.
     List<Integer> partitions =
         consumer.assignment().stream()
             .filter(p -> topics.contains(p.topic()))
-            .map(TopicPartition::partition)
-            .distinct()
+            .map(p -> partitionIdMapper.toGlobalId(p.topic(), p.partition()))
             .collect(Collectors.toList());
     log.debug("Partitions: {}", partitions);
     return partitions;

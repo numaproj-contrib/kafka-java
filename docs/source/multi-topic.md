@@ -41,10 +41,20 @@ configured KMS key), so all topics must share the same AWS region and the **same
 - A stream feeding a **reduce (windowed aggregation)** vertex: all topics share a single watermark,
   so one idle or lagging topic can stall or corrupt window firing for the others.
 
-### Current limitation
+### Partition IDs
 
-In multi-topic mode the raw Kafka partition numbers are reported deduplicated and are **not yet
-normalized into globally unique IDs**. Offset commits stay correct regardless (the topic name is
-carried in the offset value), so this is safe for map/flatmap pipelines. Watermark correctness for
-windowing vertices depends on partition-ID normalization, which is not implemented yet — do not use
-multi-topic with reduce.
+Numaflow identifies every source partition by a single integer ID used for watermark tracking. Since
+every topic numbers its partitions from 0, the source maps each `(topic, partition)` to a globally
+unique ID using a fixed stride of 256:
+
+```
+globalId = topicIndex * 256 + partition
+```
+
+`topicIndex` is the topic's position in the configured list **sorted alphabetically**, so the mapping
+is deterministic across every pod and restart. A single topic maps to the raw partition number, so
+single-topic behavior is unchanged. New partitions added to a topic at runtime get a pre-reserved,
+stable ID and are consumed automatically.
+
+This caps each topic at **255 partitions** and a deployment at **256 topics**; the source **fails
+fast at startup** if either is exceeded.
