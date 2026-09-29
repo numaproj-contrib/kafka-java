@@ -24,8 +24,7 @@ acks=all
 schema.registry.url=[placeholder]
 basic.auth.credentials.source=[placeholder]
 basic.auth.user.info=[placeholder]
-# Other configurations
-retries=0
+enable.idempotence=true
 ```
 
 The `sasl.jaas.config` and `base.auth.user.info` are the properties that contain the credentials. Having credentials

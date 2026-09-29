@@ -20,8 +20,7 @@ data:
     schema.registry.url=[placeholder]
     basic.auth.credentials.source=[placeholder]
     basic.auth.user.info=[placeholder]
-    # Other configurations
-    retries=0
+    enable.idempotence=true
   user.configuration: |
     topicName: numagen-json
     schemaType: json

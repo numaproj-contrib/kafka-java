@@ -18,8 +18,7 @@ data:
     # Schema Registry connection configurations
     schema.registry.url=[placeholder]
     basic.auth.credentials.source=[placeholder]
-    # Other configurations
-    retries=0
+    enable.idempotence=true
   user.configuration: |
     topicName: numagen-avro
     schemaType: avro

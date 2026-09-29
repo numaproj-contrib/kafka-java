@@ -16,8 +16,7 @@ data:
     session.timeout.ms=45000
     # Best practice for Kafka producer to prevent data loss
     acks=all
-    # Other configurations
-    retries=0
+    enable.idempotence=true
   user.configuration: |
     topicName: numagen-raw
     schemaType: raw
