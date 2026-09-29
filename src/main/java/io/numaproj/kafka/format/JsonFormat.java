@@ -1,5 +1,6 @@
 package io.numaproj.kafka.format;
 
+import io.numaproj.kafka.common.CommonUtils;
 import io.numaproj.kafka.common.JsonValidator;
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,7 +43,8 @@ public class JsonFormat implements KafkaFormat<byte[]> {
     try {
       valid = JsonValidator.validate(jsonSchema, payload);
     } catch (Exception e) {
-      throw new FormatException("Failed to parse the message as JSON", e);
+      throw new FormatException(
+          "Failed to parse the message as JSON", CommonUtils.sanitizeFailure(e));
     }
     if (!valid) {
       throw new FormatException("Failed to validate the message against the JSON schema");
