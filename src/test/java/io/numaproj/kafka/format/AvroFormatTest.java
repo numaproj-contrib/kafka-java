@@ -32,6 +32,9 @@ class AvroFormatTest {
         assertThrows(
             FormatException.class, () -> AvroFormat.forSink(SCHEMA).toRecord("{\"age\":1}".getBytes()));
     assertTrue(e.getMessage().contains("Failed to prepare avro generic record"));
+    assertNotNull(e.getCause());
+    assertTrue(e.getCause().getMessage().endsWith("Exception"), "cause message must be a class name");
+    assertTrue(e.getCause().getStackTrace().length > 0);
   }
 
   @Test

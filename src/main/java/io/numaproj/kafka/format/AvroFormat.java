@@ -77,7 +77,8 @@ public class AvroFormat implements KafkaFormat<GenericRecord> {
       Decoder decoder = DecoderFactory.get().jsonDecoder(schema, new String(payload));
       return reader.read(null, decoder);
     } catch (Exception e) {
-      throw new FormatException("Failed to prepare avro generic record", e);
+      throw new FormatException(
+          "Failed to prepare avro generic record", CommonUtils.sanitizeFailure(e));
     }
   }
 }
