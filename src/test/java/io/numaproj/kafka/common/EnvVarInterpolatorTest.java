@@ -1,6 +1,8 @@
 package io.numaproj.kafka.common;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import java.util.Properties;
@@ -22,13 +24,44 @@ public class EnvVarInterpolatorTest {
   }
 
   @Test
-  public void interpolate_leavesUnknownEnvVarPlaceholdersUnchanged() {
+  public void interpolate_missingEnvVar_throwsAtStartup() {
     Properties props = new Properties();
     props.setProperty("group.instance.id", "my-instance-${MISSING}");
 
-    EnvVarInterpolator.interpolate(props, Map.of("NUMAFLOW_REPLICA", "2"));
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> EnvVarInterpolator.interpolate(props, Map.of("NUMAFLOW_REPLICA", "2")));
+    assertTrue(e.getMessage().contains("MISSING"));
+    assertTrue(e.getMessage().contains("group.instance.id"));
+  }
 
-    assertEquals("my-instance-${MISSING}", props.getProperty("group.instance.id"));
+  @Test
+  public void interpolate_multipleMissingVars_namesAllInException() {
+    Properties props = new Properties();
+    props.setProperty("bootstrap.servers", "${KAFKA_BOOTSTRAP}");
+    props.setProperty("sasl.jaas.config", "password=${KAFKA_PASSWORD}");
+
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> EnvVarInterpolator.interpolate(props, Map.of()));
+    assertTrue(e.getMessage().contains("KAFKA_BOOTSTRAP"));
+    assertTrue(e.getMessage().contains("KAFKA_PASSWORD"));
+  }
+
+  @Test
+  public void interpolate_partialResolution_throwsForUnsetVar() {
+    Properties props = new Properties();
+    props.setProperty("bootstrap.servers", "${KAFKA_BOOTSTRAP}");
+    props.setProperty("group.id", "${KAFKA_GROUP}");
+
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> EnvVarInterpolator.interpolate(props, Map.of("KAFKA_GROUP", "my-group")));
+    assertTrue(e.getMessage().contains("KAFKA_BOOTSTRAP"));
+    assertTrue(e.getMessage().contains("bootstrap.servers"));
   }
 
   @Test
