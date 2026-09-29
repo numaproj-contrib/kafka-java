@@ -9,7 +9,7 @@ class JsonFormatTest {
   private static final String SCHEMA =
       "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required\":[\"name\"]}";
 
-  private final JsonFormat format = new JsonFormat(SCHEMA);
+  private final JsonFormat format = new JsonFormat(new JsonsKemaSchemaValidator(SCHEMA));
 
   @Test
   void toRecord_validPayload_passesThrough() throws Exception {
@@ -58,13 +58,5 @@ class JsonFormatTest {
     assertSame(payload, format.toPayload(payload));
   }
 
-  @Test
-  void constructor_rejectsEmptySchema() {
-    assertThrows(IllegalArgumentException.class, () -> new JsonFormat(""));
-  }
 
-  @Test
-  void constructor_rejectsMalformedSchema() {
-    assertThrows(Exception.class, () -> new JsonFormat("{not valid json"));
-  }
 }

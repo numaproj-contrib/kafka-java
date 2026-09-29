@@ -1,8 +1,6 @@
 package io.numaproj.kafka.format;
 
-import com.github.erosb.jsonsKema.*;
 import io.numaproj.kafka.common.CommonUtils;
-import java.io.ByteArrayInputStream;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -18,13 +16,10 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class JsonFormat implements KafkaFormat<byte[]> {
 
-  private final Schema schema;
+  private final JsonSchemaValidator validator;
 
-  public JsonFormat(String jsonSchema) {
-    if (jsonSchema == null || jsonSchema.isEmpty()) {
-      throw new IllegalArgumentException("JSON schema must not be null or empty");
-    }
-    this.schema = new SchemaLoader(new JsonParser(jsonSchema).parse()).load();
+  public JsonFormat(JsonSchemaValidator validator) {
+    this.validator = validator;
   }
 
   @Override
@@ -42,10 +37,7 @@ public class JsonFormat implements KafkaFormat<byte[]> {
     // AvroFormat does around its decode: one failed message, batch intact.
     boolean valid;
     try {
-      Validator validator =
-          Validator.create(schema, new ValidatorConfig(FormatValidationPolicy.ALWAYS));
-      JsonValue dataJson = new JsonParser(new ByteArrayInputStream(payload)).parse();
-      valid = validator.validate(dataJson) == null;
+      valid = validator.validate(payload);
     } catch (Exception e) {
       throw new FormatException(
           "Failed to parse the message as JSON", CommonUtils.sanitizeFailure(e));
