@@ -44,6 +44,15 @@ class JsonFormatTest {
   }
 
   @Test
+  void toRecord_malformedPayload_causeIsSanitized() {
+    FormatException e =
+        assertThrows(FormatException.class, () -> format.toRecord("{".getBytes()));
+    assertNotNull(e.getCause());
+    assertTrue(e.getCause().getMessage().endsWith("Exception"), "cause message must be a class name");
+    assertTrue(e.getCause().getStackTrace().length > 0);
+  }
+
+  @Test
   void toPayload_passesThrough() throws Exception {
     byte[] payload = "{\"name\":\"alice\"}".getBytes();
     assertSame(payload, format.toPayload(payload));
