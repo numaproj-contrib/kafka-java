@@ -62,4 +62,9 @@ class JsonFormatTest {
   void constructor_rejectsEmptySchema() {
     assertThrows(IllegalArgumentException.class, () -> new JsonFormat(""));
   }
+
+  @Test
+  void constructor_rejectsMalformedSchema() {
+    assertThrows(Exception.class, () -> new JsonFormat("{not valid json"));
+  }
 }
