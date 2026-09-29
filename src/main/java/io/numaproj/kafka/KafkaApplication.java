@@ -7,6 +7,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.numaproj.kafka.config.ConsumerConfig;
 import io.numaproj.kafka.config.OnError;
 import io.numaproj.kafka.config.ProducerConfig;
+import io.numaproj.kafka.config.SchemaType;
 import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.consumer.Admin;
 import io.numaproj.kafka.consumer.KafkaSourcer;
@@ -43,8 +44,6 @@ public class KafkaApplication {
 
   private static final String HANDLER_CONSUMER = "consumer";
   private static final String HANDLER_PRODUCER = "producer";
-  private static final String SCHEMA_TYPE_AVRO = "avro";
-  private static final String SCHEMA_TYPE_JSON = "json";
 
   private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
 
@@ -95,11 +94,12 @@ public class KafkaApplication {
     Runtime.getRuntime().addShutdownHook(new Thread(metricsServer::stop));
     SourceMetrics metrics = PrometheusSourceMetrics.defaultRegistryInstance();
 
-    if (SCHEMA_TYPE_AVRO.equals(userConfig.getSchemaType())) {
+    SchemaType schemaType = userConfig.getSchemaType();
+    if (schemaType == SchemaType.AVRO) {
       new KafkaSourcer<GenericRecord>(
               userConfig, admin, AvroFormat.forSource(), consumerConfig::kafkaAvroConsumer, metrics)
           .startConsumer();
-    } else {
+    } else if (schemaType == SchemaType.JSON || schemaType == SchemaType.RAW) {
       // json or raw: values are forwarded downstream as-is
       new KafkaSourcer<byte[]>(
               userConfig,
@@ -108,6 +108,8 @@ public class KafkaApplication {
               consumerConfig::kafkaByteArrayConsumer,
               metrics)
           .startConsumer();
+    } else {
+      throw new IllegalStateException("Unhandled schemaType: " + schemaType);
     }
   }
 
@@ -120,9 +122,9 @@ public class KafkaApplication {
     }
 
     ProducerConfig producerConfig = new ProducerConfig(producerPropertiesPath);
-    String schemaType = userConfig.getSchemaType();
+    SchemaType schemaType = userConfig.getSchemaType();
 
-    if (SCHEMA_TYPE_AVRO.equals(schemaType)) {
+    if (schemaType == SchemaType.AVRO) {
       // The application creates the registry, so it owns closing it once the sinker terminates.
       Registry registry = producerConfig.schemaRegistry();
       try {
@@ -133,7 +135,7 @@ public class KafkaApplication {
       } finally {
         closeRegistry(registry);
       }
-    } else if (SCHEMA_TYPE_JSON.equals(schemaType)) {
+    } else if (schemaType == SchemaType.JSON) {
       // The Glue-framed contract covers Avro only, and schemaRegistryClient() would fail obscurely
       // on the absent schema.registry.url; fail with a clear message instead.
       if (producerConfig.isGlueSchemaRegistry()) {
@@ -149,11 +151,13 @@ public class KafkaApplication {
       } finally {
         closeRegistry(registry);
       }
-    } else {
+    } else if (schemaType == SchemaType.RAW) {
       // raw: no schema registry involved
       runSinker(
           new KafkaSinker<>(
               userConfig, producerConfig.kafkaByteArrayProducer(), new ByteArrayFormat()));
+    } else {
+      throw new IllegalStateException("Unhandled schemaType: " + schemaType);
     }
   }
 
@@ -220,7 +224,7 @@ public class KafkaApplication {
     UserConfig userConfig =
         UserConfig.builder()
             .topicName(argMap.get(KEY_TOPIC_NAME))
-            .schemaType(argMap.get(KEY_SCHEMA_TYPE))
+            .schemaType(SchemaType.from(argMap.get(KEY_SCHEMA_TYPE)))
             .schemaSubject(argMap.getOrDefault(KEY_SCHEMA_SUBJECT, ""))
             .schemaVersion(schemaVersion)
             .onError(OnError.from(argMap.get(KEY_ON_ERROR)))
