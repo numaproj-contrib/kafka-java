@@ -1,7 +1,11 @@
 package io.numaproj.kafka.common;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +17,8 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <ul>
  *   <li>Only expands placeholders in the form {@code ${VARNAME}}
- *   <li>If an env var is missing, the placeholder is left unchanged
+ *   <li>If any env var is missing, throws {@link IllegalArgumentException} naming the unresolved
+ *       variable(s) and the property key(s) that reference them
  * </ul>
  */
 @Slf4j
@@ -39,6 +44,7 @@ public final class EnvVarInterpolator {
       env = Map.of();
     }
 
+    List<String> unresolved = new ArrayList<>();
     for (String name : props.stringPropertyNames()) {
       String raw = props.getProperty(name);
       if (raw == null || raw.isEmpty()) {
@@ -49,6 +55,19 @@ public final class EnvVarInterpolator {
         props.setProperty(name, expanded);
         log.debug("Interpolated property key='{}'", name);
       }
+      // Collect any placeholders that survive expansion (env var not set).
+      Set<String> remaining = new LinkedHashSet<>();
+      Matcher m = ENV_PLACEHOLDER.matcher(expanded);
+      while (m.find()) {
+        remaining.add(m.group(0));
+      }
+      for (String placeholder : remaining) {
+        unresolved.add(placeholder + " in property '" + name + "'");
+      }
+    }
+    if (!unresolved.isEmpty()) {
+      throw new IllegalArgumentException(
+          "Unresolved environment variable(s) in config: " + String.join(", ", unresolved));
     }
   }
 
@@ -64,7 +83,6 @@ public final class EnvVarInterpolator {
       String varName = matcher.group(1);
       String envVal = env.get(varName);
       if (envVal == null) {
-        // Leave placeholder unchanged.
         matcher.appendReplacement(sb, Matcher.quoteReplacement(matcher.group(0)));
       } else {
         matcher.appendReplacement(sb, Matcher.quoteReplacement(envVal));
