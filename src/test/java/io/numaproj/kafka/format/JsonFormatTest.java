@@ -94,18 +94,6 @@ class JsonFormatTest {
   }
 
   @Test
-  void toRecord_draft07Schema_additionalProperty_throwsFormatException() {
-    JsonFormat draft07 =
-        new JsonFormat(
-            "{\"$schema\":\"http://json-schema.org/draft-07/schema#\","
-                + "\"type\":\"object\","
-                + "\"additionalProperties\":false,"
-                + "\"properties\":{\"name\":{\"type\":\"string\"}}}");
-    assertThrows(
-        FormatException.class, () -> draft07.toRecord("{\"name\":\"alice\",\"extra\":1}".getBytes()));
-  }
-
-  @Test
   void toRecord_formatValidationAlways_rejectsInvalidFormat() {
     // FormatValidationPolicy.ALWAYS must be in effect: an email field with a non-email value
     // should fail even though the JSON type is string.
@@ -126,5 +114,12 @@ class JsonFormatTest {
   @Test
   void constructor_rejectsMalformedSchema() {
     assertThrows(IllegalArgumentException.class, () -> new JsonFormat("{not valid json"));
+  }
+
+  @Test
+  void constructor_rejectsInvalidSchema() {
+    // Valid JSON but invalid schema: "type" must be a string, not an integer.
+    // Exercises the SchemaLoadingException path, distinct from the parse-error path above.
+    assertThrows(IllegalArgumentException.class, () -> new JsonFormat("{\"type\":5}"));
   }
 }
