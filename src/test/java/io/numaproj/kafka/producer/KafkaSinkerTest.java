@@ -193,8 +193,7 @@ class KafkaSinkerTest {
         new KafkaSinker<>(
             userConfig,
             jsonProducer,
-            new JsonFormat(
-                "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}"));
+            new JsonFormat("{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}"));
 
     SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
     iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(null).build());
