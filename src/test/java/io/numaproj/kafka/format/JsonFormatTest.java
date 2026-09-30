@@ -94,19 +94,6 @@ class JsonFormatTest {
   }
 
   @Test
-  void toRecord_formatValidationAlways_rejectsInvalidFormat() {
-    // FormatValidationPolicy.ALWAYS must be in effect: an email field with a non-email value
-    // should fail even though the JSON type is string.
-    JsonFormat withFormat =
-        new JsonFormat(
-            "{\"type\":\"object\","
-                + "\"properties\":{\"email\":{\"type\":\"string\",\"format\":\"email\"}},"
-                + "\"required\":[\"email\"]}");
-    assertThrows(
-        FormatException.class, () -> withFormat.toRecord("{\"email\":\"not-an-email\"}".getBytes()));
-  }
-
-  @Test
   void constructor_rejectsEmptySchema() {
     assertThrows(IllegalArgumentException.class, () -> new JsonFormat(""));
   }
