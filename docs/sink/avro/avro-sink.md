@@ -9,10 +9,24 @@ Avro schema, `kafka-java` producer serializes the value of the message using the
 
 Current Limitations:
 
-* The Avro sink assumes the input payload is in json format, it uses the
-  `org.apache.avro.io.JsonDecoder` to decode the payload to Avro GenericRecord before sending to the Kafka topic. Please
-  consider contributing if you want other formats to be supported. We
-  have [an open issue](https://github.com/numaproj-contrib/kafka-java/issues/18) to track the feature.
+* The Avro sink decodes the incoming payload using Avro's own JSON encoding
+  (`org.apache.avro.io.JsonDecoder`), which differs from plain JSON for **union fields**. Avro
+  models nullable fields as a union (e.g. `["null", "string"]`), and its JSON encoding requires the
+  active branch to be named explicitly:
+
+  ```json
+  // plain JSON — does NOT work
+  { "name": "alice", "age": null }
+
+  // Avro JSON — required by this sink
+  { "name": { "string": "alice" }, "age": null }
+  ```
+
+  Non-nullable fields (no union) are identical in both formats. The example schema on this page uses
+  only non-nullable fields (`long`, nested `record`), so the distinction does not apply there. If
+  your schema has nullable fields, your upstream vertex must produce Avro JSON. Please consider
+  contributing a plain-JSON decode path. We have
+  [an open issue](https://github.com/numaproj-contrib/kafka-java/issues/18) to track the feature.
 * The Avro sink cannot write a null or empty value. Neither is a valid Avro record, so it fails
   decoding and the message is reported back as failed rather than produced. Use the
   [no-schema sink](../no-schema/no-schema-sink.md) if your topic needs null values.

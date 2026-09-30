@@ -11,9 +11,12 @@ the key still uses `org.apache.kafka.common.serialization.StringSerializer`.
 The value is written in the Glue **binary wire format**: an 18-byte header (header version `0x03`, a
 compression flag, then the 16-byte schema-version UUID) followed by the Avro body.
 
-As with the Confluent path, the incoming payload is expected to be JSON matching the schema; the sink
-decodes it into an Avro `GenericRecord` before the serializer frames it. A null or empty payload is
-therefore not producible here — it fails decoding, and there is no Glue frame that could carry it.
+As with the Confluent path, the incoming payload must be in **Avro JSON encoding** (not plain JSON);
+the sink decodes it into an Avro `GenericRecord` before the serializer frames it. Avro JSON differs
+from plain JSON for union fields: a nullable string `["null", "string"]` must arrive as
+`{"string": "value"}`, not as a bare `"value"`. See the
+[Avro sink doc](../avro/avro-sink.md#current-limitations) for a full example. A null or empty
+payload is not producible here — it fails decoding, and there is no Glue frame that could carry it.
 
 For the source-side equivalent, see [avro-glue-source](../../source/avro-glue/avro-glue-source.md).
 

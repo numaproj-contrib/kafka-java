@@ -68,7 +68,9 @@ public class AvroFormat implements KafkaFormat<GenericRecord> {
 
   @Override
   public GenericRecord toRecord(byte[] payload) throws FormatException {
-    // Assumes the input payload is JSON matching the configured schema.
+    // Payload must be in Avro JSON encoding, not plain JSON. Union fields (including nullable
+    // fields modelled as ["null", "T"]) require the branch name as a wrapper object:
+    // {"string": "value"} rather than a bare "value". Non-union fields are identical in both.
     if (schema == null) {
       throw new FormatException("Avro source format cannot serialize records to Kafka");
     }
