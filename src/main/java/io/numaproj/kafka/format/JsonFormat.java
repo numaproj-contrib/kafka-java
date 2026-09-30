@@ -48,23 +48,23 @@ public class JsonFormat implements KafkaFormat<byte[]> {
   public byte[] toRecord(byte[] payload) throws FormatException {
     // Parsing and validation are separate steps. JsonParser.parse() throws an unchecked
     // JsonParseException for anything unparseable — a truncated or non-JSON payload, an empty one
-    // (a JSON text is one value, and zero bytes is none), or a null one (dereferenced outright).
-    // Those are not FormatException, so they would bypass the sinker's per-message catch and shut
-    // the vertex down. Convert them here, the same way AvroFormat does: one failed message, batch intact.
-    boolean valid;
+    // (a JSON text is one value, and zero bytes is none), or a null one (an NPE when the stream
+    // is built). Those are not FormatException, so they would bypass the sinker's per-message
+    // catch and shut the vertex down. Convert them here, the same way AvroFormat does: one failed
+    // message, batch intact.
+    JsonValue dataJson;
     try {
-      // A fresh Validator per call: DefaultValidator keeps mutable per-run state.
-      Validator validator =
-          Validator.create(schema, new ValidatorConfig(FormatValidationPolicy.ALWAYS));
       InputStream is = new ByteArrayInputStream(payload);
-      JsonValue dataJson = new JsonParser(is).parse();
-      ValidationFailure failure = validator.validate(dataJson);
-      valid = failure == null;
+      dataJson = new JsonParser(is).parse();
     } catch (Exception e) {
       throw new FormatException(
           "Failed to parse the message as JSON", CommonUtils.sanitizeFailure(e));
     }
-    if (!valid) {
+    // A fresh Validator per call: DefaultValidator keeps mutable per-run state.
+    Validator validator =
+        Validator.create(schema, new ValidatorConfig(FormatValidationPolicy.ALWAYS));
+    ValidationFailure failure = validator.validate(dataJson);
+    if (failure != null) {
       throw new FormatException("Failed to validate the message against the JSON schema");
     }
     return payload;
