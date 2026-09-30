@@ -2,6 +2,7 @@ package io.numaproj.kafka.format;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 
 class JsonFormatTest {
@@ -56,6 +57,24 @@ class JsonFormatTest {
   void toPayload_passesThrough() throws Exception {
     byte[] payload = "{\"name\":\"alice\"}".getBytes();
     assertSame(payload, format.toPayload(payload));
+  }
+
+  @Test
+  void toRecord_draft202012Schema_validPayload_passesThrough() throws Exception {
+    JsonFormat draft202012 =
+        new JsonFormat(
+            "{\"$id\":\"http://example.com/myURI.schema.json\","
+                + "\"$schema\":\"https://json-schema.org/draft/2020-12/schema\","
+                + "\"additionalProperties\":false,"
+                + "\"required\":[\"Data\",\"Createdts\"],"
+                + "\"properties\":{"
+                + "\"Data\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"value\":{\"type\":\"integer\",\"format\":\"int64\"}}},"
+                + "\"Createdts\":{\"type\":\"integer\",\"format\":\"int64\"}},"
+                + "\"title\":\"numagen-json\",\"type\":\"object\"}");
+    byte[] payload =
+        "{\"Data\":{\"value\":1736093588709026645},\"Createdts\":1736093588709026645}"
+            .getBytes(StandardCharsets.UTF_8);
+    assertSame(payload, draft202012.toRecord(payload));
   }
 
   @Test

@@ -1,6 +1,12 @@
 package io.numaproj.kafka.format;
 
-import com.github.erosb.jsonsKema.*;
+import com.github.erosb.jsonsKema.FormatValidationPolicy;
+import com.github.erosb.jsonsKema.JsonParser;
+import com.github.erosb.jsonsKema.JsonValue;
+import com.github.erosb.jsonsKema.Schema;
+import com.github.erosb.jsonsKema.SchemaLoader;
+import com.github.erosb.jsonsKema.Validator;
+import com.github.erosb.jsonsKema.ValidatorConfig;
 import io.numaproj.kafka.common.CommonUtils;
 import java.io.ByteArrayInputStream;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +33,7 @@ public class JsonFormat implements KafkaFormat<byte[]> {
     try {
       this.schema = new SchemaLoader(new JsonParser(jsonSchema).parse()).load();
     } catch (Exception e) {
-      throw new IllegalArgumentException("Failed to parse or load JSON schema: " + e.getMessage(), e);
+      throw new IllegalArgumentException("Failed to parse or load JSON schema", e);
     }
   }
 
@@ -38,14 +44,14 @@ public class JsonFormat implements KafkaFormat<byte[]> {
 
   @Override
   public byte[] toRecord(byte[] payload) throws FormatException {
-    // The validator parses before it validates, and only the validation step is reported through the
-    // return value: anything unparseable — a truncated or non-JSON payload, an empty one (a JSON
-    // text is one value, and zero bytes is none), a null one (dereferenced outright) — leaves it as
-    // an unchecked exception instead. Those are not FormatException, so they would pass through the
-    // sinker's per-message catch and shut the vertex down. Convert them here, the same way
-    // AvroFormat does around its decode: one failed message, batch intact.
+    // Parsing and validation are separate steps. JsonParser.parse() throws an unchecked
+    // JsonParseException for anything unparseable — a truncated or non-JSON payload, an empty one
+    // (a JSON text is one value, and zero bytes is none), or a null one (dereferenced outright).
+    // Those are not FormatException, so they would bypass the sinker's per-message catch and shut
+    // the vertex down. Convert them here, the same way AvroFormat does: one failed message, batch intact.
     boolean valid;
     try {
+      // A fresh Validator per call: DefaultValidator keeps mutable per-run state.
       Validator validator =
           Validator.create(schema, new ValidatorConfig(FormatValidationPolicy.ALWAYS));
       JsonValue dataJson = new JsonParser(new ByteArrayInputStream(payload)).parse();
