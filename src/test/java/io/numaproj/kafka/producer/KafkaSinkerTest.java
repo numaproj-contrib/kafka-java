@@ -7,7 +7,7 @@ import io.numaproj.kafka.config.UserConfig;
 import io.numaproj.kafka.format.AvroFormat;
 import io.numaproj.kafka.format.ByteArrayFormat;
 import io.numaproj.kafka.format.JsonFormat;
-import io.numaproj.kafka.format.JsonsKemaSchemaValidator;
+import io.numaproj.kafka.format.SkemaJsonSchemaValidator;
 import io.numaproj.numaflow.sinker.Response;
 import io.numaproj.numaflow.sinker.ResponseList;
 import io.numaproj.numaflow.sinker.SinkerTestKit;
@@ -194,7 +194,9 @@ class KafkaSinkerTest {
         new KafkaSinker<>(
             userConfig,
             jsonProducer,
-            new JsonFormat(new JsonsKemaSchemaValidator("{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}")));
+            new JsonFormat(
+                new SkemaJsonSchemaValidator(
+                    "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}}")));
 
     SinkerTestKit.TestListIterator iterator = new SinkerTestKit.TestListIterator();
     iterator.addDatum(SinkerTestKit.TestDatum.builder().id("1").value(null).build());

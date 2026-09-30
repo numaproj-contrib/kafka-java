@@ -4,11 +4,11 @@ import com.github.erosb.jsonsKema.*;
 import java.io.ByteArrayInputStream;
 
 /** jsonsKema-backed {@link JsonSchemaValidator}. Compiles the schema once at construction time. */
-public class JsonsKemaSchemaValidator implements JsonSchemaValidator {
+public class SkemaJsonSchemaValidator implements JsonSchemaValidator {
 
   private final Schema schema;
 
-  public JsonsKemaSchemaValidator(String jsonSchema) {
+  public SkemaJsonSchemaValidator(String jsonSchema) {
     if (jsonSchema == null || jsonSchema.isEmpty()) {
       throw new IllegalArgumentException("JSON schema must not be null or empty");
     }

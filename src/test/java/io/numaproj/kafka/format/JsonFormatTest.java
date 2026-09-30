@@ -9,7 +9,7 @@ class JsonFormatTest {
   private static final String SCHEMA =
       "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required\":[\"name\"]}";
 
-  private final JsonFormat format = new JsonFormat(new JsonsKemaSchemaValidator(SCHEMA));
+  private final JsonFormat format = new JsonFormat(new SkemaJsonSchemaValidator(SCHEMA));
 
   @Test
   void toRecord_validPayload_passesThrough() throws Exception {
@@ -57,6 +57,4 @@ class JsonFormatTest {
     byte[] payload = "{\"name\":\"alice\"}".getBytes();
     assertSame(payload, format.toPayload(payload));
   }
-
-
 }

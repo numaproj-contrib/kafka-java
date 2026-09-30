@@ -4,9 +4,9 @@ import io.numaproj.kafka.common.CommonUtils;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * JSON format backed by a JSON schema.
+ * JSON format backed by a {@link JsonSchemaValidator}.
  *
- * <p>On the sink side the raw payload is validated against the supplied JSON schema and, when valid,
+ * <p>On the sink side the raw payload is validated against the supplied schema and, when valid,
  * written to Kafka unchanged (a byte-array serializer is used on the client). Validation is done
  * here rather than via the Confluent {@code KafkaJsonSchemaSerializer} because the latter requires a
  * POJO with annotations, which prevents a generic, schema-driven solution.
@@ -19,6 +19,9 @@ public class JsonFormat implements KafkaFormat<byte[]> {
   private final JsonSchemaValidator validator;
 
   public JsonFormat(JsonSchemaValidator validator) {
+    if (validator == null) {
+      throw new IllegalArgumentException("validator must not be null");
+    }
     this.validator = validator;
   }
 
