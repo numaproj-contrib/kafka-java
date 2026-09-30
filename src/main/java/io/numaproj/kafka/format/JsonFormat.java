@@ -5,10 +5,12 @@ import com.github.erosb.jsonsKema.JsonParser;
 import com.github.erosb.jsonsKema.JsonValue;
 import com.github.erosb.jsonsKema.Schema;
 import com.github.erosb.jsonsKema.SchemaLoader;
+import com.github.erosb.jsonsKema.ValidationFailure;
 import com.github.erosb.jsonsKema.Validator;
 import com.github.erosb.jsonsKema.ValidatorConfig;
 import io.numaproj.kafka.common.CommonUtils;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -54,8 +56,10 @@ public class JsonFormat implements KafkaFormat<byte[]> {
       // A fresh Validator per call: DefaultValidator keeps mutable per-run state.
       Validator validator =
           Validator.create(schema, new ValidatorConfig(FormatValidationPolicy.ALWAYS));
-      JsonValue dataJson = new JsonParser(new ByteArrayInputStream(payload)).parse();
-      valid = validator.validate(dataJson) == null;
+      InputStream is = new ByteArrayInputStream(payload);
+      JsonValue dataJson = new JsonParser(is).parse();
+      ValidationFailure failure = validator.validate(dataJson);
+      valid = failure == null;
     } catch (Exception e) {
       throw new FormatException(
           "Failed to parse the message as JSON", CommonUtils.sanitizeFailure(e));
