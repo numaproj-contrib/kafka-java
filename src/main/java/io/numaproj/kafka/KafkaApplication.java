@@ -14,7 +14,6 @@ import io.numaproj.kafka.consumer.KafkaSourcer;
 import io.numaproj.kafka.format.AvroFormat;
 import io.numaproj.kafka.format.ByteArrayFormat;
 import io.numaproj.kafka.format.JsonFormat;
-import io.numaproj.kafka.format.SkemaJsonSchemaValidator;
 import io.numaproj.kafka.metrics.MetricsServer;
 import io.numaproj.kafka.metrics.PrometheusSourceMetrics;
 import io.numaproj.kafka.metrics.SourceMetrics;
@@ -148,9 +147,7 @@ public class KafkaApplication {
         String jsonSchema = fetchJsonSchema(registry, userConfig);
         runSinker(
             new KafkaSinker<>(
-                userConfig,
-                    producerConfig.kafkaByteArrayProducer(),
-                    new JsonFormat(new SkemaJsonSchemaValidator(jsonSchema))));
+                userConfig, producerConfig.kafkaByteArrayProducer(), new JsonFormat(jsonSchema)));
       } finally {
         closeRegistry(registry);
       }

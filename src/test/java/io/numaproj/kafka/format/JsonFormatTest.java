@@ -9,7 +9,7 @@ class JsonFormatTest {
   private static final String SCHEMA =
       "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required\":[\"name\"]}";
 
-  private final JsonFormat format = new JsonFormat(new SkemaJsonSchemaValidator(SCHEMA));
+  private final JsonFormat format = new JsonFormat(SCHEMA);
 
   @Test
   void toRecord_validPayload_passesThrough() throws Exception {
@@ -56,5 +56,56 @@ class JsonFormatTest {
   void toPayload_passesThrough() throws Exception {
     byte[] payload = "{\"name\":\"alice\"}".getBytes();
     assertSame(payload, format.toPayload(payload));
+  }
+
+  @Test
+  void toRecord_draft07Schema_validPayload_passesThrough() throws Exception {
+    JsonFormat draft07 =
+        new JsonFormat(
+            "{\"$schema\":\"http://json-schema.org/draft-07/schema#\","
+                + "\"type\":\"object\","
+                + "\"additionalProperties\":false,"
+                + "\"required\":[\"Data\",\"Createdts\"],"
+                + "\"properties\":{"
+                + "\"Data\":{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"integer\",\"format\":\"int64\"}},\"additionalProperties\":false},"
+                + "\"Createdts\":{\"type\":\"integer\",\"format\":\"int64\"}}}");
+    byte[] payload =
+        "{\"Data\":{\"value\":1736093588709026645},\"Createdts\":1736093588709026645}".getBytes();
+    assertSame(payload, draft07.toRecord(payload));
+  }
+
+  @Test
+  void toRecord_draft07Schema_additionalProperty_throwsFormatException() {
+    JsonFormat draft07 =
+        new JsonFormat(
+            "{\"$schema\":\"http://json-schema.org/draft-07/schema#\","
+                + "\"type\":\"object\","
+                + "\"additionalProperties\":false,"
+                + "\"properties\":{\"name\":{\"type\":\"string\"}}}");
+    assertThrows(
+        FormatException.class, () -> draft07.toRecord("{\"name\":\"alice\",\"extra\":1}".getBytes()));
+  }
+
+  @Test
+  void toRecord_formatValidationAlways_rejectsInvalidFormat() {
+    // FormatValidationPolicy.ALWAYS must be in effect: an email field with a non-email value
+    // should fail even though the JSON type is string.
+    JsonFormat withFormat =
+        new JsonFormat(
+            "{\"type\":\"object\","
+                + "\"properties\":{\"email\":{\"type\":\"string\",\"format\":\"email\"}},"
+                + "\"required\":[\"email\"]}");
+    assertThrows(
+        FormatException.class, () -> withFormat.toRecord("{\"email\":\"not-an-email\"}".getBytes()));
+  }
+
+  @Test
+  void constructor_rejectsEmptySchema() {
+    assertThrows(IllegalArgumentException.class, () -> new JsonFormat(""));
+  }
+
+  @Test
+  void constructor_rejectsMalformedSchema() {
+    assertThrows(IllegalArgumentException.class, () -> new JsonFormat("{not valid json"));
   }
 }

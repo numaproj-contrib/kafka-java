@@ -1,12 +1,14 @@
 package io.numaproj.kafka.format;
 
+import com.github.erosb.jsonsKema.*;
 import io.numaproj.kafka.common.CommonUtils;
+import java.io.ByteArrayInputStream;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * JSON format backed by a {@link JsonSchemaValidator}.
+ * JSON format backed by a JSON schema.
  *
- * <p>On the sink side the raw payload is validated against the supplied schema and, when valid,
+ * <p>On the sink side the raw payload is validated against the supplied JSON schema and, when valid,
  * written to Kafka unchanged (a byte-array serializer is used on the client). Validation is done
  * here rather than via the Confluent {@code KafkaJsonSchemaSerializer} because the latter requires a
  * POJO with annotations, which prevents a generic, schema-driven solution.
@@ -16,13 +18,17 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class JsonFormat implements KafkaFormat<byte[]> {
 
-  private final JsonSchemaValidator validator;
+  private final Schema schema;
 
-  public JsonFormat(JsonSchemaValidator validator) {
-    if (validator == null) {
-      throw new IllegalArgumentException("validator must not be null");
+  public JsonFormat(String jsonSchema) {
+    if (jsonSchema == null || jsonSchema.isEmpty()) {
+      throw new IllegalArgumentException("JSON schema must not be null or empty");
     }
-    this.validator = validator;
+    try {
+      this.schema = new SchemaLoader(new JsonParser(jsonSchema).parse()).load();
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Failed to parse or load JSON schema: " + e.getMessage(), e);
+    }
   }
 
   @Override
@@ -40,7 +46,10 @@ public class JsonFormat implements KafkaFormat<byte[]> {
     // AvroFormat does around its decode: one failed message, batch intact.
     boolean valid;
     try {
-      valid = validator.validate(payload);
+      Validator validator =
+          Validator.create(schema, new ValidatorConfig(FormatValidationPolicy.ALWAYS));
+      JsonValue dataJson = new JsonParser(new ByteArrayInputStream(payload)).parse();
+      valid = validator.validate(dataJson) == null;
     } catch (Exception e) {
       throw new FormatException(
           "Failed to parse the message as JSON", CommonUtils.sanitizeFailure(e));
