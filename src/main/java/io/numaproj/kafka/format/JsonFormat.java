@@ -1,7 +1,16 @@
 package io.numaproj.kafka.format;
 
+import com.github.erosb.jsonsKema.FormatValidationPolicy;
+import com.github.erosb.jsonsKema.JsonParser;
+import com.github.erosb.jsonsKema.JsonValue;
+import com.github.erosb.jsonsKema.Schema;
+import com.github.erosb.jsonsKema.SchemaLoader;
+import com.github.erosb.jsonsKema.ValidationFailure;
+import com.github.erosb.jsonsKema.Validator;
+import com.github.erosb.jsonsKema.ValidatorConfig;
 import io.numaproj.kafka.common.CommonUtils;
-import io.numaproj.kafka.common.JsonValidator;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -17,13 +26,17 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class JsonFormat implements KafkaFormat<byte[]> {
 
-  private final String jsonSchema;
+  private final Schema schema;
 
   public JsonFormat(String jsonSchema) {
     if (jsonSchema == null || jsonSchema.isEmpty()) {
       throw new IllegalArgumentException("JSON schema must not be null or empty");
     }
-    this.jsonSchema = jsonSchema;
+    try {
+      this.schema = new SchemaLoader(new JsonParser(jsonSchema).parse()).load();
+    } catch (Exception e) {
+      throw new IllegalArgumentException("Failed to parse or load JSON schema", e);
+    }
   }
 
   @Override
@@ -33,20 +46,25 @@ public class JsonFormat implements KafkaFormat<byte[]> {
 
   @Override
   public byte[] toRecord(byte[] payload) throws FormatException {
-    // The validator parses before it validates, and only the validation step is reported through the
-    // return value: anything unparseable — a truncated or non-JSON payload, an empty one (a JSON
-    // text is one value, and zero bytes is none), a null one (dereferenced outright) — leaves it as
-    // an unchecked exception instead. Those are not FormatException, so they would pass through the
-    // sinker's per-message catch and shut the vertex down. Convert them here, the same way
-    // AvroFormat does around its decode: one failed message, batch intact.
-    boolean valid;
+    // Parsing and validation are separate steps. JsonParser.parse() throws an unchecked
+    // JsonParseException for anything unparseable — a truncated or non-JSON payload, an empty one
+    // (a JSON text is one value, and zero bytes is none), or a null one (an NPE when the stream
+    // is built). Those are not FormatException, so they would bypass the sinker's per-message
+    // catch and shut the vertex down. Convert them here, the same way AvroFormat does: one failed
+    // message, batch intact.
+    JsonValue dataJson;
     try {
-      valid = JsonValidator.validate(jsonSchema, payload);
+      InputStream is = new ByteArrayInputStream(payload);
+      dataJson = new JsonParser(is).parse();
     } catch (Exception e) {
       throw new FormatException(
           "Failed to parse the message as JSON", CommonUtils.sanitizeFailure(e));
     }
-    if (!valid) {
+    // A fresh Validator per call: DefaultValidator keeps mutable per-run state.
+    Validator validator =
+        Validator.create(schema, new ValidatorConfig(FormatValidationPolicy.ALWAYS));
+    ValidationFailure failure = validator.validate(dataJson);
+    if (failure != null) {
       throw new FormatException("Failed to validate the message against the JSON schema");
     }
     return payload;

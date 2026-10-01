@@ -2,6 +2,7 @@ package io.numaproj.kafka.format;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 
 class JsonFormatTest {
@@ -59,7 +60,53 @@ class JsonFormatTest {
   }
 
   @Test
+  void toRecord_draft202012Schema_validPayload_passesThrough() throws Exception {
+    JsonFormat draft202012 =
+        new JsonFormat(
+            "{\"$id\":\"http://example.com/myURI.schema.json\","
+                + "\"$schema\":\"https://json-schema.org/draft/2020-12/schema\","
+                + "\"additionalProperties\":false,"
+                + "\"required\":[\"Data\",\"Createdts\"],"
+                + "\"properties\":{"
+                + "\"Data\":{\"type\":\"object\",\"additionalProperties\":false,\"properties\":{\"value\":{\"type\":\"integer\",\"format\":\"int64\"}}},"
+                + "\"Createdts\":{\"type\":\"integer\",\"format\":\"int64\"}},"
+                + "\"title\":\"numagen-json\",\"type\":\"object\"}");
+    byte[] payload =
+        "{\"Data\":{\"value\":1736093588709026645},\"Createdts\":1736093588709026645}"
+            .getBytes(StandardCharsets.UTF_8);
+    assertSame(payload, draft202012.toRecord(payload));
+  }
+
+  @Test
+  void toRecord_draft07Schema_validPayload_passesThrough() throws Exception {
+    JsonFormat draft07 =
+        new JsonFormat(
+            "{\"$schema\":\"http://json-schema.org/draft-07/schema#\","
+                + "\"type\":\"object\","
+                + "\"additionalProperties\":false,"
+                + "\"required\":[\"Data\",\"Createdts\"],"
+                + "\"properties\":{"
+                + "\"Data\":{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"integer\",\"format\":\"int64\"}},\"additionalProperties\":false},"
+                + "\"Createdts\":{\"type\":\"integer\",\"format\":\"int64\"}}}");
+    byte[] payload =
+        "{\"Data\":{\"value\":1736093588709026645},\"Createdts\":1736093588709026645}".getBytes();
+    assertSame(payload, draft07.toRecord(payload));
+  }
+
+  @Test
   void constructor_rejectsEmptySchema() {
     assertThrows(IllegalArgumentException.class, () -> new JsonFormat(""));
+  }
+
+  @Test
+  void constructor_rejectsMalformedSchema() {
+    assertThrows(IllegalArgumentException.class, () -> new JsonFormat("{not valid json"));
+  }
+
+  @Test
+  void constructor_rejectsInvalidSchema() {
+    // Valid JSON but invalid schema: "type" must be a string, not an integer.
+    // Exercises the SchemaLoadingException path, distinct from the parse-error path above.
+    assertThrows(IllegalArgumentException.class, () -> new JsonFormat("{\"type\":5}"));
   }
 }
