@@ -1,6 +1,7 @@
 package io.numaproj.kafka.consumer;
 
 import io.numaproj.kafka.config.UserConfig;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,6 +10,7 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 
@@ -74,6 +76,21 @@ public class Admin {
       log.error("Failed to get pending messages", e);
       return PendingNotAvailable;
     }
+  }
+
+  /**
+   * Fetches the current partition count of each given topic from the broker.
+   *
+   * @param topics the topics to describe
+   * @return a map of topic name to its number of partitions
+   * @throws Exception if the broker metadata cannot be retrieved
+   */
+  public Map<String, Integer> topicPartitionCounts(Collection<String> topics) throws Exception {
+    Map<String, Integer> counts = new HashMap<>();
+    Map<String, TopicDescription> described =
+        adminClient.describeTopics(topics).allTopicNames().get();
+    described.forEach((topic, description) -> counts.put(topic, description.partitions().size()));
+    return counts;
   }
 
   public void close() {

@@ -43,6 +43,9 @@ public class KafkaSourcer<V> extends Sourcer {
   private final KafkaFormat<V> format;
   private final ConsumerFactory<V> consumerFactory;
   private final SkippedRecordHandler skippedRecordHandler;
+  // Maps each (topic, partition) to a globally unique Numaflow partition ID so that partitions from
+  // different topics do not collide in watermark tracking. See PartitionIdMapper.
+  private final PartitionIdMapper partitionIdMapper;
 
   // The worker and its thread are lazily initialized on the first read() call because the Numaflow
   // batch size (used to set max.poll.records) is not known until the first ReadRequest arrives.
@@ -65,10 +68,14 @@ public class KafkaSourcer<V> extends Sourcer {
     this.consumerFactory = consumerFactory;
     // Shared with the worker so a drop is counted and logged identically at both read-path stages.
     this.skippedRecordHandler = new SkippedRecordHandler(metrics);
+    // Built from static config; fails fast here if there are too many topics for the ID space.
+    this.partitionIdMapper = new PartitionIdMapper(userConfig.getTopics());
   }
 
   public void startConsumer() throws Exception {
     log.info("Initializing Kafka sourcer server...");
+    // Fail fast before serving if any topic has more partitions than a stride block can hold.
+    partitionIdMapper.validatePartitionCounts(admin.topicPartitionCounts(userConfig.getTopics()));
     new Server(this).start();
   }
 
@@ -81,7 +88,9 @@ public class KafkaSourcer<V> extends Sourcer {
         "Initializing consumer worker with batchSize={} timeoutMs={}",
         batchSize,
         request.getTimeout().toMillis());
-    worker = new KafkaWorker<>(userConfig, consumerFactory.create(batchSize), skippedRecordHandler);
+    worker =
+        new KafkaWorker<>(
+            userConfig, consumerFactory.create(batchSize), skippedRecordHandler, partitionIdMapper);
     workerThread = new Thread(worker, "consumerWorkerThread");
     workerThread.start();
   }
@@ -174,7 +183,7 @@ public class KafkaSourcer<V> extends Sourcer {
     }
   }
 
-  private static <V> Message toMessage(ConsumerRecord<String, V> consumerRecord, byte[] payload) {
+  private Message toMessage(ConsumerRecord<String, V> consumerRecord, byte[] payload) {
     Map<String, String> kafkaHeaders = new HashMap<>();
     for (Header header : consumerRecord.headers()) {
       // A header value is nullable on the wire - producers use a null value to mark a key whose
@@ -191,16 +200,21 @@ public class KafkaSourcer<V> extends Sourcer {
     kafkaHeaders.put(KAFKA_TOPIC_HEADER, consumerRecord.topic());
     // TODO - Do we need to add cluster ID to the offset value? For now this is good enough.
     String offsetValue = consumerRecord.topic() + ":" + consumerRecord.offset();
+    int globalPartitionId =
+        partitionIdMapper.toGlobalId(consumerRecord.topic(), consumerRecord.partition());
     return new Message(
         payload,
-        new Offset(offsetValue.getBytes(StandardCharsets.UTF_8), consumerRecord.partition()),
+        new Offset(offsetValue.getBytes(StandardCharsets.UTF_8), globalPartitionId),
         Instant.ofEpochMilli(consumerRecord.timestamp()),
         kafkaHeaders);
   }
 
   private void trackReadOffset(ConsumerRecord<String, V> consumerRecord) {
-    String key =
-        CommonUtils.getTopicPartitionKey(consumerRecord.topic(), consumerRecord.partition());
+    // Key on the global partition ID so the read map matches the ack map, which keys on the same ID
+    // carried back in each Offset (see getPartitionToHighestOffsetMap).
+    int globalPartitionId =
+        partitionIdMapper.toGlobalId(consumerRecord.topic(), consumerRecord.partition());
+    String key = CommonUtils.getTopicPartitionKey(consumerRecord.topic(), globalPartitionId);
     readTopicPartitionOffsetMap.merge(key, consumerRecord.offset(), Math::max);
   }
 

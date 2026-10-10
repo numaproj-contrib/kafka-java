@@ -48,7 +48,8 @@ class KafkaWorkerTest {
     UserConfig userConfig = mock(UserConfig.class);
     when(userConfig.getTopics()).thenReturn(List.of(TOPIC));
     when(userConfig.getOnError()).thenReturn(onError);
-    return new KafkaWorker<>(userConfig, consumer, handler);
+    return new KafkaWorker<>(
+        userConfig, consumer, handler, new PartitionIdMapper(List.of(TOPIC)));
   }
 
   /** Builds the exception with the origin and buffers, as the Kafka consumer itself does. */
@@ -222,6 +223,7 @@ class KafkaWorkerTest {
 
   @Test
   void getPartitions_returnsAssignedPartitionsForTopic() {
+    // Single topic → topicIndex 0 → global ID equals the raw partition number.
     when(consumer.assignment())
         .thenReturn(
             Set.of(new TopicPartition(TOPIC, 1), new TopicPartition(TOPIC, 3),
@@ -235,7 +237,11 @@ class KafkaWorkerTest {
     UserConfig userConfig = mock(UserConfig.class);
     when(userConfig.getTopics()).thenReturn(List.of("topic-a", "topic-b"));
     KafkaWorker<byte[]> multiWorker =
-        new KafkaWorker<>(userConfig, consumer, new SkippedRecordHandler(metrics));
+        new KafkaWorker<>(
+            userConfig,
+            consumer,
+            new SkippedRecordHandler(metrics),
+            new PartitionIdMapper(List.of("topic-a", "topic-b")));
     Thread multiThread = new Thread(multiWorker);
     multiThread.start();
 
@@ -248,13 +254,17 @@ class KafkaWorkerTest {
   }
 
   @Test
-  void getPartitions_acrossMultipleTopics_returnsDistinctPartitionNumbers() {
-    // Two topics both number partitions from 0; until §4 normalization, the raw numbers collide and
-    // are reported deduplicated.
+  void getPartitions_acrossMultipleTopics_returnsNormalizedGlobalIds() {
+    // Two topics both number partitions from 0; normalization maps them into disjoint blocks
+    // (topic-a → 0.., topic-b → 256..) so they no longer collide.
     UserConfig userConfig = mock(UserConfig.class);
     when(userConfig.getTopics()).thenReturn(List.of("topic-a", "topic-b"));
     KafkaWorker<byte[]> multiWorker =
-        new KafkaWorker<>(userConfig, consumer, new SkippedRecordHandler(metrics));
+        new KafkaWorker<>(
+            userConfig,
+            consumer,
+            new SkippedRecordHandler(metrics),
+            new PartitionIdMapper(List.of("topic-a", "topic-b")));
     when(consumer.assignment())
         .thenReturn(
             Set.of(
@@ -263,7 +273,8 @@ class KafkaWorkerTest {
                 new TopicPartition("topic-b", 0),
                 new TopicPartition("other", 9)));
 
-    assertEquals(Set.of(0, 1), new HashSet<>(multiWorker.getPartitions()));
+    // topic-a/0 → 0, topic-a/1 → 1, topic-b/0 → 256; "other" is not configured and is excluded.
+    assertEquals(Set.of(0, 1, 256), new HashSet<>(multiWorker.getPartitions()));
   }
 
   private static ConsumerRecords<String, byte[]> records(String... values) {
