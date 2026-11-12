@@ -298,7 +298,12 @@
                      goal invoked from the command line. -->
                 <configuration>
                     <from>
-                        <image>eclipse-temurin:25-jre</image>
+                        <!-- Pinned by digest so builds are reproducible and cannot regress to a
+                             base image with known-vulnerable OS packages. This digest is the
+                             Ubuntu 26.04 (resolute) multi-arch index that ships
+                             libbrotli1 1.2.0-3ubuntu0.1, the fix for CVE-2026-111497.
+                             When bumping, verify OS package versions before updating the digest. -->
+                        <image>eclipse-temurin:25-jre@sha256:a640968ae55027b322cedd5f8228b01a84baff0b9e9360e47601c6a111ba1699</image>
                     </from>
                     <container>
                         <mainClass>
