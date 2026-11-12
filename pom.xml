@@ -24,10 +24,12 @@
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <gson.version>2.10.1</gson.version>
-        <jackson.version>2.18.6</jackson.version>
+        <jackson.version>2.18.11</jackson.version>
         <lombok.version>1.18.42</lombok.version>
         <!-- Single Netty BOM: numaflow-java uses native HTTP/transport on 4.2.x alongside grpc-netty -->
-        <netty.version>4.2.13.Final</netty.version>
+        <netty.version>4.2.17.Final</netty.version>
+        <guava.version>33.7.2-jre</guava.version>
+        <lz4.version>1.11.4</lz4.version>
         <image.tag>v0.5.8</image.tag>
     </properties>
     <dependencyManagement>
@@ -38,6 +40,17 @@
                 <version>${netty.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <!-- Transitive pins for security fixes (guava via kafka-avro-serializer, lz4 via glue serde) -->
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${guava.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>at.yawk.lz4</groupId>
+                <artifactId>lz4-java</artifactId>
+                <version>${lz4.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -204,7 +217,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava-testlib</artifactId>
-            <version>32.0.1-jre</version>
+            <version>${guava.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
